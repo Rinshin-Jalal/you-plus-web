@@ -22,10 +22,7 @@ export type EmailType =
   | 'password_reset'
   | 'payment_receipt'
   | 'subscription_change'
-  | 'failed_payment'
-  | 'call_reminder'
-  | 'trial_ending'
-  | 'trial_ended';
+  | 'failed_payment';
 
 export interface EmailLog {
   id: string;
@@ -184,7 +181,7 @@ export class EmailService {
             <div class="content">
               <h2>Hi ${displayName}! 👋</h2>
               <p>Welcome to YOU+, your AI-powered accountability partner.</p>
-              <p>Your 7-day free trial has started! Here's what you can do:</p>
+              <p>Here's what you can do:</p>
               <ul>
                 <li>Set your first accountability goal</li>
                 <li>Schedule your first check-in call</li>
@@ -204,7 +201,7 @@ export class EmailService {
 
     await this.send({
       to: email,
-      subject: 'Welcome to YOU+ - Your 7-day trial has started!',
+      subject: 'Welcome to YOU+!',
       html,
       userId,
       emailType: 'welcome',
@@ -264,104 +261,6 @@ export class EmailService {
       userId,
       emailType: 'password_reset',
       templateId: 'password_reset_v1',
-    });
-  }
-
-  /**
-   * Send trial ending reminder (2 days before expiry)
-   */
-  async sendTrialEndingEmail(email: string, userId: string, daysRemaining: number): Promise<void> {
-    const html = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .content { background: #f9fafb; border-radius: 8px; padding: 30px; margin: 20px 0; }
-            .highlight { background: #fef3c7; border-radius: 6px; padding: 20px; margin: 20px 0; text-align: center; }
-            .button { display: inline-block; background: #6366f1; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; margin: 20px 0; }
-            .footer { text-align: center; color: #6b7280; font-size: 14px; padding: 20px 0; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="content">
-              <h2>Your trial ends in ${daysRemaining} days</h2>
-              <p>We hope you're enjoying YOU+! Your 7-day trial is coming to an end.</p>
-              <div class="highlight">
-                <p style="font-size: 18px; margin: 0;"><strong>${daysRemaining} days remaining</strong></p>
-              </div>
-              <p>Don't lose access to your accountability partner. Subscribe now to continue:</p>
-              <a href="https://youplus.app/checkout" class="button">Subscribe Now</a>
-              <p><strong>What you'll keep:</strong></p>
-              <ul>
-                <li>Daily AI check-in calls</li>
-                <li>Progress tracking</li>
-                <li>Personalized insights</li>
-                <li>Unlimited goals</li>
-              </ul>
-            </div>
-            <div class="footer">
-              <p>YOU+ | Making accountability effortless</p>
-            </div>
-          </div>
-        </body>
-      </html>
-    `;
-
-    await this.send({
-      to: email,
-      subject: `Your YOU+ trial ends in ${daysRemaining} days`,
-      html,
-      userId,
-      emailType: 'trial_ending',
-      templateId: 'trial_ending_v1',
-    });
-  }
-
-  /**
-   * Send trial ended notification
-   */
-  async sendTrialEndedEmail(email: string, userId: string): Promise<void> {
-    const html = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <style>
-            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .content { background: #f9fafb; border-radius: 8px; padding: 30px; margin: 20px 0; }
-            .button { display: inline-block; background: #6366f1; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; margin: 20px 0; }
-            .footer { text-align: center; color: #6b7280; font-size: 14px; padding: 20px 0; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="content">
-              <h2>Your trial has ended</h2>
-              <p>Your 7-day trial of YOU+ has come to an end. We hope it helped you stay accountable!</p>
-              <p>Subscribe now to continue using YOU+ and maintain your momentum:</p>
-              <a href="https://youplus.app/checkout" class="button">Subscribe Now</a>
-              <p>Your goals and progress are waiting for you.</p>
-            </div>
-            <div class="footer">
-              <p>YOU+ | Making accountability effortless</p>
-            </div>
-          </div>
-        </body>
-      </html>
-    `;
-
-    await this.send({
-      to: email,
-      subject: 'Your YOU+ trial has ended',
-      html,
-      userId,
-      emailType: 'trial_ended',
-      templateId: 'trial_ended_v1',
     });
   }
 
