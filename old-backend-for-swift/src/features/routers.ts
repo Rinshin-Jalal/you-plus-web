@@ -7,6 +7,8 @@ import voipRouter from "./voip/router";
 import callRouter from "./call/router";
 import livekitRouter from "./livekit/router";
 import coreRouter from "./core/router";
+import billingRouter from "./billing/router";
+import dodoWebhook from "./webhook/dodo-webhook";
 
 // Create a combined router that includes all feature routers
 const combinedRouter = new Hono();
@@ -14,7 +16,9 @@ const combinedRouter = new Hono();
 // Mount all feature routers with their respective paths
 combinedRouter.route("/identity", identityRouter);
 combinedRouter.route("/api/onboarding", onboardingRouter);
+combinedRouter.route("/api/billing", billingRouter);
 combinedRouter.route("/webhook", webhookRouter);
+combinedRouter.route("/webhook/dodopayments", dodoWebhook);
 combinedRouter.route("/trigger", triggerRouter);
 combinedRouter.route("/voip", voipRouter);
 combinedRouter.route("/call", callRouter);

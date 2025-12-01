@@ -50,6 +50,14 @@ export const EnvSchema = z.object({
   REVENUECAT_PROJECT_ID: z.string().optional(),
   DEBUG_ACCESS_TOKEN: z.string().optional(),
   
+  // DodoPayments configuration (for web payments)
+  DODO_PAYMENTS_API_KEY: z.string().min(1, "DodoPayments API key is required"),
+  DODO_PAYMENTS_WEBHOOK_SECRET: z.string().min(1, "DodoPayments webhook secret is required"),
+  DODO_PAYMENTS_ENVIRONMENT: z.enum(["test_mode", "live_mode"]).optional().default("test_mode"),
+  
+  // Frontend URL (for redirects)
+  FRONTEND_URL: z.string().url("Frontend URL must be a valid URL").optional().default("http://localhost:3000"),
+  
   // Environment and deployment
   ENVIRONMENT: z.enum(["development", "staging", "production"], {
     errorMap: (issue, ctx) => {
