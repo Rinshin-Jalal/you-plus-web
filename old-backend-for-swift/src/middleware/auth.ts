@@ -2,6 +2,7 @@ import { Context, Next } from "hono";
 import { createSupabaseClient } from "@/features/core/utils/database";
 import { Env } from "@/index";
 import { createRevenueCatService } from "@/features/webhook/services/revenuecat";
+import { createTrialService } from "@/services/trial-service";
 
 /**
  * Middleware to verify Supabase JWT tokens and extract user ID
@@ -170,34 +171,66 @@ export const requireActiveSubscription = async (
       JSON.stringify(subscriptionInfo, null, 2)
     );
 
-    // 4. Validate active subscription
+    // 4. Check trial status if no active subscription
     if (!subscriptionInfo.hasActiveSubscription) {
-      console.warn(`🚫 No active subscription for user ${user.id}`);
-      return c.json(
-        {
-          error: "Active subscription required",
-          requiresSubscription: true,
-          redirectToPaywall: true,
-          subscriptionInfo: {
-            hasActiveSubscription: false,
-            isExpired: true,
+      console.log(`No active subscription for user ${user.id}, checking trial status...`);
+      
+      const trialService = createTrialService(supabaseService);
+      const accessCheck = await trialService.hasAccess(user.id, subscriptionInfo);
+      
+      if (!accessCheck.hasAccess) {
+        console.warn(`🚫 No active subscription or trial for user ${user.id}`);
+        return c.json(
+          {
+            error: "Active subscription or trial required",
+            requiresSubscription: true,
+            redirectToPaywall: true,
+            subscriptionInfo: {
+              hasActiveSubscription: false,
+              isExpired: true,
+            },
+            trialStatus: accessCheck.trialStatus,
           },
-        },
-        402
-      ); // 402 Payment Required
+          402
+        ); // 402 Payment Required
+      }
+      
+      // User has active trial - grant access
+      console.log(`✅ User ${user.id} has active trial (${accessCheck.trialStatus?.daysRemaining} days remaining)`);
+      c.set("userId", user.id);
+      c.set("userEmail", user.email);
+      c.set("subscriptionStatus", "trial");
+      c.set("activeEntitlement", "trial");
+      c.set("trialStatus", accessCheck.trialStatus);
+      c.set("subscriptionInfo", {
+        ...subscriptionInfo,
+        isTrial: true,
+        trialDaysRemaining: accessCheck.trialStatus?.daysRemaining,
+      });
+      
+      return await next();
     }
 
     // Store REAL user and subscription data in context
+    // Also fetch trial status for context (even if they have paid subscription)
+    const trialService = createTrialService(supabaseService);
+    const trialStatus = await trialService.checkTrialStatus(user.id);
+    
     c.set("userId", user.id);
     c.set("userEmail", user.email);
     c.set("subscriptionStatus", "active"); // RevenueCat confirmed
     c.set("activeEntitlement", subscriptionInfo.entitlement || "pro");
-    c.set("subscriptionInfo", subscriptionInfo);
+    c.set("trialStatus", trialStatus);
+    c.set("subscriptionInfo", {
+      ...subscriptionInfo,
+      trialHistory: trialStatus,
+    });
 
     console.log(
       `✅ Authenticated request with ACTIVE REVENUECAT subscription for user: ${user.id}`,
       `Entitlement: ${subscriptionInfo.entitlement}`,
-      `Trial: ${subscriptionInfo.isTrial ? "Yes" : "No"}`
+      `Trial: ${subscriptionInfo.isTrial ? "Yes" : "No"}`,
+      `Had trial: ${trialStatus.trialStartDate ? "Yes" : "No"}`
     );
 
     return await next();
