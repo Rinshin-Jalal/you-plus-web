@@ -24,32 +24,40 @@
 
 ### 1. Backend Environment Variables
 
-Add these to your Cloudflare Workers secrets:
+**✅ ALREADY CONFIGURED in wrangler.toml:**
+```toml
+[vars]
+DODO_PAYMENTS_ENVIRONMENT = "test_mode"
+FRONTEND_URL = "http://localhost:3000"
+```
+
+**⚠️ REQUIRED: Set secrets manually with wrangler CLI:**
 
 ```bash
 # Navigate to backend directory
 cd old-backend-for-swift
 
-# Add DodoPayments secrets
+# Add DodoPayments API key (from DodoPayments dashboard)
 wrangler secret put DODO_PAYMENTS_API_KEY
-# Paste your API key when prompted
+# Paste your test API key when prompted
 
+# Add webhook secret (from DodoPayments dashboard → Webhooks)
 wrangler secret put DODO_PAYMENTS_WEBHOOK_SECRET
-# Paste your webhook secret when prompted
-
-# Also add these to wrangler.toml [vars] section:
-DODO_PAYMENTS_ENVIRONMENT = "test_mode"  # or "live_mode"
-FRONTEND_URL = "http://localhost:3000"   # or your production URL
+# Paste your webhook signing secret when prompted
 ```
 
-Or directly in `wrangler.toml`:
-```toml
-[vars]
-DODO_PAYMENTS_ENVIRONMENT = "test_mode"
-FRONTEND_URL = "http://localhost:3000"
+**How to get these values:**
+1. Log in to [DodoPayments Dashboard](https://app.dodopayments.com)
+2. Go to **Settings → API Keys**
+3. Copy your **Test Mode API Key** (starts with `dp_test_`)
+4. Go to **Settings → Webhooks**
+5. Copy the **Webhook Signing Secret**
 
-# Don't put secrets here! Use wrangler secret put
-```
+**⚠️ Important Notes:**
+- Never commit secrets to git
+- Use `test_mode` API keys during development
+- Switch to `live_mode` and production API keys only after testing
+- Update `FRONTEND_URL` to your production domain before deploying
 
 ### 2. Run Database Migration
 

@@ -22,10 +22,11 @@ interface Plan {
   features: string[];
 }
 
-// Default plans (replace with actual product IDs from DodoPayments)
+// ⚠️ TODO: Replace 'plan_pro_monthly' and 'plan_pro_yearly' with actual product IDs from DodoPayments dashboard
+// These are placeholder IDs for development. Get real IDs from: DodoPayments Dashboard → Products
 const DEFAULT_PLANS: Plan[] = [
   {
-    id: 'plan_pro_monthly',
+    id: 'plan_pro_monthly', // ← Replace with real product ID
     name: 'Pro Monthly',
     description: 'Full access to all features',
     price: 49900, // ₹499
@@ -40,7 +41,7 @@ const DEFAULT_PLANS: Plan[] = [
     ],
   },
   {
-    id: 'plan_pro_yearly',
+    id: 'plan_pro_yearly', // ← Replace with real product ID
     name: 'Pro Yearly',
     description: 'Best value - 2 months free',
     price: 499000, // ₹4,990 (₹499 x 10)

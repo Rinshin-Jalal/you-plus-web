@@ -29,6 +29,10 @@ crons = ["*/5 * * * *"]  # Every 5 minutes, checks each user's actual schedule
 ENVIRONMENT = "production"
 BACKEND_URL = "https://you-plus-consequence-engine.rinzhinjalal.workers.dev"
 
+# DodoPayments Configuration
+DODO_PAYMENTS_ENVIRONMENT = "test_mode"  # Change to "live_mode" for production
+FRONTEND_URL = "http://localhost:3000"  # Change to production URL when deploying
+
 # Secrets to set via wrangler secret put:
 # SUPABASE_URL
 # SUPABASE_ANON_KEY
@@ -45,6 +49,10 @@ BACKEND_URL = "https://you-plus-consequence-engine.rinzhinjalal.workers.dev"
 #
 # Supermemory Configuration (NEW - optional but recommended)
 # SUPERMEMORY_API_KEY
+#
+# DodoPayments Configuration (NEW - required for web billing)
+# DODO_PAYMENTS_API_KEY
+# DODO_PAYMENTS_WEBHOOK_SECRET
 #
 # Legacy Configuration (for backward compatibility)
 # ELEVENLABS_API_KEY  (optional - for dual-provider support)
