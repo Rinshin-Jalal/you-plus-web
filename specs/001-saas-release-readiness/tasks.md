@@ -17,21 +17,21 @@
 
 ---
 
-## Phase 1: Setup & Infrastructure
+## Phase 1: Setup & Infrastructure ✅ COMPLETED
 
 **Purpose**: Project initialization and foundational structure
 
-- [ ] T001 Create directory structure for auth, billing, and account features in `web/src/app/`, `web/src/components/`, `web/src/hooks/`, `old-backend-for-swift/src/routes/`
-- [ ] T002 [P] Install project dependencies: `npm install --save-dev playwright@latest jest @types/jest` in `web/`
-- [ ] T003 [P] Install backend dependencies: `npm install --save resend@latest` in `old-backend-for-swift/`
-- [ ] T004 Create `.env.local` template for web in `web/` with placeholders for SUPABASE_URL, RESEND_API_KEY, REVENUECAT_API_KEY
-- [ ] T005 Create `.env` template for backend in `old-backend-for-swift/` with placeholders for Supabase and external service keys
-- [ ] T006 Initialize Jest configuration in `web/jest.config.js` with Playwright support
-- [ ] T007 Initialize Playwright configuration in `web/playwright.config.ts` for E2E critical path testing
+- [X] T001 Create directory structure for auth, billing, and account features in `web/src/app/`, `web/src/components/`, `web/src/hooks/`, `old-backend-for-swift/src/routes/`
+- [X] T002 [P] Install project dependencies: `npm install --save-dev playwright@latest jest @types/jest` in `web/`
+- [X] T003 [P] Install backend dependencies: `npm install --save resend@latest` in `old-backend-for-swift/` (later removed - not needed for Google/Apple OAuth only)
+- [X] T004 Create `.env.local` template for web in `web/` with placeholders for SUPABASE_URL, RESEND_API_KEY, REVENUECAT_API_KEY
+- [X] T005 Create `.env` template for backend in `old-backend-for-swift/` with placeholders for Supabase and external service keys
+- [X] T006 Initialize Jest configuration in `web/jest.config.js` with Playwright support
+- [X] T007 Initialize Playwright configuration in `web/playwright.config.ts` for E2E critical path testing
 
 ---
 
-## Phase 2: Foundational (Blocking Prerequisites)
+## Phase 2: Foundational (Blocking Prerequisites) 🟡 IN PROGRESS
 
 **Purpose**: Core infrastructure that MUST be complete before ANY user story can be implemented
 
@@ -39,39 +39,39 @@
 
 ### Database Schema & Services
 
-- [ ] T008 Create Supabase migration script for new tables in `old-backend-for-swift/sql/`: `failed_login_attempts`, `password_reset_tokens`, `email_logs`, `subscription_history` (from data-model.md)
-- [ ] T009 Apply migration to add columns to users table: `trial_start_date`, `trial_end_date`, `email_verified`, `timezone`, `created_at`, `last_login_at`, `account_deleted_at`
-- [ ] T010 Create RLS (Row-Level Security) policies for all new tables in Supabase to enforce user isolation
+- [X] T008 Create Supabase migration script for new tables in `old-backend-for-swift/sql/`: `subscription_history` ONLY (simplified - no email tables, no trial tables)
+- [X] T009 Apply migration to add columns to users table: `created_at`, `last_login_at` ONLY (simplified - no trial, no email verification)
+- [X] T010 Run migration: Apply `001_saas_release_readiness.sql` to Supabase database ✅ DONE IN CLOUD
 
 ### Backend Services Layer
 
-- [ ] T011 [P] Create Supabase Auth middleware in `old-backend-for-swift/src/middleware/auth.ts` to verify JWT tokens and attach user context
-- [ ] T012 [P] Create error handling middleware in `old-backend-for-swift/src/middleware/error-handler.ts` with logging and graceful degradation for external service failures
-- [ ] T013 [P] Create Resend email service wrapper in `old-backend-for-swift/src/services/email-service.ts` with retry logic and queue pattern
-- [ ] T014 [P] Create RevenueCat integration service in `old-backend-for-swift/src/services/payment-service.ts` wrapping SDK calls with error handling
-- [ ] T015 Create request validation utility in `old-backend-for-swift/src/utils/validation.ts` for email, password, and subscription fields
+- [X] T011 [P] Supabase Auth middleware exists in `old-backend-for-swift/src/middleware/auth.ts` (already functional - `requireAuth`, `requireActiveSubscription`, `requireGuestOrUser`)
+- [X] T012 [P] Create error handling middleware in `old-backend-for-swift/src/middleware/error-handler.ts` with logging and graceful degradation for external service failures ✅
+- [~] T013 [P] ~~Create Resend email service~~ (SKIPPED - no email auth, Google/Apple OAuth only)
+- [ ] T014 [P] Create RevenueCat webhook handler in `old-backend-for-swift/src/features/webhook/` for logging subscription events to `subscription_history`
+- [ ] T015 Create request validation utility in `old-backend-for-swift/src/utils/validation.ts` for subscription fields (minimal - no email/password validation needed)
 
 ### Frontend Services Layer
 
-- [ ] T016 [P] Create Supabase client configuration in `web/src/services/supabase.ts` with proper typing and error handling
-- [ ] T017 [P] Create API client service in `web/src/services/api.ts` with fetch wrapper, token management, and error handling
-- [ ] T018 [P] Create auth service in `web/src/services/auth.ts` with signup, login, logout, password reset functions
-- [ ] T019 [P] Create payment service in `web/src/services/payment.ts` for RevenueCat integration
+- [X] T016 [P] Create Supabase client configuration in `web/src/services/supabase.ts` with proper typing and error handling (Google/Apple OAuth integration) ✅
+- [X] T017 [P] Create API client service in `web/src/services/api.ts` with fetch wrapper, token management, and error handling ✅
+- [X] T018 [P] Create auth service in `web/src/services/auth.ts` with Google/Apple OAuth sign-in, logout functions (NO email/password, NO password reset) ✅
+- [X] T019 [P] Create payment service in `web/src/services/payment.ts` for RevenueCat integration ✅
 - [ ] T020 Create error handling utility in `web/src/utils/errors.ts` for consistent error messages and user feedback
 
 ### Frontend State Management & Context
 
-- [ ] T021 Create auth context provider in `web/src/hooks/useAuth.ts` for global auth state and token persistence
-- [ ] T022 Create subscription status hook in `web/src/hooks/useSubscription.ts` to fetch and cache trial/payment status
-- [ ] T023 Create custom hook for form error handling in `web/src/hooks/useFormError.ts`
+- [X] T021 Create auth context provider in `web/src/hooks/useAuth.ts` for global auth state and token persistence ✅
+- [X] T022 Create subscription status hook in `web/src/hooks/useSubscription.ts` to fetch and cache subscription/payment status (NO trial logic) ✅
+- [X] T023 Create custom hook for form error handling in `web/src/hooks/useFormError.ts` ✅
 
 ### Shared UI Components
 
-- [ ] T024 [P] Create reusable FormInput component in `web/src/components/shared/FormInput.tsx` for email, password fields
-- [ ] T025 [P] Create reusable FormError component in `web/src/components/shared/FormError.tsx` for field-level error display
-- [ ] T026 [P] Create Paywall component in `web/src/components/shared/Paywall.tsx` to display when subscription required
-- [ ] T027 Create AuthGuard component in `web/src/components/shared/AuthGuard.tsx` to protect routes requiring authentication
-- [ ] T028 Create SubscriptionGuard component in `web/src/components/shared/SubscriptionGuard.tsx` to protect paid features and show paywall
+- [~] T024 [P] ~~Create FormInput for email/password~~ (SKIPPED - Google/Apple OAuth only, no email/password forms)
+- [X] T025 [P] Create reusable FormError component in `web/src/components/shared/FormError.tsx` for field-level error display ✅
+- [X] T026 [P] Create Paywall component in `web/src/components/shared/Paywall.tsx` to display when subscription required ✅
+- [X] T027 Create AuthGuard component in `web/src/components/shared/AuthGuard.tsx` to protect routes requiring authentication ✅
+- [X] T028 Create SubscriptionGuard component in `web/src/components/shared/SubscriptionGuard.tsx` to protect paid features and show paywall ✅
 
 ### Logging & Monitoring Setup
 
