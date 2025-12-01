@@ -1,55 +1,91 @@
 /**
- * Payment Service
- * Handles RevenueCat integration for subscription management
+ * Payment Service - Multi-Provider Support
+ * 
+ * Web: DodoPayments (UPI, Cards, Wallets for India)
+ * Mobile: RevenueCat (handled by mobile apps)
+ * 
+ * This service detects platform and routes to appropriate provider
  */
 
 import { apiClient, ApiClientError } from './api';
 
 export interface SubscriptionStatus {
   hasActiveSubscription: boolean;
-  entitlement: string | null;
-  expirationDate: string | null;
-  isTrial: boolean;
-  willRenew: boolean;
-  productId: string | null;
+  status: 'active' | 'inactive' | 'cancelled' | 'past_due' | 'pending';
+  paymentProvider: 'dodopayments' | 'revenuecat';
+  planId: string | null;
+  planName: string | null;
+  currentPeriodEnd: string | null;
+  cancelledAt: string | null;
+  amountCents: number | null;
+  currency: string;
 }
 
 export interface BillingHistoryItem {
   id: string;
   event_type: string;
+  payment_provider: string;
   previous_status: string | null;
   new_status: string | null;
   created_at: string;
   metadata: Record<string, unknown> | null;
 }
 
-export interface PaywallInfo {
-  paywallUrl: string;
-  offerings: string[];
+export interface DodoCheckoutSession {
+  sessionId: string;
+  checkoutUrl: string;
+  expiresAt: string;
+}
+
+/**
+ * Detect if running on web or mobile
+ */
+function getPlatform(): 'web' | 'mobile' {
+  if (typeof window === 'undefined') return 'web';
+  
+  // Check if running in mobile app (capacitor/react-native)
+  const userAgent = window.navigator.userAgent.toLowerCase();
+  const isMobileApp = 
+    // @ts-ignore - Capacitor check
+    window.Capacitor !== undefined ||
+    // @ts-ignore - React Native check  
+    window.ReactNativeWebView !== undefined ||
+    userAgent.includes('wv'); // WebView indicator
+  
+  return isMobileApp ? 'mobile' : 'web';
 }
 
 /**
  * Payment Service Class
  */
 class PaymentService {
+  private platform: 'web' | 'mobile';
+
+  constructor() {
+    this.platform = getPlatform();
+  }
+
   /**
-   * Get current subscription status from backend (which checks RevenueCat)
+   * Get current subscription status from backend
    */
   async getSubscriptionStatus(): Promise<SubscriptionStatus> {
     try {
-      const response = await apiClient.get<SubscriptionStatus>('/billing/subscription');
-      return response;
+      const response = await apiClient.get<{ subscription: SubscriptionStatus }>('/api/billing/subscription');
+      return response.subscription;
     } catch (error) {
       console.error('Error fetching subscription status:', error);
       
       // Return safe default on error
       return {
         hasActiveSubscription: false,
-        entitlement: null,
-        expirationDate: null,
-        isTrial: false,
-        willRenew: false,
-        productId: null,
+        status: 'inactive',
+        paymentProvider: this.platform === 'web' ? 'dodopayments' : 'revenuecat',
+        planId: null,
+        planName: null,
+        currentPeriodEnd: null,
+        cancelledAt: null,
+        amountCents: null,
+        currency: 'INR',
       };
     }
   }
@@ -59,7 +95,7 @@ class PaymentService {
    */
   async getBillingHistory(): Promise<BillingHistoryItem[]> {
     try {
-      const response = await apiClient.get<{ history: BillingHistoryItem[] }>('/billing/history');
+      const response = await apiClient.get<{ history: BillingHistoryItem[] }>('/api/billing/history');
       return response.history || [];
     } catch (error) {
       console.error('Error fetching billing history:', error);
@@ -68,12 +104,53 @@ class PaymentService {
   }
 
   /**
-   * Cancel subscription (marks for cancellation at period end)
+   * Create DodoPayments checkout session (WEB ONLY)
+   */
+  async createCheckoutSession(planId: string): Promise<DodoCheckoutSession | null> {
+    if (this.platform !== 'web') {
+      console.warn('createCheckoutSession is only for web platform');
+      return null;
+    }
+
+    try {
+      const response = await apiClient.post<DodoCheckoutSession>(
+        '/api/billing/checkout/create',
+        { planId, returnUrl: window.location.origin + '/billing/success' }
+      );
+      
+      return response;
+    } catch (error) {
+      console.error('Error creating checkout session:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Redirect to checkout (handles both web and mobile)
+   */
+  async redirectToCheckout(planId: string): Promise<void> {
+    if (this.platform === 'web') {
+      // DodoPayments checkout
+      const session = await this.createCheckoutSession(planId);
+      if (session?.checkoutUrl) {
+        window.location.href = session.checkoutUrl;
+      } else {
+        throw new Error('Failed to create checkout session');
+      }
+    } else {
+      // Mobile: Should use RevenueCat SDK natively
+      console.warn('Mobile checkout should be handled by native RevenueCat SDK');
+      throw new Error('Mobile checkout not supported in web context');
+    }
+  }
+
+  /**
+   * Cancel subscription (works for both providers)
    */
   async cancelSubscription(reason?: string): Promise<{ success: boolean; error?: string }> {
     try {
       const response = await apiClient.post<{ success: boolean; message: string }>(
-        '/billing/cancel',
+        '/api/billing/cancel',
         { reason }
       );
       
@@ -90,64 +167,75 @@ class PaymentService {
   }
 
   /**
-   * Get RevenueCat paywall URL for purchasing/managing subscription
+   * Get available plans
    */
-  async getPaywallUrl(): Promise<string | null> {
+  async getPlans(): Promise<Array<{
+    id: string;
+    name: string;
+    description: string;
+    amountCents: number;
+    currency: string;
+    interval: 'month' | 'year';
+  }>> {
     try {
-      const response = await apiClient.get<{ paywallUrl: string }>('/billing/paywall');
-      return response.paywallUrl;
+      const response = await apiClient.get<{ plans: any[] }>('/api/billing/plans');
+      return response.plans || [];
     } catch (error) {
-      console.error('Error fetching paywall URL:', error);
-      return null;
+      console.error('Error fetching plans:', error);
+      return [];
     }
   }
 
   /**
-   * Update payment method (redirects to RevenueCat)
+   * Verify checkout session after redirect (WEB ONLY)
    */
-  async updatePaymentMethod(): Promise<string | null> {
-    try {
-      const response = await apiClient.post<{ paywallUrl: string }>('/billing/payment-method');
-      return response.paywallUrl;
-    } catch (error) {
-      console.error('Error getting payment update URL:', error);
-      return null;
+  async verifyCheckoutSession(sessionId: string): Promise<{ success: boolean; subscription?: SubscriptionStatus }> {
+    if (this.platform !== 'web') {
+      return { success: false };
     }
-  }
 
-  /**
-   * Restore purchases (useful for iOS/Android)
-   * In web context, this just refreshes subscription status
-   */
-  async restorePurchases(): Promise<{ success: boolean; error?: string }> {
     try {
-      const response = await apiClient.post<{ success: boolean; message: string }>(
-        '/billing/restore'
+      const response = await apiClient.post<{ success: boolean; subscription: SubscriptionStatus }>(
+        '/api/billing/checkout/verify',
+        { sessionId }
       );
       
-      return { success: response.success };
+      return response;
     } catch (error) {
-      console.error('Error restoring purchases:', error);
-      
-      if (error instanceof ApiClientError) {
-        return { success: false, error: error.response?.error || 'Failed to restore purchases' };
-      }
-      
-      return { success: false, error: 'An unexpected error occurred' };
+      console.error('Error verifying checkout session:', error);
+      return { success: false };
     }
   }
 
   /**
-   * Check if user needs to update payment method (failed payment)
+   * Get DodoPayments customer portal URL (for managing subscription)
+   */
+  async getCustomerPortalUrl(): Promise<string | null> {
+    if (this.platform !== 'web') {
+      console.warn('Customer portal is only for web platform');
+      return null;
+    }
+
+    try {
+      const response = await apiClient.get<{ portalUrl: string }>('/api/billing/portal');
+      return response.portalUrl;
+    } catch (error) {
+      console.error('Error getting customer portal URL:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Check if payment method needs update (failed payment)
    */
   async needsPaymentUpdate(): Promise<boolean> {
     try {
       const status = await this.getSubscriptionStatus();
       
-      // Check if subscription exists but is not active (likely payment failure)
-      return !status.hasActiveSubscription && status.expirationDate !== null;
+      // Check if subscription is past_due (payment failed)
+      return status.status === 'past_due';
     } catch (error) {
-      console.error('Error checking payment update status:', error);
+      console.error('Error checking payment status:', error);
       return false;
     }
   }
@@ -156,7 +244,7 @@ class PaymentService {
    * Get subscription info formatted for display
    */
   async getSubscriptionInfo(): Promise<{
-    status: 'active' | 'expired' | 'none';
+    status: 'active' | 'expired' | 'none' | 'loading';
     displayText: string;
     expiresAt: string | null;
     needsAction: boolean;
@@ -164,23 +252,29 @@ class PaymentService {
     try {
       const subscription = await this.getSubscriptionStatus();
 
-      if (subscription.hasActiveSubscription) {
+      if (subscription.hasActiveSubscription && subscription.status === 'active') {
         return {
           status: 'active',
-          displayText: subscription.isTrial ? 'Trial Active' : 'Subscription Active',
-          expiresAt: subscription.expirationDate,
+          displayText: 'Subscription Active',
+          expiresAt: subscription.currentPeriodEnd,
           needsAction: false,
         };
       }
 
-      if (subscription.expirationDate) {
-        const expiryDate = new Date(subscription.expirationDate);
-        const isPastDue = expiryDate < new Date();
-
+      if (subscription.status === 'past_due') {
         return {
           status: 'expired',
-          displayText: isPastDue ? 'Subscription Expired' : 'Subscription Expiring Soon',
-          expiresAt: subscription.expirationDate,
+          displayText: 'Payment Failed - Update Required',
+          expiresAt: subscription.currentPeriodEnd,
+          needsAction: true,
+        };
+      }
+
+      if (subscription.status === 'cancelled') {
+        return {
+          status: 'expired',
+          displayText: 'Subscription Cancelled',
+          expiresAt: subscription.cancelledAt,
           needsAction: true,
         };
       }
@@ -201,6 +295,13 @@ class PaymentService {
         needsAction: false,
       };
     }
+  }
+
+  /**
+   * Get current payment provider
+   */
+  getPaymentProvider(): 'dodopayments' | 'revenuecat' {
+    return this.platform === 'web' ? 'dodopayments' : 'revenuecat';
   }
 }
 

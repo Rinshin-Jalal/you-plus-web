@@ -28,23 +28,27 @@ export function Paywall({
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchPaywallUrl = async () => {
-      try {
-        const url = await paymentService.getPaywallUrl();
-        setPaywallUrl(url);
-      } catch (error) {
-        console.error('Error fetching paywall URL:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchPaywallUrl();
+    // For web, we'll show plans and redirect to DodoPayments checkout
+    // For mobile, this component shouldn't be shown (use native RevenueCat)
+    setLoading(false);
   }, []);
 
-  const handleSubscribe = () => {
-    if (paywallUrl) {
-      window.location.href = paywallUrl;
+  const handleSubscribe = async () => {
+    setLoading(true);
+    try {
+      // Redirect to plans/checkout page or directly to DodoPayments
+      // You can either:
+      // 1. Navigate to /checkout page with plan selection
+      // 2. Or directly create checkout session with default plan
+      
+      // Option 1: Navigate to checkout page (recommended)
+      window.location.href = '/checkout';
+      
+      // Option 2: Direct checkout with default plan (uncomment if needed)
+      // await paymentService.redirectToCheckout('default_plan_id');
+    } catch (error) {
+      console.error('Error redirecting to checkout:', error);
+      setLoading(false);
     }
   };
 
@@ -177,16 +181,14 @@ export interface PaywallBannerProps {
 }
 
 export function PaywallBanner({ message, onSubscribe, className = '' }: PaywallBannerProps) {
-  const handleClick = async () => {
+  const handleClick = () => {
     if (onSubscribe) {
       onSubscribe();
       return;
     }
 
-    const url = await paymentService.getPaywallUrl();
-    if (url) {
-      window.location.href = url;
-    }
+    // Navigate to checkout page
+    window.location.href = '/checkout';
   };
 
   return (
