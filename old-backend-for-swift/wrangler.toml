@@ -1,0 +1,59 @@
+name = "you-plus-consequence-engine"
+main = "src/index.ts"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+[env.production]
+name = "you-plus-consequence-engine-prod"
+
+[env.staging]
+name = "you-plus-consequence-engine-staging"
+
+# R2 bucket binding for audio file storage
+[[r2_buckets]]
+binding = "AUDIO_BUCKET"
+bucket_name = "youplus-audio-recordings"
+preview_bucket_name = "youplus-audio-recordings-dev"
+
+# wrangler.toml (wrangler v3.88.0^)
+[observability.logs]
+enabled = true
+
+
+# Cron triggers for REAL user-scheduled calls
+# Runs every 5 minutes to catch users in their individual time windows
+[triggers]
+crons = ["*/5 * * * *"]  # Every 5 minutes, checks each user's actual schedule
+
+[vars]
+ENVIRONMENT = "production"
+BACKEND_URL = "https://you-plus-consequence-engine.rinzhinjalal.workers.dev"
+
+# Secrets to set via wrangler secret put:
+# SUPABASE_URL
+# SUPABASE_ANON_KEY
+# SUPABASE_SERVICE_ROLE_KEY
+# OPENAI_API_KEY
+#
+# LiveKit Configuration (NEW)
+# LIVEKIT_API_KEY
+# LIVEKIT_API_SECRET
+# LIVEKIT_URL
+#
+# Cartesia Configuration (NEW)
+# CARTESIA_API_KEY
+#
+# Supermemory Configuration (NEW - optional but recommended)
+# SUPERMEMORY_API_KEY
+#
+# Legacy Configuration (for backward compatibility)
+# ELEVENLABS_API_KEY  (optional - for dual-provider support)
+# ELEVENLABS_AGENT_ID  (optional - for legacy calls)
+#
+# Other Services
+# DEEPGRAM_API_KEY
+# REVENUECAT_WEBHOOK_SECRET
+# IOS_VOIP_KEY_ID
+# IOS_VOIP_TEAM_ID
+# IOS_VOIP_AUTH_KEY
+# DEBUG_ACCESS_TOKEN  (Development only - for secure debug access)

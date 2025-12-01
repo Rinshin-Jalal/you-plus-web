@@ -1,0 +1,25 @@
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="200" height="200" fill="#F5F5F0"/>
+  
+  <!-- Border -->
+  <rect x="10" y="10" width="180" height="180" fill="none" stroke="#2D2D2D" stroke-width="3"/>
+  
+  <!-- Y shape -->
+  <g stroke="#2D2D2D" stroke-width="12" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Left arm of Y -->
+    <line x1="60" y1="50" x2="100" y2="100"/>
+    <!-- Right arm of Y -->
+    <line x1="140" y1="50" x2="100" y2="100"/>
+    <!-- Vertical stem of Y -->
+    <line x1="100" y1="100" x2="100" y2="150"/>
+  </g>
+  
+  <!-- Plus sign in top right -->
+  <g stroke="#2D2D2D" stroke-width="10" fill="none" stroke-linecap="round">
+    <!-- Vertical line of plus -->
+    <line x1="155" y1="35" x2="155" y2="55"/>
+    <!-- Horizontal line of plus -->
+    <line x1="145" y1="45" x2="165" y2="45"/>
+  </g>
+</svg>
