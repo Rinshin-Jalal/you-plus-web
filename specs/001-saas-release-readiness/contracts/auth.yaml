@@ -1,0 +1,284 @@
+openapi: 3.0.0
+info:
+  title: YOU+ Auth API
+  version: 1.0.0
+  description: Authentication and account management endpoints
+
+servers:
+  - url: https://api.youplus.app
+    description: Production
+  - url: http://localhost:8787
+    description: Development
+
+paths:
+  /auth/signup:
+    post:
+      summary: Create new user account
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 8
+      responses:
+        '200':
+          description: Signup successful, trial started
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Invalid email or password
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Email already registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/login:
+    post:
+      summary: Authenticate user
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Too many failed attempts (temporary lockout)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/logout:
+    post:
+      summary: End user session
+      tags:
+        - Authentication
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Logout successful
+        '401':
+          description: Unauthorized
+
+  /auth/refresh-token:
+    post:
+      summary: Refresh JWT token
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refresh_token
+              properties:
+                refresh_token:
+                  type: string
+      responses:
+        '200':
+          description: Token refreshed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                  refresh_token:
+                    type: string
+                  expires_in:
+                    type: integer
+        '401':
+          description: Invalid refresh token
+
+  /auth/forgot-password:
+    post:
+      summary: Request password reset email
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        '200':
+          description: Reset email sent (don't reveal if email exists for security)
+        '429':
+          description: Too many reset requests
+
+  /auth/reset-password:
+    post:
+      summary: Complete password reset
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+                - password
+              properties:
+                token:
+                  type: string
+                  description: Token from password reset email
+                password:
+                  type: string
+                  minLength: 8
+      responses:
+        '200':
+          description: Password updated
+        '400':
+          description: Invalid or expired token
+
+  /auth/me:
+    get:
+      summary: Get current user info
+      tags:
+        - Authentication
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User info including trial status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401':
+          description: Unauthorized
+
+components:
+  schemas:
+    AuthResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        user:
+          $ref: '#/components/schemas/UserResponse'
+        session:
+          type: object
+          properties:
+            access_token:
+              type: string
+              description: JWT token
+            refresh_token:
+              type: string
+            expires_in:
+              type: integer
+              description: Token lifetime in seconds
+
+    UserResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        email_verified:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        timezone:
+          type: string
+        trial_status:
+          type: object
+          properties:
+            in_trial:
+              type: boolean
+            trial_end_date:
+              type: string
+              format: date-time
+            days_remaining:
+              type: integer
+        subscription:
+          type: object
+          properties:
+            status:
+              type: string
+              enum: ['active', 'trialing', 'cancelled', 'expired']
+            current_period_end:
+              type: string
+              format: date-time
+            cancel_at_period_end:
+              type: boolean
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          enum: [false]
+        error:
+          type: string
+        error_code:
+          type: string
+        details:
+          type: object
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

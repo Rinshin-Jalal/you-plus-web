@@ -1,0 +1,342 @@
+# YOU+ SaaS Platform - Comprehensive .gitignore
+# Frontend (Next.js), Backend (Cloudflare Workers), and Monorepo tools
+
+################################
+# Environment & Secrets
+################################
+.env
+.env.local
+.env.*.local
+.env.production
+.env.staging
+.env.development
+
+# Never commit secrets!
+.env.*.key
+*.pem
+*.key
+*.p12
+*.p8
+*.crt
+.aws
+.credentials
+
+################################
+# Frontend (Next.js)
+################################
+web/.next/
+web/out/
+web/dist/
+web/.next-env.d.ts
+web/.vercel
+
+# Next.js build output
+web/build/
+web/.turbo/
+
+# Next.js cache
+web/.cache/
+web/*.cache
+web/.swc/
+
+# Playwright/E2E testing
+web/tests/tmp/
+web/test-results/
+web/playwright-report/
+web/blob-report/
+web/blob-report-index.html
+
+# Next.js dependency directories
+web/node_modules/
+web/.pnp
+web/.pnp.js
+
+# Covers for npm, yarn, bun
+web/bun.lock
+web/package-lock.json
+web/yarn.lock
+
+################################
+# Backend (Cloudflare Workers)
+################################
+old-backend-for-swift/dist/
+old-backend-for-swift/build/
+old-backend-for-swift/.wrangler/
+old-backend-for-swift/wrangler-temp/
+old-backend-for-swift/.miniflare
+
+# Wrangler local development
+old-backend-for-swift/local.db
+old-backend-for-swift/.mf/
+
+# Backend dependencies
+old-backend-for-swift/node_modules/
+old-backend-for-swift/.pnp
+old-backend-for-swift/.pnp.js
+old-backend-for-swift/bun.lock
+
+# Backend build output
+old-backend-for-swift/lib/
+old-backend-for-swift/lib-esm/
+
+################################
+# Testing & Coverage
+################################
+coverage/
+.nyc_output/
+*.lcov
+test-results/
+junit.xml
+coverage-report.html
+
+# Jest cache
+web/.jest-cache/
+old-backend-for-swift/.jest-cache/
+
+# Playwright browsers cache
+web/.playwright-browsers/
+old-backend-for-swift/.playwright-browsers/
+
+################################
+# IDE & Editor Configuration
+################################
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/launch.json
+.idea/
+*.iml
+*.iws
+*.ipr
+.DS_Store
+.swp
+.swo
+*~
+.project
+.classpath
+.settings/
+.sublime-project
+.sublime-workspace
+*.sublime-project
+*.sublime-workspace
+.vim/
+.netrwhist
+
+# vim swap files
+*.swp
+*.swo
+*~
+
+# Cursor/Windsurf editor
+.cursor/
+.windsurf/
+
+################################
+# OS & System Files
+################################
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+.AppleDouble
+.LSOverride
+*.log
+*.log.*
+
+################################
+# Local Development
+################################
+.local/
+.tmp/
+tmp/
+temp/
+*.tmp
+
+# Database files (local SQLite, etc)
+*.db
+*.sqlite
+*.sqlite3
+local.db
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+npm-error.log*
+
+# Runtime data
+pids/
+*.seed
+*.pid.lock
+
+################################
+# TypeScript
+################################
+*.tsbuildinfo
+tsconfig.*.json
+
+# Compiled JavaScript from TypeScript
+**/*.js
+**/*.js.map
+**/*.d.ts
+!jest.config.js
+!next.config.js
+!postcss.config.js
+!wrangler.toml
+
+################################
+# Build Artifacts & Distribution
+################################
+dist/
+build/
+lib/
+.turbo/
+.eslintcache
+
+# Precompiled binaries
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+
+################################
+# Python (if scripts are used)
+################################
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+env/
+venv/
+ENV/
+.venv
+
+################################
+# Dependency Lock Files (in monorepo - usually tracked per workspace)
+################################
+# These are typically tracked but listed here for reference
+# Uncomment if you want to not track them:
+# package-lock.json
+# bun.lock
+# bun.lockb
+# yarn.lock
+
+################################
+# Docker
+################################
+docker-compose.override.yml
+.dockerignore
+
+################################
+# Documentation Generation
+################################
+docs/_build/
+site/
+
+################################
+# Analytics & Monitoring
+################################
+.sentry-cli-rc
+
+################################
+# Supabase Local Development
+################################
+.supabase/
+supabase/.branches/
+supabase/.weights
+supabase/migrations/*.pending.sql
+
+################################
+# Specify Framework (Internal)
+################################
+.specify/.cache/
+.specify/agent-context.md
+.specify/tmp/
+
+################################
+# Project-Specific
+################################
+# Email templates (development only)
+email-templates/.tmp/
+
+# Database migrations (generated)
+*.migration.sql
+!old-backend-for-swift/sql/*.sql
+
+# Local uploads/media
+uploads/
+media/
+public/uploads/
+public/media/
+
+# Temporary feature branches docs
+specs/**/tmp/
+specs/**/draft/
+
+# API keys embedded in test files (development only)
+*.test.key
+*.spec.key
+
+# Cloudflare Wrangler secrets
+wrangler.toml.local
+
+# EAS (Expo Application Services) local config
+eas.json.local
+
+# Temporary generated files
+*.generated.ts
+*.generated.tsx
+
+# Node modules in subdirectories (just in case)
+**/node_modules/
+
+# Lock files per-workspace (optional - choose based on your strategy)
+# If using monorepo, you might want to track top-level locks only
+# */package-lock.json
+# */bun.lock
+
+################################
+# IDE Specific Settings
+################################
+.vscode/extensions.json  # Track this
+.editorconfig            # Track this (if exists)
+
+# But ignore IDE temporary files
+.vscode/.eslintignore
+.vscode/.history/
+.vscode/.node-gyp/
+
+################################
+# macOS
+################################
+.AppleDouble
+.LSOverride
+._*
+.apdisk
+
+################################
+# Windows
+################################
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+################################
+# Linux
+################################
+.directory
+
+################################
+# Bun specific
+################################
+bun.lockb
+
+# End of .gitignore
