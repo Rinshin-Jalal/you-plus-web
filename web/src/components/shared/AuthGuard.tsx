@@ -1,9 +1,3 @@
-/**
- * AuthGuard Component
- * Protects routes that require authentication
- * Redirects to login if not authenticated
- */
-
 'use client';
 
 import React, { useEffect } from 'react';
@@ -26,7 +20,6 @@ export function AuthGuard({ children, redirectTo = '/auth/login', fallback }: Au
     }
   }, [isAuthenticated, loading, redirectTo, router]);
 
-  // Show loading state
   if (loading) {
     return fallback || (
       <div className="flex items-center justify-center min-h-screen">
@@ -35,11 +28,9 @@ export function AuthGuard({ children, redirectTo = '/auth/login', fallback }: Au
     );
   }
 
-  // Show nothing if not authenticated (will redirect)
   if (!isAuthenticated) {
     return null;
   }
 
-  // Render children if authenticated
   return <>{children}</>;
 }

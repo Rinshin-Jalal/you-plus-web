@@ -13,7 +13,9 @@ export default function OnboardingPage() {
     }, []);
 
     const completeOnboarding = () => {
-        router.push('/dashboard');
+        // After onboarding, go to checkout (not dashboard)
+        // Checkout will handle auth check and redirect to signup if needed
+        router.push('/checkout');
     };
 
     return <OnboardingFlow onFinish={completeOnboarding} />;

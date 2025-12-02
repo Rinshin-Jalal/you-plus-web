@@ -1,9 +1,10 @@
 import { Hono } from 'hono';
-import { requireActiveSubscription } from '@/middleware/auth';
+import { requireActiveSubscription, requireAuth } from '@/middleware/auth';
 
 // Import onboarding handlers
 import { postConversionOnboardingComplete } from './handlers/conversion-complete';
 import { postOnboardingAnalyzeVoice } from '../voice/handlers/voice';
+import { getReturningUserOnboarding } from './handlers/returning-user';
 
 const onboardingRouter = new Hono();
 
@@ -12,5 +13,8 @@ onboardingRouter.post('/conversion/complete', requireActiveSubscription, postCon
 
 // Voice analysis for onboarding (Pre-auth onboarding)
 onboardingRouter.post('/analyze-voice', postOnboardingAnalyzeVoice);
+
+// Returning user onboarding (Authenticated - personalized with Gemini)
+onboardingRouter.get('/returning', requireAuth, getReturningUserOnboarding);
 
 export default onboardingRouter;

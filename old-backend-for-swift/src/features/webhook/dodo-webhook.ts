@@ -1,58 +1,78 @@
-/**
- * DodoPayments Webhook Handler
- * Processes subscription events from DodoPayments
- */
-
 import { Hono } from 'hono';
 import type { Env } from '@/index';
 import { createSupabaseClient } from '@/features/core/utils/database';
 
 const dodoWebhook = new Hono<{ Bindings: Env }>();
 
-/**
- * POST /webhook/dodopayments
- * Handle DodoPayments webhook events
- */
 dodoWebhook.post('/', async (c) => {
   const env = c.env;
 
   try {
-    // Get webhook payload
-    const payload = await c.req.json();
-    const signature = c.req.header('dodo-signature') || '';
+    const secret = env.DODO_PAYMENTS_WEBHOOK_SECRET;
+    if (!secret) {
+      console.error('Webhook secret not configured');
+      return c.json({ error: 'Server not configured' }, 500);
+    }
 
-    // Verify webhook signature (implement based on DodoPayments docs)
-    // const isValid = verifyWebhookSignature(payload, signature, env.DODO_PAYMENTS_WEBHOOK_SECRET);
-    // if (!isValid) {
-    //   return c.json({ error: 'Invalid signature' }, 401);
-    // }
+    // Standard Webhooks headers
+    const id = c.req.header('webhook-id') || '';
+    const timestamp = c.req.header('webhook-timestamp') || '';
+    const signatureHeader = c.req.header('webhook-signature') || '';
 
+    if (!id || !timestamp || !signatureHeader) {
+      return c.json({ error: 'Missing webhook signature headers' }, 400);
+    }
+
+    const rawBody = await c.req.text();
+
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      'raw',
+      encoder.encode(secret),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    );
+    const toSign = `${id}.${timestamp}.${rawBody}`;
+    const sigBuf = await crypto.subtle.sign('HMAC', key, encoder.encode(toSign));
+    const expected = [...new Uint8Array(sigBuf)].map((b) => b.toString(16).padStart(2, '0')).join('');
+
+    const provided = parseProvidedSignature(signatureHeader);
+    if (!provided || !timingSafeEqual(expected, provided)) {
+      return c.json({ error: 'Invalid signature' }, 401);
+    }
+
+    const payload = JSON.parse(rawBody);
     console.log('DodoPayments webhook received:', payload.type);
 
-    // Handle different event types
     switch (payload.type) {
-      case 'checkout.session.completed':
-        await handleCheckoutCompleted(payload.data, env);
-        break;
-
-      case 'subscription.created':
-        await handleSubscriptionCreated(payload.data, env);
-        break;
-
-      case 'subscription.updated':
-        await handleSubscriptionUpdated(payload.data, env);
-        break;
-
-      case 'subscription.cancelled':
-        await handleSubscriptionCancelled(payload.data, env);
-        break;
-
       case 'payment.succeeded':
         await handlePaymentSucceeded(payload.data, env);
         break;
-
       case 'payment.failed':
         await handlePaymentFailed(payload.data, env);
+        break;
+
+      case 'subscription.active':
+        await handleSubscriptionCreated(payload.data, env);
+        break;
+      case 'subscription.renewed':
+        await handleSubscriptionUpdated(payload.data, env);
+        break;
+      case 'subscription.on_hold':
+        await handleSubscriptionOnHold(payload.data, env);
+        break;
+      case 'subscription.cancelled':
+        await handleSubscriptionCancelled(payload.data, env);
+        break;
+      case 'subscription.failed':
+        await handleSubscriptionFailed(payload.data, env);
+        break;
+      case 'subscription.expired':
+        await handleSubscriptionExpired(payload.data, env);
+        break;
+      case 'subscription.plan_changed':
+        await handleSubscriptionUpdated(payload.data, env);
         break;
 
       default:
@@ -66,9 +86,31 @@ dodoWebhook.post('/', async (c) => {
   }
 });
 
-/**
- * Handle checkout.session.completed event
- */
+function parseProvidedSignature(header: string): string | null {
+  try {
+    if (header.includes('=')) {
+      const parts = header.split(',').map((p) => p.trim());
+      for (const p of parts) {
+        const [k, v] = p.split('=');
+        if (k === 'v1' && v) return v;
+      }
+      return null;
+    }
+    return header.trim();
+  } catch {
+    return null;
+  }
+}
+
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let result = 0;
+  for (let i = 0; i < a.length; i++) {
+    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return result === 0;
+}
+
 async function handleCheckoutCompleted(data: any, env: Env) {
   const supabase = createSupabaseClient(env);
   const userId = data.metadata?.user_id;
@@ -80,8 +122,6 @@ async function handleCheckoutCompleted(data: any, env: Env) {
 
   console.log(`Checkout completed for user ${userId}`);
 
-  // The subscription should be created by subscription.created event
-  // This is just for logging
   await supabase.from('subscription_history').insert({
     user_id: userId,
     payment_provider: 'dodopayments',
@@ -92,13 +132,9 @@ async function handleCheckoutCompleted(data: any, env: Env) {
   });
 }
 
-/**
- * Handle subscription.created event
- */
 async function handleSubscriptionCreated(data: any, env: Env) {
   const supabase = createSupabaseClient(env);
 
-  // Get user_id from metadata
   const userId = data.metadata?.user_id;
 
   if (!userId) {
@@ -108,7 +144,6 @@ async function handleSubscriptionCreated(data: any, env: Env) {
 
   console.log(`Creating subscription for user ${userId}`);
 
-  // Create or update subscription
   await supabase.from('subscriptions').upsert({
     user_id: userId,
     payment_provider: 'dodopayments',
@@ -125,7 +160,6 @@ async function handleSubscriptionCreated(data: any, env: Env) {
     metadata: data.metadata,
   });
 
-  // Log event
   await supabase.from('subscription_history').insert({
     user_id: userId,
     payment_provider: 'dodopayments',
@@ -138,13 +172,9 @@ async function handleSubscriptionCreated(data: any, env: Env) {
   console.log(`Subscription created successfully for user ${userId}`);
 }
 
-/**
- * Handle subscription.updated event
- */
 async function handleSubscriptionUpdated(data: any, env: Env) {
   const supabase = createSupabaseClient(env);
 
-  // Find subscription by provider ID
   const { data: existingSub } = await supabase
     .from('subscriptions')
     .select('user_id, status')
@@ -158,7 +188,6 @@ async function handleSubscriptionUpdated(data: any, env: Env) {
 
   console.log(`Updating subscription ${data.subscription_id}`);
 
-  // Update subscription
   await supabase
     .from('subscriptions')
     .update({
@@ -182,13 +211,9 @@ async function handleSubscriptionUpdated(data: any, env: Env) {
   });
 }
 
-/**
- * Handle subscription.cancelled event
- */
 async function handleSubscriptionCancelled(data: any, env: Env) {
   const supabase = createSupabaseClient(env);
 
-  // Find subscription
   const { data: existingSub } = await supabase
     .from('subscriptions')
     .select('user_id, status')
@@ -202,7 +227,6 @@ async function handleSubscriptionCancelled(data: any, env: Env) {
 
   console.log(`Cancelling subscription ${data.subscription_id}`);
 
-  // Update subscription
   await supabase
     .from('subscriptions')
     .update({
@@ -224,13 +248,99 @@ async function handleSubscriptionCancelled(data: any, env: Env) {
   });
 }
 
-/**
- * Handle payment.succeeded event
- */
+async function handleSubscriptionOnHold(data: any, env: Env) {
+  const supabase = createSupabaseClient(env);
+
+  const { data: existingSub } = await supabase
+    .from('subscriptions')
+    .select('user_id, status')
+    .eq('provider_subscription_id', data.subscription_id)
+    .single();
+
+  if (!existingSub) return;
+
+  await supabase
+    .from('subscriptions')
+    .update({
+      status: 'on_hold',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('provider_subscription_id', data.subscription_id);
+
+  await supabase.from('subscription_history').insert({
+    user_id: existingSub.user_id,
+    payment_provider: 'dodopayments',
+    event_type: 'subscription_on_hold',
+    previous_status: existingSub.status,
+    new_status: 'on_hold',
+    provider_subscription_id: data.subscription_id,
+    metadata: data,
+  });
+}
+
+async function handleSubscriptionFailed(data: any, env: Env) {
+  const supabase = createSupabaseClient(env);
+
+  const { data: existingSub } = await supabase
+    .from('subscriptions')
+    .select('user_id, status')
+    .eq('provider_subscription_id', data.subscription_id)
+    .single();
+
+  if (!existingSub) return;
+
+  await supabase
+    .from('subscriptions')
+    .update({
+      status: 'failed',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('provider_subscription_id', data.subscription_id);
+
+  await supabase.from('subscription_history').insert({
+    user_id: existingSub.user_id,
+    payment_provider: 'dodopayments',
+    event_type: 'subscription_failed',
+    previous_status: existingSub.status,
+    new_status: 'failed',
+    provider_subscription_id: data.subscription_id,
+    metadata: data,
+  });
+}
+
+async function handleSubscriptionExpired(data: any, env: Env) {
+  const supabase = createSupabaseClient(env);
+
+  const { data: existingSub } = await supabase
+    .from('subscriptions')
+    .select('user_id, status')
+    .eq('provider_subscription_id', data.subscription_id)
+    .single();
+
+  if (!existingSub) return;
+
+  await supabase
+    .from('subscriptions')
+    .update({
+      status: 'expired',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('provider_subscription_id', data.subscription_id);
+
+  await supabase.from('subscription_history').insert({
+    user_id: existingSub.user_id,
+    payment_provider: 'dodopayments',
+    event_type: 'subscription_expired',
+    previous_status: existingSub.status,
+    new_status: 'expired',
+    provider_subscription_id: data.subscription_id,
+    metadata: data,
+  });
+}
+
 async function handlePaymentSucceeded(data: any, env: Env) {
   const supabase = createSupabaseClient(env);
 
-  // Find subscription
   const { data: existingSub } = await supabase
     .from('subscriptions')
     .select('user_id')
@@ -244,7 +354,6 @@ async function handlePaymentSucceeded(data: any, env: Env) {
 
   console.log(`Payment succeeded for subscription ${data.subscription_id}`);
 
-  // Log event
   await supabase.from('subscription_history').insert({
     user_id: existingSub.user_id,
     payment_provider: 'dodopayments',
@@ -255,7 +364,6 @@ async function handlePaymentSucceeded(data: any, env: Env) {
     metadata: data,
   });
 
-  // Update subscription to active if it was past_due
   await supabase
     .from('subscriptions')
     .update({
@@ -266,13 +374,9 @@ async function handlePaymentSucceeded(data: any, env: Env) {
     .eq('status', 'past_due');
 }
 
-/**
- * Handle payment.failed event
- */
 async function handlePaymentFailed(data: any, env: Env) {
   const supabase = createSupabaseClient(env);
 
-  // Find subscription
   const { data: existingSub } = await supabase
     .from('subscriptions')
     .select('user_id, status')
@@ -286,7 +390,6 @@ async function handlePaymentFailed(data: any, env: Env) {
 
   console.log(`Payment failed for subscription ${data.subscription_id}`);
 
-  // Update subscription to past_due
   await supabase
     .from('subscriptions')
     .update({
@@ -307,7 +410,6 @@ async function handlePaymentFailed(data: any, env: Env) {
     metadata: data,
   });
 
-  // TODO: Send email notification to user
   console.log(`User ${existingSub.user_id} needs to update payment method`);
 }
 

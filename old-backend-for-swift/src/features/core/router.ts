@@ -7,8 +7,16 @@ import { testR2Upload, testR2Connection } from "./handlers/test-r2";
 import { postTestIdentityExtraction, deleteTestIdentityData } from "./handlers/debug/identity-test";
 import { postGuestToken } from "./handlers/auth"; // Added import for postGuestToken
 import identityRouter from "../identity/router";
+import { createSupabaseClient } from "./utils/database";
+import type { Env } from "@/index";
 
-const router = new Hono();
+const router = new Hono<{
+  Bindings: Env;
+  Variables: {
+    userId: string;
+    userEmail: string;
+  };
+}>();
 
 // Health and stats endpoints (no auth required)
 router.get("/health", getHealth);
@@ -17,6 +25,30 @@ router.get("/debug/schedules", getDebugSchedules);
 
 // Auth routes
 router.post("/auth/guest", postGuestToken); // Added guest token endpoint
+
+// Get current user info
+router.get("/api/users/me", requireAuth, async (c) => {
+  const userId = c.get("userId");
+  const env = c.env;
+  
+  try {
+    const supabase = createSupabaseClient(env);
+    const { data: user, error } = await supabase
+      .from("users")
+      .select("id, email, name, onboarding_completed, onboarding_completed_at, created_at")
+      .eq("id", userId)
+      .single();
+    
+    if (error || !user) {
+      return c.json({ error: "User not found" }, 404);
+    }
+    
+    return c.json({ user });
+  } catch (error) {
+    console.error("Error fetching user:", error);
+    return c.json({ error: "Failed to fetch user" }, 500);
+  }
+});
 
 // API Settings endpoints
 router.get("/api/calls/eligibility", requireAuth, getCallEligibility);

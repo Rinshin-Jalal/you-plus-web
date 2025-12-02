@@ -1,6 +1,11 @@
 @import "tailwindcss";
 
 @layer base {
+  /* Force light mode - disable dark mode */
+  :root {
+    color-scheme: light only;
+  }
+  
   html, body {
     @apply bg-white text-black;
   }

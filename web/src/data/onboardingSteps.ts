@@ -76,44 +76,43 @@ export const STEPS = [
     ]},
 
     // 6. System Setup
-    { id: 29, type: 'loader', label: "Building your accountability system..." },
-    { id: 30, type: 'commentary', lines: [
+    { id: 29, type: 'commentary', lines: [
         "Your system is ready.",
         "I'll be checking in on you.",
         "Every. Single. Day."
     ]},
 
     // 7. Belief Check
-    { id: 31, type: 'slider', label: "Right now, how much do you believe you can actually do this?", min: 1, max: 10 },
-    { id: 32, type: 'commentary', lines: [
+    { id: 30, type: 'slider', label: "Right now, how much do you believe you can actually do this?", min: 1, max: 10 },
+    { id: 31, type: 'commentary', lines: [
         "That's honest.",
         "Belief grows with action.",
         "Let's build some."
     ]},
 
     // 8. Commitment Setup
-    { id: 33, type: 'commentary', lines: [
+    { id: 32, type: 'commentary', lines: [
         "Time to set the rules.",
         "These are non-negotiable.",
         "You set them. You follow them."
     ]},
-    { id: 34, type: 'choice', label: "Can I interrupt your day to check on you?", choices: ["Yes, hold me accountable", "No, I'll check in myself"] },
-    { id: 35, type: 'choice', label: "Will you let me hear your voice?", choices: ["Yes, I'll speak my truth", "No, text only"] },
-    { id: 36, type: 'input', label: "What's one thing you'll do every single day toward your goal?", placeholder: "I will..." },
-    { id: 37, type: 'time', label: "What time should I check in with you?" },
-    { id: 38, type: 'slider', label: "How many strikes before I get ruthless?", min: 1, max: 5 },
+    { id: 33, type: 'choice', label: "Can I interrupt your day to check on you?", choices: ["Yes, hold me accountable", "No, I'll check in myself"] },
+    { id: 34, type: 'choice', label: "Will you let me hear your voice?", choices: ["Yes, I'll speak my truth", "No, text only"] },
+    { id: 35, type: 'input', label: "What's one thing you'll do every single day toward your goal?", placeholder: "I will..." },
+    { id: 36, type: 'time', label: "What time should I check in with you?" },
+    { id: 37, type: 'slider', label: "How many strikes before I get ruthless?", min: 1, max: 5 },
     
     // 9. Final Commitment
-    { id: 39, type: 'commentary', lines: [
+    { id: 38, type: 'commentary', lines: [
         "This is it.",
         "The moment of commitment.",
         "No turning back after this."
     ]},
-    { id: 40, type: 'voice', label: "Make your pledge.", subtext: "Promise yourself. Out loud. I'm recording this." },
+    { id: 39, type: 'voice', label: "Make your pledge.", subtext: "Promise yourself. Out loud. I'm recording this." },
 
     // 10. Seal the Deal
-    { id: 41, type: 'card', label: "Your Commitment" },
+    { id: 40, type: 'card', label: "Your Commitment" },
     
-    // 11. Welcome
-    { id: 42, type: 'paywall' }
+    // 11. Final Loader - then auto redirect to checkout
+    { id: 41, type: 'finalLoader' }
 ];

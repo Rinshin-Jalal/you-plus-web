@@ -49,6 +49,7 @@ export const EnvSchema = z.object({
   REVENUECAT_API_KEY: z.string().optional(),
   REVENUECAT_PROJECT_ID: z.string().optional(),
   DEBUG_ACCESS_TOKEN: z.string().optional(),
+  GEMINI_API_KEY: z.string().optional(), // For returning user personalization
   
   // DodoPayments configuration (for web payments)
   DODO_PAYMENTS_API_KEY: z.string().min(1, "DodoPayments API key is required"),
@@ -132,6 +133,7 @@ export const EnvCategories = {
     LIVEKIT_URL: "LiveKit Cloud WebSocket URL (wss://...)",
     CARTESIA_API_KEY: "Cartesia API key for STT (Ink) and TTS (Sonic-3)",
     DEEPGRAM_API_KEY: "Deepgram API key for speech recognition (optional, deprecated)",
+    GEMINI_API_KEY: "Gemini API key for returning user personalization (optional)",
   },
 
   memory: {

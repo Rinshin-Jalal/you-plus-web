@@ -1,20 +1,107 @@
-/**
- * Billing Routes
- * Handles DodoPayments integration for web subscriptions
- */
-
 import { Hono } from 'hono';
 import type { Env } from '@/index';
 import { requireAuth } from '@/middleware/auth';
 import { createDodoPaymentsService } from '@/services/dodopayments-service';
 import { createSupabaseClient } from '@/features/core/utils/database';
 
-const billing = new Hono<{ Bindings: Env }>();
+const billing = new Hono<{
+  Bindings: Env;
+  Variables: {
+    userId: string;
+    userEmail: string;
+  };
+}>();
 
-/**
- * GET /api/billing/subscription
- * Get current subscription status for user
- */
+// Link a guest checkout to the authenticated user and sync onboarding data
+billing.post('/link-guest-checkout', requireAuth, async (c) => {
+  const userId = c.get('userId');
+  const userEmail = c.get('userEmail');
+  const env = c.env;
+
+  try {
+    const body = await c.req.json();
+    const { guestId, onboardingData } = body;
+    
+    console.log('[link-guest-checkout] Linking guest checkout:', { userId, guestId, hasOnboardingData: !!onboardingData });
+
+    const supabase = createSupabaseClient(env);
+    const dodo = createDodoPaymentsService(env);
+
+    // 1. Find the guest customer in DodoPayments by email pattern
+    const guestEmail = `${guestId}@guest.youplus.app`;
+    
+    // 2. Create or get the real customer for this user
+    const customer = await dodo.ensureCustomer(userId, userEmail || '');
+    console.log('[link-guest-checkout] User customer:', customer.customer_id);
+
+    // 3. Update user with dodo_customer_id
+    await supabase
+      .from('users')
+      .update({
+        dodo_customer_id: customer.customer_id,
+        payment_provider: 'dodopayments',
+      })
+      .eq('id', userId);
+
+    // 4. Check for any existing subscriptions for the guest customer
+    // Note: DodoPayments webhooks should handle subscription creation
+    // For now, we'll create a pending subscription record that webhooks will update
+    
+    // 5. If onboarding data is provided, save it
+    if (onboardingData && Object.keys(onboardingData).length > 0) {
+      console.log('[link-guest-checkout] Saving onboarding data...');
+      
+      // Update user with onboarding completed
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({
+          onboarding_completed: true,
+          onboarding_completed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', userId);
+
+      if (updateError) {
+        console.error('[link-guest-checkout] Failed to update user:', updateError);
+      } else {
+        console.log('[link-guest-checkout] User marked as onboarding complete');
+      }
+
+      // Try to create identity record if we have enough data
+      if (onboardingData.goal || onboardingData.dailyCommitment) {
+        const identityData = {
+          user_id: userId,
+          name: onboardingData.name || 'User',
+          daily_commitment: onboardingData.dailyCommitment || onboardingData.daily_commitment || 30,
+          chosen_path: onboardingData.chosenPath || onboardingData.chosen_path || 'balanced',
+          call_time: onboardingData.callTime || onboardingData.call_time || '09:00:00',
+          strike_limit: onboardingData.strikeLimit || onboardingData.strike_limit || 3,
+          onboarding_context: onboardingData,
+        };
+
+        const { error: identityError } = await supabase
+          .from('identity')
+          .upsert(identityData, { onConflict: 'user_id' });
+
+        if (identityError) {
+          console.error('[link-guest-checkout] Failed to create identity:', identityError);
+        } else {
+          console.log('[link-guest-checkout] Identity record created/updated');
+        }
+      }
+    }
+
+    return c.json({
+      success: true,
+      message: 'Guest checkout linked successfully',
+      customerId: customer.customer_id,
+    });
+  } catch (error) {
+    console.error('Error linking guest checkout:', error);
+    return c.json({ error: 'Failed to link guest checkout' }, 500);
+  }
+});
+
 billing.get('/subscription', requireAuth, async (c) => {
   const userId = c.get('userId');
   const env = c.env;
@@ -22,7 +109,6 @@ billing.get('/subscription', requireAuth, async (c) => {
   try {
     const supabase = createSupabaseClient(env);
 
-    // Get subscription from database
     const { data: subscription, error } = await supabase
       .from('subscriptions')
       .select('*')
@@ -45,17 +131,14 @@ billing.get('/subscription', requireAuth, async (c) => {
       });
     }
 
-    // Check if subscription is truly active
-    const isActive =
-      subscription.status === 'active' &&
-      (!subscription.current_period_end ||
-        new Date(subscription.current_period_end) > new Date());
+    const isActive = subscription.status === 'active' &&
+      (!subscription.current_period_end || new Date(subscription.current_period_end) > new Date());
 
     return c.json({
       subscription: {
         hasActiveSubscription: isActive,
         status: subscription.status,
-        paymentProvider: subscription.payment_provider,
+        paymentProvider: subscription.payment_provider || 'dodopayments',
         planId: subscription.plan_id,
         planName: subscription.plan_name,
         currentPeriodEnd: subscription.current_period_end,
@@ -70,10 +153,6 @@ billing.get('/subscription', requireAuth, async (c) => {
   }
 });
 
-/**
- * GET /api/billing/history
- * Get subscription event history
- */
 billing.get('/history', requireAuth, async (c) => {
   const userId = c.get('userId');
   const env = c.env;
@@ -99,10 +178,55 @@ billing.get('/history', requireAuth, async (c) => {
   }
 });
 
-/**
- * POST /api/billing/checkout/create
- * Create DodoPayments checkout session
- */
+// Public checkout - no auth required
+// Creates a guest checkout session, user links account after payment
+billing.post('/checkout/create-guest', async (c) => {
+  const env = c.env;
+
+  try {
+    const body = await c.req.json();
+    const { planId, returnUrl, email } = body;
+    console.log('[guest-checkout] Request body:', { planId, returnUrl, email });
+
+    if (!planId) {
+      return c.json({ error: 'Plan ID is required' }, 400);
+    }
+
+    const dodo = createDodoPaymentsService(env);
+
+    // For guest checkout, we create a temporary customer or use email if provided
+    // The customer will be linked to a user account after they sign in
+    const guestId = `guest_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    const guestEmail = email || `${guestId}@guest.youplus.app`;
+    console.log('[guest-checkout] Creating customer:', { guestId, guestEmail });
+
+    const customer = await dodo.ensureCustomer(guestId, guestEmail);
+    console.log('[guest-checkout] Customer created:', customer);
+
+    const session = await dodo.createCheckoutSession({
+      customerId: customer.customer_id,
+      productId: planId,
+      returnUrl: returnUrl || `${env.FRONTEND_URL}/billing/success`,
+      metadata: {
+        guest_id: guestId,
+        plan_id: planId,
+        requires_account_link: 'true',
+      },
+    });
+    console.log('[guest-checkout] Session created:', session);
+
+    return c.json({
+      sessionId: session.session_id,
+      checkoutUrl: session.url,
+      expiresAt: session.expires_at,
+      guestId: guestId,
+    });
+  } catch (error) {
+    console.error('Error creating guest checkout session:', error);
+    return c.json({ error: 'Failed to create checkout session' }, 500);
+  }
+});
+
 billing.post('/checkout/create', requireAuth, async (c) => {
   const userId = c.get('userId');
   const userEmail = c.get('userEmail');
@@ -129,11 +253,9 @@ billing.post('/checkout/create', requireAuth, async (c) => {
     let customerId = userData?.dodo_customer_id;
 
     if (!customerId) {
-      // Create new customer
       const customer = await dodo.ensureCustomer(userId, userEmail || '');
       customerId = customer.customer_id;
 
-      // Store customer ID
       await supabase
         .from('users')
         .update({
@@ -143,7 +265,6 @@ billing.post('/checkout/create', requireAuth, async (c) => {
         .eq('id', userId);
     }
 
-    // Create checkout session
     const session = await dodo.createCheckoutSession({
       customerId,
       productId: planId,
@@ -165,10 +286,6 @@ billing.post('/checkout/create', requireAuth, async (c) => {
   }
 });
 
-/**
- * POST /api/billing/checkout/verify
- * Verify checkout session and retrieve subscription
- */
 billing.post('/checkout/verify', requireAuth, async (c) => {
   const userId = c.get('userId');
   const env = c.env;
@@ -184,17 +301,16 @@ billing.post('/checkout/verify', requireAuth, async (c) => {
     const dodo = createDodoPaymentsService(env);
     const supabase = createSupabaseClient(env);
 
-    // Retrieve session
-    const session = await dodo.retrieveCheckoutSession(sessionId);
+    const session: any = await dodo.retrieveCheckoutSession(sessionId);
+    const paymentStatus: string | undefined = session?.payment_status ?? session?.status;
 
-    if (session.status !== 'complete') {
+    if (paymentStatus !== 'succeeded') {
       return c.json({
         success: false,
         error: 'Checkout not completed',
       });
     }
 
-    // Get subscription from database (should be created by webhook)
     const { data: subscription } = await supabase
       .from('subscriptions')
       .select('*')
@@ -205,13 +321,13 @@ billing.post('/checkout/verify', requireAuth, async (c) => {
       success: true,
       subscription: subscription
         ? {
-            hasActiveSubscription: subscription.status === 'active',
-            status: subscription.status,
-            paymentProvider: subscription.payment_provider,
-            planId: subscription.plan_id,
-            planName: subscription.plan_name,
-            currentPeriodEnd: subscription.current_period_end,
-          }
+          hasActiveSubscription: subscription.status === 'active',
+          status: subscription.status,
+          paymentProvider: subscription.payment_provider,
+          planId: subscription.plan_id,
+          planName: subscription.plan_name,
+          currentPeriodEnd: subscription.current_period_end,
+        }
         : null,
     });
   } catch (error) {
@@ -220,10 +336,6 @@ billing.post('/checkout/verify', requireAuth, async (c) => {
   }
 });
 
-/**
- * POST /api/billing/cancel
- * Cancel subscription
- */
 billing.post('/cancel', requireAuth, async (c) => {
   const userId = c.get('userId');
   const env = c.env;
@@ -234,7 +346,6 @@ billing.post('/cancel', requireAuth, async (c) => {
 
     const supabase = createSupabaseClient(env);
 
-    // Get subscription
     const { data: subscription, error: fetchError } = await supabase
       .from('subscriptions')
       .select('*')
@@ -245,7 +356,6 @@ billing.post('/cancel', requireAuth, async (c) => {
       return c.json({ error: 'No active subscription found' }, 404);
     }
 
-    // Cancel based on provider
     if (subscription.payment_provider === 'dodopayments') {
       const dodo = createDodoPaymentsService(env);
       const success = await dodo.cancelSubscription(subscription.provider_subscription_id);
@@ -254,9 +364,7 @@ billing.post('/cancel', requireAuth, async (c) => {
         return c.json({ error: 'Failed to cancel subscription' }, 500);
       }
     }
-    // RevenueCat cancellation handled differently
 
-    // Update database
     await supabase
       .from('subscriptions')
       .update({
@@ -265,7 +373,6 @@ billing.post('/cancel', requireAuth, async (c) => {
       })
       .eq('user_id', userId);
 
-    // Log event
     await supabase.from('subscription_history').insert({
       user_id: userId,
       payment_provider: subscription.payment_provider,
@@ -285,10 +392,6 @@ billing.post('/cancel', requireAuth, async (c) => {
   }
 });
 
-/**
- * GET /api/billing/portal
- * Get customer portal URL
- */
 billing.get('/portal', requireAuth, async (c) => {
   const userId = c.get('userId');
   const env = c.env;
@@ -296,7 +399,6 @@ billing.get('/portal', requireAuth, async (c) => {
   try {
     const supabase = createSupabaseClient(env);
 
-    // Get customer ID
     const { data: userData } = await supabase
       .from('users')
       .select('dodo_customer_id')
@@ -320,18 +422,31 @@ billing.get('/portal', requireAuth, async (c) => {
   }
 });
 
-/**
- * GET /api/billing/plans
- * Get available plans
- */
 billing.get('/plans', async (c) => {
   const env = c.env;
 
   try {
     const dodo = createDodoPaymentsService(env);
-    const products = await dodo.listProducts();
+    const products = await dodo.listProductsForCheckout();
 
-    return c.json({ plans: products });
+    // Transform to frontend-expected format
+    const plans = products.map((p) => ({
+      id: p.product_id,
+      product_id: p.product_id,
+      name: p.name,
+      description: p.description,
+      price_cents: p.price_cents,
+      price: p.price_cents, // Alias for compatibility
+      currency: p.currency,
+      interval: p.interval,
+      interval_count: p.interval_count,
+      is_recurring: p.is_recurring,
+      features: p.features,
+      image: p.image,
+      tax_inclusive: p.tax_inclusive,
+    }));
+
+    return c.json({ plans });
   } catch (error) {
     console.error('Error fetching plans:', error);
     return c.json({ error: 'Failed to fetch plans' }, 500);

@@ -1,91 +1,9 @@
-/**
- * Conversion Onboarding Completion Handler - Super MVP
- *
- * PURPOSE: Handle the new 42-step conversion-focused onboarding flow
- *
- * FLOW:
- * 1. User completes 42-step onboarding in iOS app
- * 2. User pays via RevenueCat
- * 3. User signs up via Supabase (Google/Apple)
- * 4. iOS calls this endpoint to upload onboarding data
- * 5. Backend uploads 3 voice recordings to R2
- * 6. Backend creates identity record (core fields + voice URLs + JSONB context)
- * 7. Trigger automatically creates identity_status record
- * 8. User marked as onboarding_completed
- *
- * DATA STRUCTURE:
- * - Core Fields (explicit columns): name, daily_commitment, chosen_path, call_time, strike_limit
- * - Voice URLs: why_it_matters_audio_url, cost_of_quitting_audio_url, commitment_audio_url
- * - Context (JSONB): goal, motivation_level, attempt_history, favorite_excuse,
- *   who_disappointed, quit_pattern, future_if_no_change, witness, permissions, etc.
- */
-
 import { Context } from "hono";
 import { createSupabaseClient, upsertPushToken } from "@/features/core/utils/database";
 import { Env } from "@/types/environment";
 import { getAuthenticatedUserId } from "@/middleware/auth";
 import { uploadAudioToR2 } from "@/features/voice/services/r2-upload";
 
-/**
- * Complete conversion onboarding and finalize user setup
- *
- * ENDPOINT: POST /onboarding/conversion/complete
- *
- * REQUEST BODY:
- * {
- *   "goal": "Get fit and lose 20 pounds",
- *   "goalDeadline": "2025-06-01T00:00:00.000Z",
- *   "motivationLevel": 8,
- *   "whyItMattersAudio": "data:audio/m4a;base64,...",
- *
- *   "attemptCount": 3,
- *   "lastAttemptOutcome": "Gave up after 2 weeks",
- *   "previousAttemptOutcome": "Stopped after injury",
- *   "favoriteExcuse": "Too busy with work",
- *   "whoDisappointed": "My kids and myself",
- *   "quitTime": "2024-10-15T00:00:00.000Z",
- *
- *   "costOfQuittingAudio": "data:audio/m4a;base64,...",
- *   "futureIfNoChange": "Overweight, unhappy, watching life pass by",
- *
- *   "dailyCommitment": "30 min gym session",
- *   "callTime": "2024-01-01T20:30:00.000Z",
- *   "strikeLimit": 3,
- *   "commitmentAudio": "data:audio/m4a;base64,...",
- *   "witness": "My spouse",
- *
- *   "willDoThis": true,
- *   "chosenPath": "hopeful",
- *
- *   "notificationsGranted": true,
- *   "callsGranted": true,
- *
- *   "completedAt": "2025-01-15T10:30:00.000Z",
- *   "totalTimeSpent": 1200,
- *
- *   "pushToken": "apns-device-token-here",  // OPTIONAL
- *   "deviceMetadata": {                      // OPTIONAL
- *     "type": "apns",
- *     "device_model": "iPhone 15 Pro",
- *     "os_version": "iOS 17.2",
- *     "app_version": "1.0.0",
- *     "locale": "en_US",
- *     "timezone": "America/New_York"
- *   }
- * }
- *
- * RESPONSE:
- * {
- *   "success": true,
- *   "message": "Conversion onboarding completed successfully",
- *   "completedAt": "2025-01-15T10:30:00.000Z",
- *   "voiceUploads": {
- *     "whyItMatters": "https://audio.yourbigbruhh.app/audio/...",
- *     "costOfQuitting": "https://audio.yourbigbruhh.app/audio/...",
- *     "commitment": "https://audio.yourbigbruhh.app/audio/..."
- *   }
- * }
- */
 export const postConversionOnboardingComplete = async (c: Context) => {
   console.log("🎯 === CONVERSION ONBOARDING: Complete Request Received ===");
   console.log("📨 Request headers:", Object.fromEntries(c.req.raw.headers.entries()));
@@ -98,49 +16,33 @@ export const postConversionOnboardingComplete = async (c: Context) => {
   console.log("📦 Request body keys:", Object.keys(body));
 
   const {
-    // Identity & Aspiration
     goal,
     goalDeadline,
     motivationLevel,
     whyItMattersAudio,
-
-    // Pattern Recognition
     attemptCount,
     lastAttemptOutcome,
     previousAttemptOutcome,
     favoriteExcuse,
     whoDisappointed,
     quitTime,
-
-    // The Cost
     costOfQuittingAudio,
     futureIfNoChange,
-
-    // Commitment Setup
     dailyCommitment,
     callTime,
     strikeLimit,
     commitmentAudio,
     witness,
-
-    // Decision
     willDoThis,
     chosenPath,
-
-    // Permissions
     notificationsGranted,
     callsGranted,
-
-    // Metadata
     completedAt,
     totalTimeSpent,
-
-    // Optional: Push notifications
     pushToken,
     deviceMetadata,
   } = body;
 
-  // Validate required fields
   if (!goal || !goalDeadline || !motivationLevel) {
     return c.json({ error: "Missing required identity fields" }, 400);
   }
@@ -173,9 +75,6 @@ export const postConversionOnboardingComplete = async (c: Context) => {
   const supabase = createSupabaseClient(env);
 
   try {
-    // ==================================================
-    // PHASE 1: Upload Voice Recordings to R2
-    // ==================================================
     console.log(`\n🎙️  === UPLOADING VOICE RECORDINGS ===`);
 
     const voiceUploads: {
@@ -184,7 +83,6 @@ export const postConversionOnboardingComplete = async (c: Context) => {
       commitment?: string;
     } = {};
 
-    // Upload whyItMattersAudio (if provided)
     if (whyItMattersAudio && whyItMattersAudio.startsWith("data:audio/")) {
       console.log("📤 Uploading whyItMatters audio...");
       const base64Data = whyItMattersAudio.split(",")[1];
@@ -206,7 +104,6 @@ export const postConversionOnboardingComplete = async (c: Context) => {
       }
     }
 
-    // Upload costOfQuittingAudio (if provided)
     if (costOfQuittingAudio && costOfQuittingAudio.startsWith("data:audio/")) {
       console.log("📤 Uploading costOfQuitting audio...");
       const base64Data = costOfQuittingAudio.split(",")[1];
@@ -228,7 +125,6 @@ export const postConversionOnboardingComplete = async (c: Context) => {
       }
     }
 
-    // Upload commitmentAudio (if provided)
     if (commitmentAudio && commitmentAudio.startsWith("data:audio/")) {
       console.log("📤 Uploading commitment audio...");
       const base64Data = commitmentAudio.split(",")[1];
@@ -252,12 +148,8 @@ export const postConversionOnboardingComplete = async (c: Context) => {
 
     console.log(`✅ Voice uploads complete: ${Object.keys(voiceUploads).length}/3`);
 
-    // ==================================================
-    // PHASE 2: Build Onboarding Context JSONB
-    // ==================================================
     console.log(`\n📦 === BUILDING ONBOARDING CONTEXT ===`);
 
-    // Parse call time to extract just the time portion (HH:MM:SS)
     const callTimeDate = new Date(callTime);
     const callTimeString = `${String(callTimeDate.getHours()).padStart(2, "0")}:${String(
       callTimeDate.getMinutes()
@@ -272,7 +164,6 @@ export const postConversionOnboardingComplete = async (c: Context) => {
 
     const userName = userData?.name || "User";
 
-    // Build concise onboarding context (everything that's not a core field)
     const onboardingContext = {
       goal: goal,
       goal_deadline: goalDeadline,
@@ -295,30 +186,20 @@ export const postConversionOnboardingComplete = async (c: Context) => {
 
     console.log(`✅ Onboarding context built with ${Object.keys(onboardingContext).length} fields`);
 
-    // ==================================================
-    // PHASE 3: Save to Identity Table
-    // ==================================================
     console.log(`\n💾 === SAVING TO IDENTITY TABLE ===`);
 
-    //TODO: WE NEED TO USE AI TO MAKE THIS MORE DYNAMIC somehow
     const { error: insertError } = await supabase
       .from("identity")
       .insert({
         user_id: userId,
-
-        // Core fields (used in app logic)
         name: userName,
         daily_commitment: dailyCommitment,
         chosen_path: chosenPath,
         call_time: callTimeString,
         strike_limit: strikeLimit,
-
-        // Voice recordings (R2 URLs for AI calls)
         why_it_matters_audio_url: voiceUploads.whyItMatters || null,
         cost_of_quitting_audio_url: voiceUploads.costOfQuitting || null,
         commitment_audio_url: voiceUploads.commitment || null,
-
-        // Everything else (JSONB context for AI personalization)
         onboarding_context: onboardingContext,
       });
 
@@ -329,12 +210,8 @@ export const postConversionOnboardingComplete = async (c: Context) => {
 
     console.log(`✅ Identity created (trigger auto-creates identity_status)`);
 
-    // ==================================================
-    // PHASE 4: Update User Record
-    // ==================================================
     console.log(`\n👤 === UPDATING USER RECORD ===`);
 
-    // Extract timezone from deviceMetadata or default to UTC
     const userTimezone = deviceMetadata?.timezone || "UTC";
 
     const { error: updateError } = await supabase
@@ -355,9 +232,6 @@ export const postConversionOnboardingComplete = async (c: Context) => {
 
     console.log(`✅ User marked as onboarding complete`);
 
-    // ==================================================
-    // PHASE 5: Save Push Token (if provided)
-    // ==================================================
     if (pushToken && deviceMetadata) {
       try {
         console.log(`\n📱 === SAVING PUSH TOKEN ===`);
@@ -376,9 +250,6 @@ export const postConversionOnboardingComplete = async (c: Context) => {
       }
     }
 
-    // ==================================================
-    // SUCCESS RESPONSE
-    // ==================================================
     console.log(`\n🎉 === CONVERSION ONBOARDING COMPLETE ===`);
     console.log(`✅ Identity created with core fields + voice URLs + JSONB context`);
     console.log(`✅ Identity status auto-created by trigger`);

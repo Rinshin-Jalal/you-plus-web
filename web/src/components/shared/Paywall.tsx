@@ -1,8 +1,3 @@
-/**
- * Paywall Component
- * Displays when user needs to subscribe or update payment
- */
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -28,31 +23,19 @@ export function Paywall({
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // For web, we'll show plans and redirect to DodoPayments checkout
-    // For mobile, this component shouldn't be shown (use native RevenueCat)
     setLoading(false);
   }, []);
 
   const handleSubscribe = async () => {
     setLoading(true);
     try {
-      // Redirect to plans/checkout page or directly to DodoPayments
-      // You can either:
-      // 1. Navigate to /checkout page with plan selection
-      // 2. Or directly create checkout session with default plan
-      
-      // Option 1: Navigate to checkout page (recommended)
       window.location.href = '/checkout';
-      
-      // Option 2: Direct checkout with default plan (uncomment if needed)
-      // await paymentService.redirectToCheckout('default_plan_id');
     } catch (error) {
       console.error('Error redirecting to checkout:', error);
       setLoading(false);
     }
   };
 
-  // Default content based on reason
   const defaultTitle = {
     no_subscription: 'Subscription Required',
     expired: 'Subscription Expired',
@@ -74,7 +57,6 @@ export function Paywall({
     >
       <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl p-8 max-w-lg w-full mx-4">
         <div className="text-center">
-          {/* Icon */}
           <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-purple-100 dark:bg-purple-900/30 mb-6">
             <svg
               className="h-8 w-8 text-purple-600 dark:text-purple-400"
@@ -93,7 +75,6 @@ export function Paywall({
             </svg>
           </div>
 
-          {/* Title */}
           <h2
             id="paywall-title"
             className="text-2xl font-bold text-gray-900 dark:text-white mb-4"
@@ -101,12 +82,10 @@ export function Paywall({
             {title || defaultTitle}
           </h2>
 
-          {/* Message */}
           <p className="text-gray-600 dark:text-gray-400 mb-8">
             {message || defaultMessage}
           </p>
 
-          {/* Features list */}
           {reason === 'no_subscription' && (
             <div className="text-left mb-8 space-y-3">
               <FeatureItem text="Daily coaching calls" />
@@ -116,7 +95,6 @@ export function Paywall({
             </div>
           )}
 
-          {/* Action buttons */}
           <div className="flex flex-col sm:flex-row gap-3">
             <Button
               onClick={handleSubscribe}
@@ -138,7 +116,6 @@ export function Paywall({
             )}
           </div>
 
-          {/* Additional info */}
           <p className="text-xs text-gray-500 dark:text-gray-500 mt-6">
             Cancel anytime. No long-term commitment.
           </p>
@@ -148,9 +125,6 @@ export function Paywall({
   );
 }
 
-/**
- * Feature item component for paywall
- */
 function FeatureItem({ text }: { text: string }) {
   return (
     <div className="flex items-center">
@@ -171,9 +145,6 @@ function FeatureItem({ text }: { text: string }) {
   );
 }
 
-/**
- * Compact paywall banner (for inline display)
- */
 export interface PaywallBannerProps {
   message?: string;
   onSubscribe?: () => void;
@@ -187,7 +158,6 @@ export function PaywallBanner({ message, onSubscribe, className = '' }: PaywallB
       return;
     }
 
-    // Navigate to checkout page
     window.location.href = '/checkout';
   };
 

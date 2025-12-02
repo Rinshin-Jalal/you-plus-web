@@ -67,28 +67,34 @@ export const corsMiddleware = () => {
     const env = c.env as Env;
     const origin = c.req.header("Origin");
 
-    // Allow all origins for development
-    if (env.ENVIRONMENT === "development") {
-      c.header("Access-Control-Allow-Origin", "*");
-    } else {
-      // Allow specific origins in production
-      const allowedOrigins = [
-        "https://you-plus.app", // Production domain
-        "https://you-plus-staging.app", // Staging domain
-      ];
+    // Allowed origins for all environments
+    const allowedOrigins = [
+      "https://you-plus.app", // Production domain
+      "https://youplus.app", // Production domain alt
+      "https://you-plus-staging.app", // Staging domain
+      "http://localhost:3000", // Local Next.js dev
+      "http://localhost:3001", // Local Next.js dev alt port
+      "http://127.0.0.1:3000", // Local dev
+    ];
 
-      if (origin && allowedOrigins.includes(origin)) {
-        c.header("Access-Control-Allow-Origin", origin);
-      }
+    // Allow all origins for development, or check allowed list
+    if (env.ENVIRONMENT === "development") {
+      c.header("Access-Control-Allow-Origin", origin || "*");
+    } else if (origin && allowedOrigins.includes(origin)) {
+      c.header("Access-Control-Allow-Origin", origin);
+    } else if (origin && origin.includes("localhost")) {
+      // Always allow localhost for development convenience
+      c.header("Access-Control-Allow-Origin", origin);
     }
 
-    c.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    c.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
     c.header("Access-Control-Allow-Headers", "Content-Type, Authorization, ngrok-skip-browser-warning");
+    c.header("Access-Control-Allow-Credentials", "true");
     c.header("Access-Control-Max-Age", "86400"); // 24 hours
 
     // Handle preflight requests
     if (c.req.method === "OPTIONS") {
-      return c.text("");
+      return c.text("", 204);
     }
 
     return await next();

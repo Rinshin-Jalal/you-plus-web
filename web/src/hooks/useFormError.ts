@@ -1,8 +1,3 @@
-/**
- * useFormError Hook
- * Manages form validation and error display
- */
-
 'use client';
 
 import { useState, useCallback } from 'react';
@@ -18,17 +13,10 @@ export interface FormErrorState {
   globalError: string | null;
 }
 
-/**
- * useFormError Hook
- * Provides form error management with field-level and global error support
- */
 export function useFormError() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [globalError, setGlobalError] = useState<string | null>(null);
 
-  /**
-   * Set error for a specific field
-   */
   const setFieldError = useCallback((field: string, message: string) => {
     setErrors(prev => ({
       ...prev,
@@ -47,9 +35,6 @@ export function useFormError() {
     setErrors(errorMap);
   }, []);
 
-  /**
-   * Clear error for a specific field
-   */
   const clearFieldError = useCallback((field: string) => {
     setErrors(prev => {
       const newErrors = { ...prev };
@@ -58,53 +43,31 @@ export function useFormError() {
     });
   }, []);
 
-  /**
-   * Clear all field errors
-   */
   const clearFieldErrors = useCallback(() => {
     setErrors({});
   }, []);
 
-  /**
-   * Set global error message
-   */
   const setError = useCallback((message: string) => {
     setGlobalError(message);
   }, []);
 
-  /**
-   * Clear global error
-   */
   const clearError = useCallback(() => {
     setGlobalError(null);
   }, []);
 
-  /**
-   * Clear all errors (field and global)
-   */
   const clearAllErrors = useCallback(() => {
     setErrors({});
     setGlobalError(null);
   }, []);
 
-  /**
-   * Get error message for a specific field
-   */
   const getFieldError = useCallback((field: string): string | undefined => {
     return errors[field];
   }, [errors]);
 
-  /**
-   * Check if a specific field has an error
-   */
   const hasFieldError = useCallback((field: string): boolean => {
     return !!errors[field];
   }, [errors]);
 
-  /**
-   * Handle API error response
-   * Automatically maps errors to fields if possible
-   */
   const handleApiError = useCallback((error: unknown) => {
     if (error && typeof error === 'object') {
       const apiError = error as {
@@ -114,13 +77,11 @@ export function useFormError() {
         details?: Record<string, string>;
       };
 
-      // Check for field-level errors
       if (apiError.errors && Array.isArray(apiError.errors)) {
         setFieldErrors(apiError.errors);
         return;
       }
 
-      // Check for details object with field errors
       if (apiError.details && typeof apiError.details === 'object') {
         const fieldErrors: FieldError[] = Object.entries(apiError.details).map(
           ([field, message]) => ({
@@ -132,7 +93,6 @@ export function useFormError() {
         return;
       }
 
-      // Set as global error
       const message = apiError.error || apiError.message || 'An error occurred';
       setGlobalError(message);
     } else {
@@ -141,34 +101,24 @@ export function useFormError() {
   }, [setFieldErrors]);
 
   return {
-    // State
     errors,
     globalError,
     hasErrors: Object.keys(errors).length > 0 || !!globalError,
     hasFieldErrors: Object.keys(errors).length > 0,
     hasGlobalError: !!globalError,
-
-    // Field error methods
     setFieldError,
     setFieldErrors,
     clearFieldError,
     clearFieldErrors,
     getFieldError,
     hasFieldError,
-
-    // Global error methods
     setError,
     clearError,
-
-    // Combined methods
     clearAllErrors,
     handleApiError,
   };
 }
 
-/**
- * Hook for simple validation with error state
- */
 export function useFormValidation<T extends Record<string, unknown>>(
   initialValues: T,
   validationFn: (values: T) => Record<string, string> | null
@@ -178,9 +128,6 @@ export function useFormValidation<T extends Record<string, unknown>>(
   const { errors, setFieldErrors, clearAllErrors, hasErrors } = useFormError();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  /**
-   * Update a single field value
-   */
   const setValue = useCallback((field: keyof T, value: unknown) => {
     setValues(prev => ({
       ...prev,
@@ -215,22 +162,17 @@ export function useFormValidation<T extends Record<string, unknown>>(
     return true;
   }, [values, validationFn, setFieldErrors, clearAllErrors]);
 
-  /**
-   * Handle form submission with validation
-   */
   const handleSubmit = useCallback(
     async (onSubmit: (values: T) => Promise<void> | void) => {
       setIsSubmitting(true);
       clearAllErrors();
 
-      // Mark all fields as touched
       const allTouched = Object.keys(values).reduce((acc, key) => {
         acc[key as keyof T] = true;
         return acc;
       }, {} as Record<keyof T, boolean>);
       setTouched(allTouched);
 
-      // Validate
       const isValid = validate();
       if (!isValid) {
         setIsSubmitting(false);
@@ -249,9 +191,6 @@ export function useFormValidation<T extends Record<string, unknown>>(
     [values, validate, clearAllErrors]
   );
 
-  /**
-   * Reset form to initial values
-   */
   const reset = useCallback(() => {
     setValues(initialValues);
     setTouched({} as Record<keyof T, boolean>);

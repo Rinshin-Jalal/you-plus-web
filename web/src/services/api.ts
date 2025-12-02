@@ -1,11 +1,5 @@
-/**
- * API Client Service
- * Provides fetch wrapper with token management, error handling, and automatic retries
- */
-
 import { supabase } from './supabase';
 
-// Environment-based base URL with fallback
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8787';
 
 export interface ApiError {
@@ -34,9 +28,6 @@ class ApiClient {
     this.baseUrl = baseUrl;
   }
 
-  /**
-   * Get fresh access token from Supabase session
-   */
   private async getAccessToken(): Promise<string | null> {
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -47,9 +38,6 @@ class ApiClient {
     }
   }
 
-  /**
-   * Refresh access token (prevents multiple simultaneous refresh attempts)
-   */
   private async refreshAccessToken(): Promise<string | null> {
     if (this.refreshPromise) {
       return this.refreshPromise;
@@ -74,9 +62,6 @@ class ApiClient {
     return this.refreshPromise;
   }
 
-  /**
-   * Main request method with automatic token refresh on 401
-   */
   private async request<T>(
     endpoint: string,
     options: RequestInit = {},
@@ -84,7 +69,6 @@ class ApiClient {
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
     
-    // Get token from Supabase session
     const token = await this.getAccessToken();
 
     const headers: HeadersInit = {
@@ -104,16 +88,13 @@ class ApiClient {
     try {
       const response = await fetch(url, config);
 
-      // Handle 401 with token refresh (retry once)
       if (response.status === 401 && retryCount === 0) {
         console.warn('Token expired, attempting refresh...');
         const newToken = await this.refreshAccessToken();
         
         if (newToken) {
-          // Retry request with new token
           return this.request<T>(endpoint, options, retryCount + 1);
         } else {
-          // Refresh failed - redirect to login
           console.error('Token refresh failed, redirecting to login');
           if (typeof window !== 'undefined') {
             window.location.href = '/auth/login';
@@ -122,7 +103,6 @@ class ApiClient {
         }
       }
 
-      // Parse response body
       const contentType = response.headers.get('content-type');
       let responseData: unknown;
       
@@ -132,7 +112,6 @@ class ApiClient {
         responseData = await response.text();
       }
 
-      // Handle non-OK responses
       if (!response.ok) {
         const error = responseData as ApiError;
         throw new ApiClientError(
@@ -145,12 +124,10 @@ class ApiClient {
       return responseData as T;
       
     } catch (error) {
-      // Re-throw ApiClientError as-is
       if (error instanceof ApiClientError) {
         throw error;
       }
 
-      // Handle network errors
       console.error('Network error:', error);
       throw new ApiClientError(
         0,
@@ -160,16 +137,10 @@ class ApiClient {
     }
   }
 
-  /**
-   * GET request
-   */
   public get<T>(endpoint: string, headers?: HeadersInit): Promise<T> {
     return this.request<T>(endpoint, { method: 'GET', headers });
   }
 
-  /**
-   * POST request
-   */
   public post<T>(endpoint: string, body?: unknown, headers?: HeadersInit): Promise<T> {
     return this.request<T>(endpoint, {
       method: 'POST',
@@ -178,9 +149,6 @@ class ApiClient {
     });
   }
 
-  /**
-   * PUT request
-   */
   public put<T>(endpoint: string, body?: unknown, headers?: HeadersInit): Promise<T> {
     return this.request<T>(endpoint, {
       method: 'PUT',
@@ -189,16 +157,10 @@ class ApiClient {
     });
   }
 
-  /**
-   * DELETE request
-   */
   public delete<T>(endpoint: string, headers?: HeadersInit): Promise<T> {
     return this.request<T>(endpoint, { method: 'DELETE', headers });
   }
 
-  /**
-   * PATCH request
-   */
   public patch<T>(endpoint: string, body?: unknown, headers?: HeadersInit): Promise<T> {
     return this.request<T>(endpoint, {
       method: 'PATCH',
@@ -208,8 +170,5 @@ class ApiClient {
   }
 }
 
-// Export singleton instance
 export const apiClient = new ApiClient(BASE_URL);
-
-// Export base URL for reference
 export { BASE_URL };

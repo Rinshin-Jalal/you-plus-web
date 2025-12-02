@@ -1,14 +1,6 @@
-/**
- * Error Handling Middleware
- * Provides consistent error responses and logging with graceful degradation for external service failures
- */
-
 import { Context, Next } from "hono";
 import { Env } from "@/index";
 
-/**
- * Custom error class for application errors
- */
 export class AppError extends Error {
   constructor(
     public statusCode: number,
@@ -22,9 +14,6 @@ export class AppError extends Error {
   }
 }
 
-/**
- * External service error types
- */
 export enum ServiceType {
   SUPABASE = "supabase",
   REVENUECAT = "revenuecat",
@@ -34,9 +23,6 @@ export enum ServiceType {
   UNKNOWN = "unknown",
 }
 
-/**
- * Service-specific error handler with graceful degradation
- */
 export class ServiceError extends AppError {
   constructor(
     public service: ServiceType,
@@ -49,10 +35,6 @@ export class ServiceError extends AppError {
   }
 }
 
-/**
- * Global error handling middleware
- * Catches all errors and formats them consistently
- */
 export const errorHandler = () => {
   return async (c: Context, next: Next): Promise<Response | void> => {
     try {
@@ -61,7 +43,6 @@ export const errorHandler = () => {
       const env = c.env as Env;
       const isDevelopment = env.ENVIRONMENT === "development";
 
-      // Log error details
       console.error("Error handler caught:", {
         error,
         path: c.req.path,
@@ -70,7 +51,6 @@ export const errorHandler = () => {
         userId: c.get("userId") || "anonymous",
       });
 
-      // Handle known application errors
       if (error instanceof AppError) {
         return c.json(
           {
@@ -83,12 +63,10 @@ export const errorHandler = () => {
         );
       }
 
-      // Handle service-specific errors with graceful degradation
       if (error instanceof ServiceError) {
         return handleServiceError(c, error, isDevelopment);
       }
 
-      // Handle unexpected errors
       console.error("Unexpected error:", error);
       return c.json(
         {
@@ -105,9 +83,6 @@ export const errorHandler = () => {
   };
 };
 
-/**
- * Handle service-specific errors with appropriate fallback responses
- */
 function handleServiceError(
   c: Context,
   error: ServiceError,
@@ -122,18 +97,16 @@ function handleServiceError(
 
   switch (error.service) {
     case ServiceType.SUPABASE:
-      // Critical - authentication/database down
       return c.json(
         {
           ...baseResponse,
           message: "Database service temporarily unavailable. Please try again in a few moments.",
-          retryAfter: 60, // seconds
+          retryAfter: 60,
         },
         503
       );
 
     case ServiceType.REVENUECAT:
-      // Payment service down - allow temporary access for existing users
       console.warn("RevenueCat service degraded - implementing fallback");
       return c.json(
         {
@@ -146,7 +119,6 @@ function handleServiceError(
       );
 
     case ServiceType.ELEVENLABS:
-      // Voice service down - graceful degradation
       return c.json(
         {
           ...baseResponse,
@@ -157,7 +129,6 @@ function handleServiceError(
       );
 
     case ServiceType.LIVEKIT:
-      // Call service down
       return c.json(
         {
           ...baseResponse,
@@ -168,7 +139,6 @@ function handleServiceError(
       );
 
     case ServiceType.R2:
-      // Storage service down - non-critical for most operations
       console.warn("R2 storage service degraded");
       return c.json(
         {
@@ -191,10 +161,6 @@ function handleServiceError(
   }
 }
 
-/**
- * Async error wrapper for route handlers
- * Automatically catches and forwards errors to error handler
- */
 export const asyncHandler = (
   fn: (c: Context) => Promise<Response>
 ) => {
@@ -202,15 +168,11 @@ export const asyncHandler = (
     try {
       return await fn(c);
     } catch (error) {
-      // Re-throw to be caught by errorHandler middleware
       throw error;
     }
   };
 };
 
-/**
- * Validation error helper
- */
 export class ValidationError extends AppError {
   constructor(message: string, details?: unknown) {
     super(400, message, true, details);
@@ -218,9 +180,6 @@ export class ValidationError extends AppError {
   }
 }
 
-/**
- * Authentication error helper
- */
 export class AuthenticationError extends AppError {
   constructor(message: string = "Authentication required") {
     super(401, message, true);
@@ -228,9 +187,6 @@ export class AuthenticationError extends AppError {
   }
 }
 
-/**
- * Authorization error helper
- */
 export class AuthorizationError extends AppError {
   constructor(message: string = "Insufficient permissions") {
     super(403, message, true);
@@ -238,9 +194,6 @@ export class AuthorizationError extends AppError {
   }
 }
 
-/**
- * Not found error helper
- */
 export class NotFoundError extends AppError {
   constructor(resource: string = "Resource") {
     super(404, `${resource} not found`, true);
@@ -248,9 +201,6 @@ export class NotFoundError extends AppError {
   }
 }
 
-/**
- * Rate limit error helper
- */
 export class RateLimitError extends AppError {
   constructor(retryAfter: number = 60) {
     super(429, "Rate limit exceeded", true, { retryAfter });

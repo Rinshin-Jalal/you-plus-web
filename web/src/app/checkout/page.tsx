@@ -1,8 +1,3 @@
-/**
- * Checkout Page
- * Display pricing plans and handle DodoPayments checkout
- */
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -11,6 +6,7 @@ import { paymentService } from '@/services/payment';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { storageService } from '@/services/storage';
 
 interface Plan {
   id: string;
@@ -22,14 +18,12 @@ interface Plan {
   features: string[];
 }
 
-// ⚠️ TODO: Replace 'plan_pro_monthly' and 'plan_pro_yearly' with actual product IDs from DodoPayments dashboard
-// These are placeholder IDs for development. Get real IDs from: DodoPayments Dashboard → Products
 const DEFAULT_PLANS: Plan[] = [
   {
-    id: 'plan_pro_monthly', // ← Replace with real product ID
+    id: 'pdt_NhtaHsMWnOV7xl3qHzBuE',
     name: 'Pro Monthly',
     description: 'Full access to all features',
-    price: 49900, // ₹499
+    price: 49900,
     currency: 'INR',
     interval: 'month',
     features: [
@@ -41,10 +35,10 @@ const DEFAULT_PLANS: Plan[] = [
     ],
   },
   {
-    id: 'plan_pro_yearly', // ← Replace with real product ID
+    id: 'pdt_E0kK0u7ZB7yRi9icsBCjA',
     name: 'Pro Yearly',
     description: 'Best value - 2 months free',
-    price: 499000, // ₹4,990 (₹499 x 10)
+    price: 499000,
     currency: 'INR',
     interval: 'year',
     features: [
@@ -61,56 +55,71 @@ export default function CheckoutPage() {
   const router = useRouter();
   const { user, isAuthenticated, loading: authLoading } = useAuth();
   const [plans, setPlans] = useState<Plan[]>(DEFAULT_PLANS);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasOnboardingData, setHasOnboardingData] = useState(false);
 
-  // Redirect to login if not authenticated
+  // Check if user has onboarding data (only on client to avoid hydration mismatch)
   useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      router.push('/auth/login');
-    }
-  }, [authLoading, isAuthenticated, router]);
+    setHasOnboardingData(storageService.hasOnboardingData());
+  }, []);
 
-  // Fetch plans from API
   useEffect(() => {
+    // Fetch plans from API for all users (authenticated or not)
     const fetchPlans = async () => {
+      setLoading(true);
       try {
+        console.log('[Checkout] Fetching plans from API...');
         const apiPlans = await paymentService.getPlans();
+        console.log('[Checkout] API response:', apiPlans);
+        
         if (apiPlans.length > 0) {
-          // Map API plans to our format
-          setPlans(apiPlans.map((p: any) => ({
+          const mappedPlans = apiPlans.map((p: any) => ({
             id: p.product_id || p.id,
             name: p.name,
             description: p.description || '',
-            price: p.price_cents || p.price || 0,
+            price: p.price_cents ?? p.price ?? 0,
             currency: p.currency || 'INR',
             interval: p.interval || 'month',
-            features: p.features || [],
-          })));
+            // Use API features if available, otherwise keep defaults based on product ID
+            features: (p.features && p.features.length > 0) 
+              ? p.features 
+              : DEFAULT_PLANS.find(d => d.id === (p.product_id || p.id))?.features || [],
+          }));
+          console.log('[Checkout] Mapped plans:', mappedPlans);
+          setPlans(mappedPlans);
+        } else {
+          console.log('[Checkout] No plans returned from API, using defaults');
         }
       } catch (err) {
-        console.error('Error fetching plans:', err);
-        // Use default plans on error
+        console.error('[Checkout] Error fetching plans:', err);
+        // Keep DEFAULT_PLANS on error
       } finally {
         setLoading(false);
       }
     };
 
-    if (isAuthenticated) {
-      fetchPlans();
-    }
-  }, [isAuthenticated]);
+    fetchPlans();
+  }, []);
 
   const handleCheckout = async (planId: string) => {
-    setCheckoutLoading(true);
+    console.log('[Checkout] handleCheckout called', { planId, isAuthenticated, user: user?.email });
     setSelectedPlan(planId);
     setError(null);
+    setCheckoutLoading(true);
 
     try {
-      // Redirect to DodoPayments checkout
-      await paymentService.redirectToCheckout(planId);
+      if (isAuthenticated) {
+        // User is logged in - use authenticated checkout
+        console.log('[Checkout] User authenticated, using authenticated checkout');
+        await paymentService.redirectToCheckout(planId);
+      } else {
+        // User is not logged in - use guest checkout
+        console.log('[Checkout] User not authenticated, using guest checkout');
+        await paymentService.redirectToGuestCheckout(planId);
+      }
     } catch (err) {
       console.error('Checkout error:', err);
       setError('Failed to start checkout. Please try again.');
@@ -125,76 +134,71 @@ export default function CheckoutPage() {
     return `${symbol}${amount}`;
   };
 
-  if (authLoading || loading) {
+  // Only show loading for plan fetching, not auth loading
+  // This page should be accessible without authentication
+  if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-600"></div>
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-teal-500"></div>
       </div>
     );
   }
 
-  if (!isAuthenticated) {
-    return null;
-  }
-
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-white py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">
             Choose Your Plan
           </h1>
-          <p className="text-lg text-gray-600 dark:text-gray-400">
+          <p className="text-lg text-gray-600">
             Get unlimited access to AI-powered coaching
           </p>
+          {hasOnboardingData && !isAuthenticated && (
+            <p className="text-sm text-teal-600 mt-2">
+              Your profile is ready! Choose a plan to continue.
+            </p>
+          )}
         </div>
 
-        {/* Error message */}
         {error && (
-          <div className="max-w-2xl mx-auto mb-8 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-            <p className="text-red-800 dark:text-red-200">{error}</p>
+          <div className="max-w-2xl mx-auto mb-8 bg-red-50 border border-red-200 rounded-lg p-4">
+            <p className="text-red-800">{error}</p>
           </div>
         )}
 
-        {/* Plans grid */}
         <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
           {plans.map((plan) => (
-            <Card key={plan.id} className="relative overflow-hidden">
-              {/* Recommended badge for yearly plan */}
+            <Card key={plan.id} className="relative overflow-hidden bg-white">
               {plan.interval === 'year' && (
-                <div className="absolute top-0 right-0 bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-1 text-sm font-medium rounded-bl-lg">
+                <div className="absolute top-0 right-0 bg-teal-500 text-white px-4 py-1 text-sm font-medium rounded-bl-lg">
                   Best Value
                 </div>
               )}
 
               <div className="p-8">
-                {/* Plan name */}
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">
                   {plan.name}
                 </h3>
 
-                {/* Description */}
-                <p className="text-gray-600 dark:text-gray-400 mb-6">
+                <p className="text-gray-600 mb-6">
                   {plan.description}
                 </p>
 
-                {/* Price */}
                 <div className="mb-6">
-                  <span className="text-4xl font-bold text-gray-900 dark:text-white">
+                  <span className="text-4xl font-bold text-gray-900">
                     {formatPrice(plan.price, plan.currency)}
                   </span>
-                  <span className="text-gray-600 dark:text-gray-400 ml-2">
+                  <span className="text-gray-600 ml-2">
                     /{plan.interval}
                   </span>
                 </div>
 
-                {/* Features */}
                 <ul className="space-y-3 mb-8">
                   {plan.features.map((feature, index) => (
                     <li key={index} className="flex items-start">
                       <svg
-                        className="h-5 w-5 text-green-500 mr-3 flex-shrink-0 mt-0.5"
+                        className="h-5 w-5 text-teal-500 mr-3 flex-shrink-0 mt-0.5"
                         xmlns="http://www.w3.org/2000/svg"
                         viewBox="0 0 20 20"
                         fill="currentColor"
@@ -205,15 +209,14 @@ export default function CheckoutPage() {
                           clipRule="evenodd"
                         />
                       </svg>
-                      <span className="text-gray-700 dark:text-gray-300">{feature}</span>
+                      <span className="text-gray-700">{feature}</span>
                     </li>
                   ))}
                 </ul>
 
-                {/* CTA button */}
                 <Button
                   onClick={() => handleCheckout(plan.id)}
-                  disabled={checkoutLoading && selectedPlan === plan.id}
+                  disabled={(checkoutLoading && selectedPlan === plan.id) || authLoading}
                   className="w-full"
                   variant={plan.interval === 'year' ? 'primary' : 'secondary'}
                 >
@@ -225,6 +228,8 @@ export default function CheckoutPage() {
                       </svg>
                       Processing...
                     </span>
+                  ) : !isAuthenticated ? (
+                    'Sign Up & Subscribe'
                   ) : (
                     'Get Started'
                   )}
@@ -234,9 +239,8 @@ export default function CheckoutPage() {
           ))}
         </div>
 
-        {/* Footer info */}
         <div className="text-center mt-12">
-          <p className="text-sm text-gray-500 dark:text-gray-400">
+          <p className="text-sm text-gray-500">
             Secure payment powered by DodoPayments • Cancel anytime
           </p>
         </div>

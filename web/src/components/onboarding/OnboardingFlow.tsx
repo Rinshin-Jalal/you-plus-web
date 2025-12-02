@@ -19,6 +19,19 @@ import { CommitmentCard } from '@/components/onboarding/steps/CommitmentCard';
 const MIN_VOICE_DURATION = 15; // 15 seconds minimum recording
 const STEP_TRANSITION_DELAY = 800; // ms delay between steps
 
+const FUN_FACTS = [
+    "92% of people never achieve their New Year's resolutions...",
+    "The average person quits a new habit after just 12 days...",
+    "Your brain forms new neural pathways in just 21 days of consistency...",
+    "People with accountability partners are 65% more likely to succeed...",
+    "Writing down goals increases success rate by 42%...",
+    "The best time to build habits is right after another habit...",
+    "Your future self will thank you for starting today...",
+    "Discipline weighs ounces, regret weighs tons...",
+    "Small daily improvements lead to stunning results...",
+    "You've already taken the hardest step - showing up..."
+];
+
 export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
   const [stepIndex, setStepIndex] = useState(0);
   const [data, setData] = useState<any>(storageService.getData() || {});
@@ -224,6 +237,7 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
                     recordingTime={recordingTime}
                     minDuration={MIN_VOICE_DURATION}
                     canStop={canStopRecording}
+                    stepId={step.id}
                  />
              </div>
         )}
@@ -247,14 +261,6 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
             </div>
         )}
 
-        {step.type === 'loader' && (
-            <div key={step.id} className="flex flex-col items-center gap-8">
-                <div className="w-24 h-24 border-8 border-t-neon-teal border-black/5 rounded-full animate-spin" />
-                <p className="font-mono text-sm text-black/50 animate-pulse uppercase tracking-widest font-bold">{step.label}</p>
-                {setTimeout(() => next(), 3000) && null}
-            </div>
-        )}
-        
         {step.type === 'card' && (
             <CommitmentCard 
                 key={step.id}
@@ -263,23 +269,72 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
             />
         )}
 
-        {step.type === 'paywall' && (
-            <div key={step.id} className="text-center space-y-12">
-                <div className="inline-flex p-8 border-4 border-black rounded-full mb-4">
-                    <Zap size={64} className="text-black" fill="currentColor" />
-                </div>
-                <div>
-                    <h2 className="font-mono text-black text-2xl md:text-3xl leading-relaxed font-medium mb-6">You are ready.</h2>
-                    <p className="font-mono text-black/50 max-w-md mx-auto text-base leading-relaxed">The system is built. The standard is set.<br/>Now we begin.</p>
-                </div>
-                <Button size="lg" variant="primary" className="w-full text-xl py-6 border-black shadow-[8px_8px_0_0_rgba(0,0,0,1)] hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all" onClick={onFinish}>
-                    ENTER YOU+
-                </Button>
-            </div>
+        {step.type === 'finalLoader' && (
+            <FinalLoader onComplete={onFinish} />
         )}
 
         </div>
       </div>
     </div>
   );
+}
+
+// Final loader component with fun facts
+function FinalLoader({ onComplete }: { onComplete: () => void }) {
+    const [factIndex, setFactIndex] = useState(0);
+    const [progress, setProgress] = useState(0);
+
+    useEffect(() => {
+        // Rotate fun facts every 2 seconds
+        const factInterval = setInterval(() => {
+            setFactIndex(prev => (prev + 1) % FUN_FACTS.length);
+        }, 2000);
+
+        // Progress bar animation
+        const progressInterval = setInterval(() => {
+            setProgress(prev => {
+                if (prev >= 100) return 100;
+                return prev + 2;
+            });
+        }, 100);
+
+        // Auto redirect after 5 seconds
+        const redirectTimeout = setTimeout(() => {
+            onComplete();
+        }, 5000);
+
+        return () => {
+            clearInterval(factInterval);
+            clearInterval(progressInterval);
+            clearTimeout(redirectTimeout);
+        };
+    }, [onComplete]);
+
+    return (
+        <div className="flex flex-col items-center gap-8 text-center max-w-md">
+            <h2 className="font-mono text-black text-2xl md:text-3xl font-medium">
+                Creating your future self...
+            </h2>
+            
+            {/* Progress bar */}
+            <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div 
+                    className="h-full bg-teal-500 transition-all duration-100 ease-out"
+                    style={{ width: `${progress}%` }}
+                />
+            </div>
+            
+            {/* Fun fact */}
+            <p className="font-mono text-sm text-black/60 min-h-[3rem] transition-opacity duration-500">
+                {FUN_FACTS[factIndex]}
+            </p>
+            
+            {/* Loading dots */}
+            <div className="flex gap-2">
+                <div className="w-3 h-3 bg-teal-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                <div className="w-3 h-3 bg-teal-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                <div className="w-3 h-3 bg-teal-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+            </div>
+        </div>
+    );
 }

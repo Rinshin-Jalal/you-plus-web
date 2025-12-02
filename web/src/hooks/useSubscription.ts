@@ -1,8 +1,3 @@
-/**
- * useSubscription Hook
- * Manages subscription status with caching and automatic refresh
- */
-
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
@@ -25,10 +20,6 @@ const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 let cachedSubscription: SubscriptionStatus | null = null;
 let cacheTimestamp: number = 0;
 
-/**
- * useSubscription Hook
- * Fetches and caches subscription status, automatically refreshes when needed
- */
 export function useSubscription() {
   const { isAuthenticated, user } = useAuth();
   const [subscription, setSubscription] = useState<SubscriptionInfo>({
@@ -45,9 +36,6 @@ export function useSubscription() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  /**
-   * Fetch subscription status from API
-   */
   const fetchSubscription = useCallback(async (forceRefresh: boolean = false) => {
     if (!isAuthenticated) {
       setSubscription({
@@ -66,7 +54,6 @@ export function useSubscription() {
     }
 
     try {
-      // Use cache if available and not expired (unless force refresh)
       const now = Date.now();
       if (!forceRefresh && cachedSubscription && (now - cacheTimestamp) < CACHE_DURATION) {
         const info = await paymentService.getSubscriptionInfo();
@@ -86,17 +73,14 @@ export function useSubscription() {
       setLoading(true);
       setError(null);
 
-      // Fetch fresh data
       const [status, info] = await Promise.all([
         paymentService.getSubscriptionStatus(),
         paymentService.getSubscriptionInfo(),
       ]);
 
-      // Update cache
       cachedSubscription = status;
       cacheTimestamp = now;
 
-      // Merge status and info
       setSubscription({
         ...info,
         hasActiveSubscription: status.hasActiveSubscription,
@@ -124,28 +108,20 @@ export function useSubscription() {
     }
   }, [isAuthenticated]);
 
-  /**
-   * Refresh subscription status (bypasses cache)
-   */
   const refresh = useCallback(() => {
     return fetchSubscription(true);
   }, [fetchSubscription]);
 
-  /**
-   * Clear cache (useful after payment changes)
-   */
   const clearCache = useCallback(() => {
     cachedSubscription = null;
     cacheTimestamp = 0;
     return refresh();
   }, [refresh]);
 
-  // Fetch subscription on mount and when user changes
   useEffect(() => {
     fetchSubscription();
   }, [fetchSubscription, user?.id]);
 
-  // Auto-refresh every 5 minutes when active subscription
   useEffect(() => {
     if (!subscription.hasActiveSubscription) return;
 
@@ -168,17 +144,12 @@ export function useSubscription() {
   };
 }
 
-/**
- * Hook to require active subscription
- * Redirects to paywall if no active subscription
- */
 export function useRequireSubscription(redirectTo: string = '/checkout') {
   const { subscription, loading } = useSubscription();
   const { isAuthenticated } = useAuth();
 
   useEffect(() => {
     if (!loading && isAuthenticated && !subscription.hasActiveSubscription) {
-      // Redirect to paywall
       if (typeof window !== 'undefined') {
         window.location.href = redirectTo;
       }
@@ -188,9 +159,6 @@ export function useRequireSubscription(redirectTo: string = '/checkout') {
   return { subscription, loading };
 }
 
-/**
- * Hook to check if payment method needs update
- */
 export function usePaymentStatus() {
   const [needsUpdate, setNeedsUpdate] = useState(false);
   const [checking, setChecking] = useState(true);

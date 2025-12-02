@@ -54,6 +54,9 @@ FRONTEND_URL = "http://localhost:3000"  # Change to production URL when deployin
 # DODO_PAYMENTS_API_KEY
 # DODO_PAYMENTS_WEBHOOK_SECRET
 #
+# Gemini Configuration (for returning user personalization)
+# GEMINI_API_KEY
+#
 # Legacy Configuration (for backward compatibility)
 # ELEVENLABS_API_KEY  (optional - for dual-provider support)
 # ELEVENLABS_AGENT_ID  (optional - for legacy calls)

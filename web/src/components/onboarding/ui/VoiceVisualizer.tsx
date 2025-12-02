@@ -9,6 +9,7 @@ interface VoiceVisualizerProps {
     recordingTime?: number;
     minDuration?: number;
     canStop?: boolean;
+    stepId?: string;
 }
 
 export const VoiceVisualizer = ({ 
@@ -16,7 +17,8 @@ export const VoiceVisualizer = ({
     onToggle, 
     recordingTime = 0, 
     minDuration = 15, 
-    canStop = true 
+    canStop = true,
+    stepId = 'voice'
 }: VoiceVisualizerProps) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const animationRef = useRef<number | null>(null);
@@ -76,9 +78,8 @@ export const VoiceVisualizer = ({
                     };
                     mediaRecorder.onstop = () => {
                         const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
-                        const id = `recording_${Date.now()}`;
-                        storageService.saveVoice(blob, id);
-                        console.log("Voice recorded and saved:", id);
+                        storageService.saveVoice(blob, stepId);
+                        console.log("Voice recorded and saved:", stepId);
                     };
                     mediaRecorder.start();
 
@@ -182,15 +183,33 @@ export const VoiceVisualizer = ({
             if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
                 mediaRecorderRef.current.stop();
             }
-            if (animationRef.current) cancelAnimationFrame(animationRef.current);
-            if (audioContextRef.current) audioContextRef.current.close();
-            if (streamRef.current) streamRef.current.getTracks().forEach(track => track.stop());
+            if (animationRef.current) {
+                cancelAnimationFrame(animationRef.current);
+                animationRef.current = null;
+            }
+            if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+                audioContextRef.current.close();
+                audioContextRef.current = null;
+            }
+            if (streamRef.current) {
+                streamRef.current.getTracks().forEach(track => track.stop());
+                streamRef.current = null;
+            }
         }
 
         return () => {
-            if (animationRef.current) cancelAnimationFrame(animationRef.current);
-            if (audioContextRef.current) audioContextRef.current.close();
-            if (streamRef.current) streamRef.current.getTracks().forEach(track => track.stop());
+            if (animationRef.current) {
+                cancelAnimationFrame(animationRef.current);
+                animationRef.current = null;
+            }
+            if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+                audioContextRef.current.close();
+                audioContextRef.current = null;
+            }
+            if (streamRef.current) {
+                streamRef.current.getTracks().forEach(track => track.stop());
+                streamRef.current = null;
+            }
         };
     }, [isRecording]);
 

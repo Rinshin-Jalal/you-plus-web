@@ -1,11 +1,34 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Check, ArrowRight, Phone, X, Clock, Mic, Calendar, TrendingUp, Volume2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 export default function LandingPage() {
   const router = useRouter();
+  const [debugLogs, setDebugLogs] = useState<string[] | null>(null);
+
+  useEffect(() => {
+    // Check if we just came from a signout
+    if (typeof window !== 'undefined') {
+      const signoutComplete = sessionStorage.getItem('signout_complete');
+      const logs = sessionStorage.getItem('signout_logs');
+      
+      if (signoutComplete && logs) {
+        try {
+          setDebugLogs(JSON.parse(logs));
+        } catch (e) {
+          console.error('Failed to parse signout logs', e);
+        }
+      }
+    }
+  }, []);
+
+  const clearLogs = () => {
+    setDebugLogs(null);
+    sessionStorage.removeItem('signout_complete');
+    sessionStorage.removeItem('signout_logs');
+  };
 
   const startOnboarding = () => {
     router.push('/onboarding');
@@ -13,6 +36,26 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-white text-black font-mono">
+      
+      {/* Debug Logs Viewer */}
+      {debugLogs && (
+        <div className="fixed top-4 left-4 right-4 z-[1000] bg-black text-white p-4 max-h-[50vh] overflow-auto font-mono text-xs">
+          <div className="flex justify-between items-start mb-2">
+            <h3 className="font-bold text-green-400">🔍 SIGN-OUT DEBUG LOGS</h3>
+            <button onClick={clearLogs} className="text-red-400 hover:text-red-300">✕ Close</button>
+          </div>
+          <div className="space-y-1 bg-black/50 p-3 rounded">
+            {debugLogs.map((log, i) => (
+              <div key={i} className="border-l-2 border-green-500 pl-2 py-0.5">
+                {log}
+              </div>
+            ))}
+          </div>
+          <div className="mt-3 text-yellow-400 text-xs">
+            ⚠️ Share these logs with the developer to debug the sign-out issue
+          </div>
+        </div>
+      )}
       
       {/* Dev buttons */}
       <div className="fixed bottom-4 right-4 z-[999] flex flex-col gap-2">
@@ -24,7 +67,7 @@ export default function LandingPage() {
       <nav className="fixed top-0 left-0 right-0 z-50 bg-white border-b-2 border-black">
         <div className="max-w-5xl mx-auto px-6 h-14 flex justify-between items-center">
           <div className="text-xl font-bold">You+</div>
-          <button onClick={() => router.push('/dashboard')} className="text-sm hover:underline underline-offset-4">Login</button>
+          <button onClick={() => router.push('/auth/login')} className="text-sm hover:underline underline-offset-4">Login</button>
         </div>
       </nav>
 
