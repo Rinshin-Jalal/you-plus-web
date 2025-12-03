@@ -240,8 +240,14 @@ export default function CheckoutPage() {
         </div>
 
         <div className="text-center mt-12">
-          <p className="text-sm text-gray-500">
-            Secure payment powered by DodoPayments • Cancel anytime
+          <p className="text-sm text-gray-500 mb-2">
+            Secure payment powered by DodoPayments
+          </p>
+          <p className="text-xs text-gray-400">
+            By subscribing, you agree to our{' '}
+            <a href="/legal/terms" className="underline hover:text-gray-600">Terms of Service</a>
+            {' '}and{' '}
+            <a href="/legal/privacy" className="underline hover:text-gray-600">Privacy Policy</a>
           </p>
         </div>
       </div>
