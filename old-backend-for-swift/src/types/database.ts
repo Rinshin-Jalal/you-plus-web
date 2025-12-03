@@ -35,6 +35,9 @@ export interface User {
   // Push notifications
   push_token?: string; // VoIP push token
 
+  // Telephony (Cartesia Line)
+  phone_number?: string; // E.164 format (e.g., +14155551234) for outbound calls
+
   // Payment
   revenuecat_customer_id?: string;
 }
