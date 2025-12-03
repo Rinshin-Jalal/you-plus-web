@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Zap } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { audioService } from '@/services/audio';
@@ -15,6 +15,7 @@ import { MinimalSlider } from '@/components/onboarding/ui/MinimalSlider';
 import { Counter } from '@/components/onboarding/ui/Counter';
 import { VoiceVisualizer } from '@/components/onboarding/ui/VoiceVisualizer';
 import { CommitmentCard } from '@/components/onboarding/steps/CommitmentCard';
+import { getPersonalizedLines, getPersonalizedLabel, getPersonalizedSubtext } from '@/utils/onboardingPersonalization';
 
 const MIN_VOICE_DURATION = 15; // 15 seconds minimum recording
 const STEP_TRANSITION_DELAY = 800; // ms delay between steps
@@ -45,6 +46,22 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
 
   const step = STEPS[stepIndex];
   const progress = ((stepIndex + 1) / STEPS.length) * 100;
+
+  // Get personalized content based on user's previous answers
+  const personalizedLines = useMemo(() => {
+    if (step.type === 'commentary' && step.lines) {
+      return getPersonalizedLines(step.id, data) || step.lines;
+    }
+    return step.lines || [];
+  }, [step.id, step.type, step.lines, data]);
+
+  const personalizedLabel = useMemo(() => {
+    return getPersonalizedLabel(step.id, step.label || '', data);
+  }, [step.id, step.label, data]);
+
+  const personalizedSubtext = useMemo(() => {
+    return getPersonalizedSubtext(step.id, step.subtext || '', data);
+  }, [step.id, step.subtext, data]);
 
   // Cleanup recording interval on unmount
   useEffect(() => {
@@ -154,7 +171,7 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
         {step.type === 'commentary' && step.lines && (
             <CommentarySection 
                 key={step.id} 
-                lines={step.lines} 
+                lines={personalizedLines} 
                 onNext={() => next()} 
             />
         )}
@@ -162,7 +179,7 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
         {step.type === 'input' && (
             <div key={step.id} className="w-full flex flex-col items-center text-center">
                 <h2 className="font-mono text-black text-2xl md:text-3xl leading-relaxed font-medium mb-12">
-                    {step.label}
+                    {personalizedLabel}
                 </h2>
                 <MegaInput 
                     placeholder={step.placeholder} 
@@ -183,7 +200,7 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
 
         {step.type === 'choice' && step.choices && (
             <div key={step.id} className="w-full flex flex-col items-center text-center">
-                 <h2 className="font-mono text-black text-2xl md:text-3xl leading-relaxed font-medium mb-12">{step.label}</h2>
+                 <h2 className="font-mono text-black text-2xl md:text-3xl leading-relaxed font-medium mb-12">{personalizedLabel}</h2>
                  <BrutalChoice options={step.choices} onSelect={next} disabled={isTransitioning} />
             </div>
         )}
@@ -194,7 +211,7 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
                     min={step.min} max={step.max} 
                     value={data[step.id] || 5} 
                     onChange={(val: number) => setData({ ...data, [step.id]: val })}
-                    label={step.label}
+                    label={personalizedLabel}
                 />
                 <Button 
                     className="mt-20 w-full max-w-xs border-black" 
@@ -209,7 +226,7 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
 
         {step.type === 'stepper' && (
             <div key={step.id} className="flex flex-col items-center text-center gap-16">
-                <h2 className="font-mono text-black text-2xl md:text-3xl leading-relaxed font-medium">{step.label}</h2>
+                <h2 className="font-mono text-black text-2xl md:text-3xl leading-relaxed font-medium">{personalizedLabel}</h2>
                 <Counter 
                     min={step.min} max={step.max}
                     value={data[step.id] || step.min}
@@ -228,8 +245,8 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
 
         {step.type === 'voice' && (
              <div key={step.id} className="text-center w-full flex flex-col items-center">
-                 <h2 className="font-mono text-black text-2xl md:text-3xl leading-relaxed font-medium mb-4">{step.label}</h2>
-                 <p className="font-mono text-black/40 text-base mb-12">{step.subtext}</p>
+                 <h2 className="font-mono text-black text-2xl md:text-3xl leading-relaxed font-medium mb-4">{personalizedLabel}</h2>
+                 <p className="font-mono text-black/40 text-base mb-12">{personalizedSubtext}</p>
                  
                  <VoiceVisualizer 
                     isRecording={voiceState} 
@@ -237,14 +254,14 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
                     recordingTime={recordingTime}
                     minDuration={MIN_VOICE_DURATION}
                     canStop={canStopRecording}
-                    stepId={step.id}
+                    stepId={String(step.id)}
                  />
              </div>
         )}
 
         {(step.type === 'date' || step.type === 'time') && (
             <div key={step.id} className="w-full flex flex-col items-center text-center">
-                 <h2 className="font-mono text-black text-2xl md:text-3xl leading-relaxed font-medium mb-12">{step.label}</h2>
+                 <h2 className="font-mono text-black text-2xl md:text-3xl leading-relaxed font-medium mb-12">{personalizedLabel}</h2>
                  <input 
                     type={step.type} 
                     className="w-full max-w-lg bg-transparent border-b-4 border-black/5 py-8 text-4xl md:text-5xl font-mono font-medium text-black focus:outline-none focus:border-neon-teal tracking-tight text-center px-4"
