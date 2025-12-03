@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { requireActiveSubscription, requireAuth } from "@/middleware/auth";
 import { getHealth, getStats, getDebugSchedules } from "./handlers/health";
 import { getCallEligibility, getScheduleSettings, updateScheduleSettings, updateSubscriptionStatus, updateRevenueCatCustomerId } from "./handlers/settings";
+import { getPhoneNumber, updatePhoneNumber } from "./handlers/phone";
 import { postUserPushToken } from "./handlers/token-init-push";
 import { testR2Upload, testR2Connection } from "./handlers/test-r2";
 import { postTestIdentityExtraction, deleteTestIdentityData } from "./handlers/debug/identity-test";
@@ -56,6 +57,10 @@ router.get("/api/settings/schedule", requireActiveSubscription, getScheduleSetti
 router.put("/api/settings/schedule", requireAuth, updateScheduleSettings);
 router.put("/api/settings/subscription-status", requireAuth, updateSubscriptionStatus);
 router.put("/api/settings/revenuecat-customer-id", requireAuth, updateRevenueCatCustomerId);
+
+// Phone number endpoints (for Cartesia Line telephony)
+router.get("/api/settings/phone", requireAuth, getPhoneNumber);
+router.put("/api/settings/phone", requireAuth, updatePhoneNumber);
 
 // API Device push token endpoints
 router.put("/api/device/push-token", requireAuth, postUserPushToken);

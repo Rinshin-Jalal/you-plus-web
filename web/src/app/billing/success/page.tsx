@@ -54,12 +54,12 @@ export default function BillingSuccessPage() {
         // Still go to dashboard, webhook might handle subscription
       }
 
-      // Go to dashboard
-      router.replace('/dashboard');
+      // Go to setup page (post-signup onboarding)
+      router.replace('/setup');
     } catch (err) {
       console.error('[billing-success] Error:', err);
-      // Still try to go to dashboard
-      router.replace('/dashboard');
+      // Still try to go to setup
+      router.replace('/setup');
     }
   };
 
