@@ -14,6 +14,10 @@ TESTING:
 """
 
 import os
+from dotenv import load_dotenv
+
+# Load .env file if present
+load_dotenv()
 
 from chat_node import FutureYouNode
 from config import build_system_prompt, build_first_message, fetch_user_context
