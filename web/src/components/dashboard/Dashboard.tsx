@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { useRouter } from 'next/navigation';
 import { useDashboardData } from '@/hooks/useDashboardData';
 import { HeroTimer } from '@/components/dashboard/HeroTimer';
 import { AssessmentCard } from '@/components/dashboard/AssessmentCard';
@@ -9,6 +10,7 @@ import { Button } from '@/components/ui/Button';
 import { LogOut, Target, Settings, Flame } from 'lucide-react';
 
 export default function Dashboard({ onLogout, onJoinCall }: { onLogout: () => void, onJoinCall: () => void }) {
+  const router = useRouter();
   const { data, loading } = useDashboardData();
 
   if (loading) {
@@ -120,7 +122,10 @@ export default function Dashboard({ onLogout, onJoinCall }: { onLogout: () => vo
             </div>
 
             {/* Settings Button */}
-            <button className="w-full p-4 border-2 border-black/20 hover:border-black flex items-center justify-center gap-2 transition-colors hover:bg-black hover:text-white">
+            <button 
+              onClick={() => router.push('/account/settings')}
+              className="w-full p-4 border-2 border-black/20 hover:border-black flex items-center justify-center gap-2 transition-colors hover:bg-black hover:text-white"
+            >
               <Settings size={16} />
               <span className="font-mono text-xs uppercase tracking-widest">Settings</span>
             </button>
