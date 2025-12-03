@@ -108,7 +108,7 @@ export const auth = {
 
   onAuthStateChange(callback: (user: User | null, session: Session | null) => void) {
     const client = getClient()
-    return client.auth.onAuthStateChange((_event, session) => {
+    return client.auth.onAuthStateChange((_event: string, session: Session | null) => {
       callback(session?.user || null, session)
     })
   },
