@@ -341,3 +341,4 @@ $RECYCLE.BIN/
 bun.lockb
 
 # End of .gitignore
+.dev.vars
