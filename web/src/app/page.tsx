@@ -1,11 +1,13 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Check, ArrowRight, Phone, X, Clock, Mic, Calendar, TrendingUp, Volume2 } from 'lucide-react';
+import { Check, ArrowRight, Phone, X, Clock, Mic, Calendar, TrendingUp, Volume2, User } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function LandingPage() {
   const router = useRouter();
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
   const [debugLogs, setDebugLogs] = useState<string[] | null>(null);
 
   useEffect(() => {
@@ -67,7 +69,33 @@ export default function LandingPage() {
       <nav className="fixed top-0 left-0 right-0 z-50 bg-white border-b-2 border-black">
         <div className="max-w-5xl mx-auto px-6 h-14 flex justify-between items-center">
           <div className="text-xl font-bold">You+</div>
-          <button onClick={() => router.push('/auth/login')} className="text-sm hover:underline underline-offset-4">Login</button>
+          
+          {/* Auth-aware nav button */}
+          {authLoading ? (
+            <div className="w-8 h-8 rounded-full bg-gray-200 animate-pulse" />
+          ) : isAuthenticated ? (
+            <button 
+              onClick={() => router.push('/dashboard')}
+              className="flex items-center gap-2 group"
+            >
+              {user?.user_metadata?.avatar_url ? (
+                <img 
+                  src={user.user_metadata.avatar_url} 
+                  alt="Profile" 
+                  className="w-8 h-8 rounded-full border-2 border-black group-hover:border-black/50 transition-colors"
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-full border-2 border-black bg-black text-white flex items-center justify-center group-hover:bg-gray-800 transition-colors">
+                  <User size={16} />
+                </div>
+              )}
+              <span className="text-sm font-medium hidden sm:block group-hover:underline underline-offset-4">
+                {user?.user_metadata?.name?.split(' ')[0] || 'Dashboard'}
+              </span>
+            </button>
+          ) : (
+            <button onClick={() => router.push('/auth/login')} className="text-sm hover:underline underline-offset-4">Login</button>
+          )}
         </div>
       </nav>
 
@@ -570,8 +598,9 @@ export default function LandingPage() {
           <div className="max-w-3xl mx-auto flex justify-between items-center text-sm">
             <span className="font-bold">You+</span>
             <div className="flex gap-8">
-              <a href="#" className="text-white/50 hover:text-white">Contact</a>
-              <a href="#" className="text-white/40 hover:text-white">Terms</a>
+              <a href="mailto:support@youplus.app" className="text-white/50 hover:text-white">Contact</a>
+              <a href="/legal/terms" className="text-white/40 hover:text-white">Terms</a>
+              <a href="/legal/privacy" className="text-white/40 hover:text-white">Privacy</a>
             </div>
           </div>
         </footer>
