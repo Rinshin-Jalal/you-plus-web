@@ -17,11 +17,12 @@ const combinedRouter = new Hono();
 combinedRouter.route("/identity", identityRouter);
 combinedRouter.route("/api/onboarding", onboardingRouter);
 combinedRouter.route("/api/billing", billingRouter);
+combinedRouter.route("/api/calls", callRouter);  // Cartesia agent calls /api/calls/report
 combinedRouter.route("/webhook", webhookRouter);
 combinedRouter.route("/webhook/dodopayments", dodoWebhook);
 combinedRouter.route("/trigger", triggerRouter);
 combinedRouter.route("/voip", voipRouter);
-combinedRouter.route("/call", callRouter);
+combinedRouter.route("/call", callRouter);  // Legacy path for backwards compatibility
 combinedRouter.route("/api/livekit", livekitRouter);
 
 // Core router mounted at root to handle /api/*, /debug/*, etc.
