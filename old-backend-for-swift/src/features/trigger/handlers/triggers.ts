@@ -1,5 +1,6 @@
 import { Context } from "hono";
 import { processUserCall } from "@/features/trigger/services/call-trigger";
+import { handleManualCallTrigger } from "@/features/trigger/services/cartesia-call-trigger";
 import { sendVoipPushNotification } from "@/features/core/services/push-notification-service";
 import { generateCallUUID } from "@/features/core/utils/uuid";
 import { createSupabaseClient } from "@/features/core/utils/database";
@@ -249,6 +250,54 @@ export const triggerOnboardingCallAdmin = async (c: Context) => {
       {
         success: false,
         error: "Failed to trigger onboarding call",
+        details: error instanceof Error ? error.message : "Unknown error",
+      },
+      500
+    );
+  }
+};
+
+/**
+ * Trigger a Cartesia Line outbound call for a user
+ * POST /trigger/cartesia/:userId
+ * 
+ * This triggers a REAL phone call to the user using Cartesia Line.
+ * The agent will use the user's cloned voice (Future You).
+ */
+export const triggerCartesiaCallAdmin = async (c: Context) => {
+  const { userId } = c.req.param();
+  const env = c.env as Env;
+
+  console.log(`📞 Triggering Cartesia Line call for user: ${userId}`);
+
+  if (!userId) {
+    return c.json({ error: "Missing userId parameter" }, 400);
+  }
+
+  try {
+    const result = await handleManualCallTrigger(userId, env);
+
+    if (result.success) {
+      return c.json({
+        success: true,
+        message: `Cartesia call initiated for user ${userId}`,
+        callId: result.callId,
+      });
+    } else {
+      return c.json(
+        {
+          success: false,
+          error: result.error || "Failed to trigger Cartesia call",
+        },
+        500
+      );
+    }
+  } catch (error) {
+    console.error("❌ Cartesia call trigger failed:", error);
+    return c.json(
+      {
+        success: false,
+        error: "Failed to trigger Cartesia call",
         details: error instanceof Error ? error.message : "Unknown error",
       },
       500

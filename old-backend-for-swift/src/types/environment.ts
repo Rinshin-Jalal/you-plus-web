@@ -33,6 +33,7 @@ export const EnvSchema = z.object({
 
   // Cartesia configuration (new)
   CARTESIA_API_KEY: z.string().min(1, "Cartesia API key is required"),
+  CARTESIA_AGENT_ID: z.string().optional(), // Deployed agent ID from 'cartesia deploy'
 
   // ElevenLabs configuration (legacy - optional for backward compatibility)
   ELEVENLABS_API_KEY: z.string().optional(),
@@ -132,6 +133,7 @@ export const EnvCategories = {
     LIVEKIT_API_SECRET: "LiveKit API secret for token generation",
     LIVEKIT_URL: "LiveKit Cloud WebSocket URL (wss://...)",
     CARTESIA_API_KEY: "Cartesia API key for STT (Ink) and TTS (Sonic-3)",
+    CARTESIA_AGENT_ID: "Deployed Cartesia Line agent ID for outbound calls",
     DEEPGRAM_API_KEY: "Deepgram API key for speech recognition (optional, deprecated)",
     GEMINI_API_KEY: "Gemini API key for returning user personalization (optional)",
   },

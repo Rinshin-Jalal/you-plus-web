@@ -5,7 +5,8 @@ import {
   triggerVoipPushAdmin,
   processScheduledCallsAdmin,
   processRetryQueueAdmin,
-  triggerOnboardingCallAdmin
+  triggerOnboardingCallAdmin,
+  triggerCartesiaCallAdmin
 } from './handlers/triggers';
 
 const router = new Hono();
@@ -33,5 +34,15 @@ router.post('/scheduled-calls', requireAuth, processScheduledCallsAdmin);
 
 // @admin-only - Process retry queue (system operation)
 router.post('/retry-queue', requireAuth, processRetryQueueAdmin);
+
+// ===================================================================
+// Cartesia Line Telephony Routes
+// ===================================================================
+// Direct phone calls using Cartesia Line SDK
+// Uses user's cloned voice for "Future You" agent
+// ===================================================================
+
+// @admin-only - Trigger Cartesia Line outbound call for a user
+router.post('/cartesia/:userId', requireAuth, triggerCartesiaCallAdmin);
 
 export default router;

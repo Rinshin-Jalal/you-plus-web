@@ -5,6 +5,7 @@ export * from './handlers/triggers';
 
 // Services
 export * from './services/call-trigger';
+export * from './services/cartesia-call-trigger';
 export * from './services/scheduler-engine';
 export * from './services/retry-processor';
 
