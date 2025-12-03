@@ -1,0 +1,67 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# 🎤 YOU+ FUTURE YOU AGENT - Cartesia Deployment Config
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# Deploy with: cartesia deploy
+# Test with:   cartesia call +1XXXXXXXXXX --metadata '{"user_id": "uuid"}'
+#
+# ═══════════════════════════════════════════════════════════════════════════════
+
+name: future-you
+version: "1.0.0"
+description: "YOU+ Future Self - Your accountability partner calling from the future"
+
+# Entry point
+entrypoint: agent.py
+
+# Runtime configuration
+runtime:
+  python_version: "3.11"
+
+# Environment variables (secrets stored in Cartesia dashboard)
+secrets:
+  - GEMINI_API_KEY
+  - SUPABASE_URL
+  - SUPABASE_SERVICE_KEY
+  - BACKEND_URL
+
+# Telephony settings
+telephony:
+  # Twilio integration (Cartesia manages this)
+  provider: twilio
+  
+  # Inbound call settings (for testing)
+  inbound:
+    enabled: false
+  
+  # Outbound call settings (triggered by backend)
+  outbound:
+    enabled: true
+    # Caller ID shown to users (your Twilio number)
+    # caller_id: "+1XXXXXXXXXX"
+
+# Voice settings
+voice:
+  # Default voice (used if user has no clone)
+  default_voice_id: "a0e99841-438c-4a64-b679-ae501e7d6091"
+  
+  # TTS model
+  model: "sonic-2024-12-12"
+  
+  # STT settings
+  stt:
+    model: "ink-2024-12-12"
+    language: "en"
+
+# Agent behavior
+agent:
+  # Max call duration (2 minutes for quick accountability check)
+  max_duration_seconds: 180
+  
+  # Silence detection (end call if user is silent too long)
+  silence_timeout_seconds: 15
+  
+  # Turn detection sensitivity
+  turn_detection:
+    threshold: 0.5
+    silence_duration_ms: 500
