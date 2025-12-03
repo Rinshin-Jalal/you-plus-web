@@ -1,6 +1,6 @@
 import { CallType, User } from "@/types/database";
 import { createSupabaseClient, getActiveUsers } from "@/features/core/utils/database";
-import { processUserCall } from "./call-trigger";
+import { processCartesiaCall } from "./cartesia-call-trigger";
 import type { Env } from "@/index";
 
 /* ═══════════════════════════════════════════════════════════════════════════════
@@ -173,8 +173,8 @@ export class UserScheduleEngine {
             `📞 Processing ${callType} call: ${user.id} (${user.timezone})`
           );
 
-          // 🎯 Generate and trigger the accountability call via consequence engine
-          const result = await processUserCall(user, callType, this.env);
+          // 🎯 Trigger the Cartesia Line call (real telephony)
+          const result = await processCartesiaCall(user, callType, this.env);
 
           if (result.success) {
             console.log(`✅ ${callType} call success: ${user.id}`);
