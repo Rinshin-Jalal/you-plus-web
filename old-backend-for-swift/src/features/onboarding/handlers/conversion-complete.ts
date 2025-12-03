@@ -3,6 +3,7 @@ import { createSupabaseClient, upsertPushToken } from "@/features/core/utils/dat
 import { Env } from "@/types/environment";
 import { getAuthenticatedUserId } from "@/middleware/auth";
 import { uploadAudioToR2 } from "@/features/voice/services/r2-upload";
+import { VoiceCloneService } from "@/features/voice/services/voice-cloning";
 
 export const postConversionOnboardingComplete = async (c: Context) => {
   console.log("🎯 === CONVERSION ONBOARDING: Complete Request Received ===");
@@ -148,6 +149,41 @@ export const postConversionOnboardingComplete = async (c: Context) => {
 
     console.log(`✅ Voice uploads complete: ${Object.keys(voiceUploads).length}/3`);
 
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // 🎤 VOICE CLONING - Clone user's voice for "Future You" agent
+    // Uses commitment audio as primary voice sample (longest, clearest recording)
+    // ═══════════════════════════════════════════════════════════════════════════════
+    let clonedVoiceId: string | null = null;
+
+    const voiceUrlForCloning = voiceUploads.commitment || voiceUploads.whyItMatters || voiceUploads.costOfQuitting;
+
+    if (voiceUrlForCloning) {
+      console.log(`\n🎤 === CLONING USER VOICE ===`);
+      console.log(`📤 Using audio URL: ${voiceUrlForCloning}`);
+
+      try {
+        const voiceCloneService = new VoiceCloneService(env);
+        const cloneResult = await voiceCloneService.cloneUserVoice({
+          audio_url: voiceUrlForCloning,
+          voice_name: `${userName} - Future You`,
+          user_id: userId,
+          provider: "cartesia", // Use Cartesia for Line SDK compatibility
+        });
+
+        if (cloneResult.success && cloneResult.voice_id) {
+          clonedVoiceId = cloneResult.voice_id;
+          console.log(`✅ Voice cloned successfully! ID: ${clonedVoiceId}`);
+        } else {
+          console.warn(`⚠️ Voice cloning failed: ${cloneResult.error}`);
+        }
+      } catch (error) {
+        console.error(`💥 Voice cloning error (non-critical):`, error);
+        // Non-critical - continue with onboarding even if cloning fails
+      }
+    } else {
+      console.warn(`⚠️ No voice recordings available for cloning`);
+    }
+
     console.log(`\n📦 === BUILDING ONBOARDING CONTEXT ===`);
 
     const callTimeDate = new Date(callTime);
@@ -200,6 +236,7 @@ export const postConversionOnboardingComplete = async (c: Context) => {
         why_it_matters_audio_url: voiceUploads.whyItMatters || null,
         cost_of_quitting_audio_url: voiceUploads.costOfQuitting || null,
         commitment_audio_url: voiceUploads.commitment || null,
+        cartesia_voice_id: clonedVoiceId, // Cloned voice for Future You agent
         onboarding_context: onboardingContext,
       });
 
@@ -253,12 +290,19 @@ export const postConversionOnboardingComplete = async (c: Context) => {
     console.log(`\n🎉 === CONVERSION ONBOARDING COMPLETE ===`);
     console.log(`✅ Identity created with core fields + voice URLs + JSONB context`);
     console.log(`✅ Identity status auto-created by trigger`);
+    if (clonedVoiceId) {
+      console.log(`✅ Voice cloned for Future You agent: ${clonedVoiceId}`);
+    }
 
     return c.json({
       success: true,
       message: "Conversion onboarding completed successfully",
       completedAt: new Date().toISOString(),
       voiceUploads: voiceUploads,
+      voiceClone: {
+        cloned: !!clonedVoiceId,
+        cartesia_voice_id: clonedVoiceId || null,
+      },
       identity: {
         created: true,
         core_fields: ["name", "daily_commitment", "chosen_path", "call_time", "strike_limit"],
