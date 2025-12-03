@@ -33,6 +33,7 @@ else:
     gemini_client = None
 
 # Default voice (fallback if user has no clone)
+# NOTE: Voice ID is configured in Cartesia dashboard, not passed to with_speaking_node()
 DEFAULT_VOICE_ID = "a0e99841-438c-4a64-b679-ae501e7d6091"
 
 
@@ -48,11 +49,11 @@ async def handle_new_call(system: VoiceAgentSystem, call_request: CallRequest):
     # Fetch user's context from database
     user_context = await fetch_user_context(user_id)
 
-    # Get user's cloned voice ID (or use default)
+    # Get user's cloned voice ID (for logging - voice is configured in Cartesia dashboard)
     identity = user_context.get("identity", {})
-    voice_id = identity.get("cartesia_voice_id") or DEFAULT_VOICE_ID
-
-    print(f"🎤 Using voice ID: {voice_id}")
+    voice_id = identity.get("cartesia_voice_id")
+    if voice_id:
+        print(f"🎤 User has cloned voice: {voice_id}")
 
     # Build personalized system prompt
     system_prompt = build_system_prompt(user_context)
@@ -67,9 +68,7 @@ async def handle_new_call(system: VoiceAgentSystem, call_request: CallRequest):
 
     # Set up the bridge for event handling
     conversation_bridge = Bridge(conversation_node)
-    system.with_speaking_node(
-        conversation_node, bridge=conversation_bridge, voice_id=voice_id
-    )
+    system.with_speaking_node(conversation_node, bridge=conversation_bridge)
 
     # Wire up events
     conversation_bridge.on(UserTranscriptionReceived).map(conversation_node.add_event)
