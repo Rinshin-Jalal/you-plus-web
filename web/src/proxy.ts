@@ -20,6 +20,7 @@ export async function proxy(request: NextRequest) {
         '/auth/callback',
         '/api/auth/signout',
         '/checkout',
+        '/legal',
     ]
 
     // Routes that require auth but not onboarding/subscription
