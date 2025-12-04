@@ -17,7 +17,7 @@ export async function createClient() {
             cookiesToSet.forEach(({ name, value, options }) =>
               cookieStore.set(name, value, {
                 ...options,
-                sameSite: 'lax', // Safari requires 'lax' for proper cookie handling
+                sameSite: 'lax',
                 secure: process.env.NODE_ENV === 'production',
               })
             )

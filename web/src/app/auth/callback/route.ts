@@ -2,16 +2,6 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-/**
- * Auth Callback - Handles OAuth redirects
- * 
- * Flow for EXISTING users (from /auth/login):
- * - Has subscription → Dashboard
- * - No subscription → Onboarding
- * 
- * Flow for NEW users (from /billing/success):
- * - Bypass checks, go directly to /billing/success (it handles everything)
- */
 export async function GET(request: NextRequest) {
     const { searchParams, origin } = new URL(request.url)
     const code = searchParams.get('code')
@@ -32,7 +22,7 @@ export async function GET(request: NextRequest) {
 
     // Create response - we'll set cookies on this
     let response = NextResponse.redirect(`${origin}${next}`)
-    
+
     const supabase = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -53,27 +43,27 @@ export async function GET(request: NextRequest) {
             },
         }
     )
-    
+
     // Exchange code for session
     console.log('[CALLBACK] Exchanging code for session...')
     const { data, error } = await supabase.auth.exchangeCodeForSession(code)
-    
+
     if (error) {
         console.error('[CALLBACK] Exchange error:', error.message)
         return NextResponse.redirect(`${origin}/auth/auth-code-error`)
     }
-    
+
     console.log('[CALLBACK] Session exchanged for:', data.user?.email)
-    
+
     // Bypass routes handle their own logic
     if (shouldBypass) {
         console.log('[CALLBACK] Bypassing checks, redirecting to:', next)
         return response
     }
-    
+
     // For other routes, check user status
     const { data: { user } } = await supabase.auth.getUser()
-    
+
     if (!user) {
         console.log('[CALLBACK] No user found after exchange')
         return NextResponse.redirect(`${origin}/auth/login`)
@@ -94,8 +84,8 @@ export async function GET(request: NextRequest) {
         .order('created_at', { ascending: false })
 
     // Check if user has active subscription
-    const activeSubscription = subscriptions?.find(s => 
-        s.status === 'active' && 
+    const activeSubscription = subscriptions?.find(s =>
+        s.status === 'active' &&
         (!s.current_period_end || new Date(s.current_period_end) > new Date())
     )
     const hasActiveSubscription = !!activeSubscription
@@ -104,8 +94,8 @@ export async function GET(request: NextRequest) {
     const hadPreviousSubscription = subscriptions && subscriptions.length > 0
     const isReturningUser = hadPreviousSubscription && !hasActiveSubscription
 
-    console.log('[CALLBACK] User status:', { 
-        onboardingCompleted: userData?.onboarding_completed, 
+    console.log('[CALLBACK] User status:', {
+        onboardingCompleted: userData?.onboarding_completed,
         hasSubscription: hasActiveSubscription,
         isReturningUser,
         totalSubscriptions: subscriptions?.length || 0
@@ -130,12 +120,12 @@ export async function GET(request: NextRequest) {
     // 2. Has subscription + no onboarding → Onboarding (weird edge case)
     // 3. No subscription but HAD subscription before → Returning user onboarding (short)
     // 4. No subscription ever → Onboarding (full sales pitch → checkout)
-    
+
     if (hasActiveSubscription && userData?.onboarding_completed) {
         console.log('[CALLBACK] Active user, going to dashboard')
         return createRedirect('/dashboard')
     }
-    
+
     if (hasActiveSubscription && !userData?.onboarding_completed) {
         console.log('[CALLBACK] Has subscription but no onboarding, going to onboarding')
         return createRedirect('/onboarding')
@@ -146,7 +136,7 @@ export async function GET(request: NextRequest) {
         console.log('[CALLBACK] Returning user detected, going to personalized onboarding')
         return createRedirect('/onboarding/returning')
     }
-    
+
     // No subscription ever - send to full onboarding (sales pitch → checkout)
     console.log('[CALLBACK] New user, no subscription, going to onboarding')
     return createRedirect('/onboarding')

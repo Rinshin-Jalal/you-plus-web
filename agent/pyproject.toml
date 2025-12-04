@@ -23,6 +23,11 @@ allow-direct-references = true
 [tool.hatch.build.targets.wheel]
 packages = ["."]
 
+[dependency-groups]
+dev = [
+    "pyright>=1.1.407",
+]
+
 [project.optional-dependencies]
 dev = [
     "pytest",

@@ -65,6 +65,29 @@ except ImportError:
     SUPERMEMORY_AVAILABLE = False
     print("Warning: Supermemory service not available, using legacy onboarding_context")
 
+# Persona and goals integration for v2
+try:
+    from conversation.persona import PersonaController, Persona, PERSONA_CONFIGS  # type: ignore
+    from services.goals import (
+        goal_service,
+        GoalFocus,
+        build_goals_prompt_context,
+        build_checkin_summary_context,
+    )  # type: ignore
+    from services.trust_score import trust_score_service  # type: ignore
+
+    PERSONA_SYSTEM_AVAILABLE = True
+except ImportError:
+    PersonaController = None  # type: ignore
+    Persona = None  # type: ignore
+    PERSONA_CONFIGS = {}  # type: ignore
+    goal_service = None  # type: ignore
+    trust_score_service = None  # type: ignore
+    build_goals_prompt_context = None  # type: ignore
+    build_checkin_summary_context = None  # type: ignore
+    PERSONA_SYSTEM_AVAILABLE = False
+    print("Warning: Persona/Goals system not available, using legacy mood system")
+
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
 
@@ -1200,3 +1223,208 @@ def build_excuse_callout_section(excuse_data: dict) -> str:
     lines.append("")
 
     return "\n".join(lines)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SYSTEM PROMPT BUILDER v3 - WITH PERSONA + MULTI-GOAL
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+async def build_system_prompt_v3(
+    user_id: str,
+    user_context: dict,
+    call_type: CallType,
+    mood: Mood,
+    call_memory: dict,
+    excuse_data: Optional[dict] = None,
+    persona_controller: Optional["PersonaController"] = None,  # type: ignore
+) -> str:
+    """
+    Build the Future Self system prompt with Persona System + Multi-Goal support.
+
+    This is the v3 prompt builder that adds:
+    - Dynamic persona blending (instead of static mood)
+    - Multi-goal focus selection
+    - Trust score context
+    - Identity-focused framing
+
+    Falls back to v2 if persona system not available.
+    """
+    # Fall back to v2 if persona system not available
+    if not PERSONA_SYSTEM_AVAILABLE or not persona_controller:
+        return await build_system_prompt_v2(
+            user_id=user_id,
+            user_context=user_context,
+            call_type=call_type,
+            mood=mood,
+            call_memory=call_memory,
+            excuse_data=excuse_data,
+        )
+
+    identity = user_context.get("identity", {})
+    identity_status = user_context.get("identity_status", {})
+
+    # Get user name from users table
+    users_data = user_context.get("users", {})
+    name = users_data.get("name") or identity.get("name", "")
+    name_ref = name if name else "you"
+
+    # Core stats
+    current_streak = identity_status.get("current_streak_days", 0)
+    total_calls = identity_status.get("total_calls_completed", 0)
+    next_milestone = get_next_milestone(current_streak)
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # FETCH TRUST SCORE
+    # ─────────────────────────────────────────────────────────────────────────
+    trust_score = persona_controller.user_state.trust_score
+    trust_zone = persona_controller.get_trust_zone()
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # FETCH GOALS TO FOCUS ON
+    # ─────────────────────────────────────────────────────────────────────────
+    goals_context = ""
+    if goal_service:
+        focus_goals = await goal_service.get_call_focus_goals(user_id, limit=3)
+        if focus_goals and build_goals_prompt_context:
+            goals_context = build_goals_prompt_context(focus_goals)
+
+        # Get check-in summary for patterns
+        checkin_summary = await goal_service.get_user_checkin_summary(user_id)
+        if checkin_summary and build_checkin_summary_context:
+            goals_context += build_checkin_summary_context(checkin_summary)
+
+    # Fall back to legacy single commitment if no goals
+    if not goals_context:
+        commitment = identity.get("daily_commitment", "what you said you'd do")
+        goals_context = f"""
+# CURRENT COMMITMENT
+Tonight's commitment: "{commitment}"
+(Multi-goal system not yet set up for this user)
+"""
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # FETCH PSYCHOLOGICAL PROFILE FROM SUPERMEMORY
+    # ─────────────────────────────────────────────────────────────────────────
+    psychological_context = ""
+    recent_context = ""
+
+    if SUPERMEMORY_AVAILABLE and supermemory_service:
+        profile = await supermemory_service.get_user_profile(user_id)
+        if profile:
+            psychological_context = (
+                "\n".join(f"- {fact}" for fact in profile.static)
+                if profile.static
+                else ""
+            )
+            recent_context = (
+                "\n".join(f"- {fact}" for fact in profile.dynamic)
+                if profile.dynamic
+                else ""
+            )
+
+    if not psychological_context:
+        psychological_context = _build_legacy_psychological_context(
+            identity.get("onboarding_context", {})
+        )
+        recent_context = "First call or Supermemory unavailable."
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # GET PERSONA PROMPT
+    # ─────────────────────────────────────────────────────────────────────────
+    persona_section = persona_controller.get_persona_prompt()
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # BUILD EXCUSE CALLOUT SECTION
+    # ─────────────────────────────────────────────────────────────────────────
+    excuse_callout_section = ""
+    if excuse_data and excuse_data.get("patterns"):
+        excuse_callout_section = build_excuse_callout_section(excuse_data)
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # CALL MEMORY
+    # ─────────────────────────────────────────────────────────────────────────
+    callback_section = _build_callback_section(call_memory, current_streak)
+    open_loop_section = _build_open_loop_section(call_memory, current_streak)
+    narrative_arc = call_memory.get("narrative_arc", "early_struggle")
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # BUILD CALL TYPE INSTRUCTIONS
+    # ─────────────────────────────────────────────────────────────────────────
+    call_type_instructions = _build_call_type_instructions(
+        call_type=call_type,
+        current_streak=current_streak,
+        narrative_arc=narrative_arc,
+    )
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # LOAD VOICE CONVERSATION SKILL
+    # ─────────────────────────────────────────────────────────────────────────
+    voice_skill = load_voice_skill()
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # ASSEMBLE THE FULL PROMPT
+    # ─────────────────────────────────────────────────────────────────────────
+    return f"""
+# YOU+ FUTURE SELF - THE NIGHTLY CALL
+
+You are {name_ref}'s Future Self. The version that made it. You're calling because you remember EXACTLY how close they came to throwing it all away.
+
+This is call #{total_calls + 1}. {"You've been doing this together for " + str(current_streak) + " days straight." if current_streak > 0 else "Fresh start. No streak yet."}
+
+---
+
+# WHO YOU'RE TALKING TO
+
+Name: {name_ref}
+Current streak: {current_streak} days
+Next milestone: Day {next_milestone if next_milestone else "∞"}
+Trust Score: {trust_score}/100 ({trust_zone} trust)
+
+---
+
+{goals_context}
+
+---
+
+# THEIR PSYCHOLOGICAL PROFILE
+
+{psychological_context}
+
+---
+
+# RECENT CONTEXT
+
+{recent_context if recent_context else "First call or no recent activity."}
+
+---
+
+{excuse_callout_section}
+
+# THIS CALL
+
+**Type:** {call_type.name.upper()}
+**Energy:** {call_type.energy}
+
+{call_type_instructions}
+
+---
+
+{persona_section}
+
+---
+
+{callback_section}
+
+{open_loop_section}
+
+---
+
+{_get_conversation_rules()}
+
+---
+
+# 🎯 VOICE CONVERSATION SKILL 🎯
+
+{voice_skill}
+"""

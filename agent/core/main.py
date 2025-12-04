@@ -37,6 +37,7 @@ load_dotenv()
 from core.chat_node import FutureYouNode
 from core.config import (
     build_system_prompt_v2,
+    build_system_prompt_v3,
     build_first_message,
     fetch_user_context,
     fetch_call_memory,
@@ -49,6 +50,18 @@ from core.config import (
 from services.supermemory import supermemory_service
 from conversation.call_types import select_call_type, CallType
 from conversation.mood import select_mood, Mood
+
+# Persona system integration
+try:
+    from conversation.persona import PersonaController  # type: ignore
+    from services.trust_score import trust_score_service  # type: ignore
+
+    PERSONA_AVAILABLE = True
+except ImportError:
+    PersonaController = None  # type: ignore
+    trust_score_service = None  # type: ignore
+    PERSONA_AVAILABLE = False
+
 from agents.background_agents import (
     ExcuseDetectorNode,
     ExcuseCalloutNode,
@@ -250,15 +263,50 @@ async def handle_new_call(system: VoiceAgentSystem, call_request: CallRequest):
         )
     logger.info("Setting up multi-agent system...")
 
-    # Build personalized system prompt with call type, mood, memory, and excuse patterns
-    system_prompt = await build_system_prompt_v2(
-        user_id=user_id,
-        user_context=user_context,
-        call_type=call_type,
-        mood=mood,
-        call_memory=call_memory,
-        excuse_data=excuse_data,  # Include excuse patterns for callouts
-    )
+    # =========================================================================
+    # INITIALIZE PERSONA CONTROLLER
+    # =========================================================================
+    persona_controller = None
+    if PERSONA_AVAILABLE and PersonaController and trust_score_service:
+        # Fetch trust score for persona selection
+        trust_score = await trust_score_service.get_overall_trust(user_id)
+
+        # Initialize PersonaController with trust score and yesterday's result
+        persona_controller = PersonaController(
+            initial_trust_score=trust_score,
+            yesterday_kept=yesterday_promise_kept,
+        )
+
+        # Set severity level from call memory if available
+        severity_level = call_memory.get("severity_level", 1)
+        persona_controller.set_severity_level(severity_level)
+
+        logger.info(
+            f"🎭 Persona: {persona_controller.get_primary_persona().value} "
+            f"(trust: {trust_score}, yesterday: {yesterday_promise_kept})"
+        )
+
+    # Build personalized system prompt
+    # Use v3 if persona system available, otherwise fall back to v2
+    if persona_controller:
+        system_prompt = await build_system_prompt_v3(
+            user_id=user_id,
+            user_context=user_context,
+            call_type=call_type,
+            mood=mood,
+            call_memory=call_memory,
+            excuse_data=excuse_data,
+            persona_controller=persona_controller,
+        )
+    else:
+        system_prompt = await build_system_prompt_v2(
+            user_id=user_id,
+            user_context=user_context,
+            call_type=call_type,
+            mood=mood,
+            call_memory=call_memory,
+            excuse_data=excuse_data,
+        )
 
     # =========================================================================
     # MAIN SPEAKING AGENT - FutureYouNode (uses Groq GPT-OSS-120B)
@@ -270,6 +318,7 @@ async def handle_new_call(system: VoiceAgentSystem, call_request: CallRequest):
         call_type=call_type,
         mood=mood,
         call_memory=call_memory,
+        persona_controller=persona_controller,  # Pass PersonaController
     )
     conversation_bridge = Bridge(conversation_node)
 
@@ -486,6 +535,52 @@ async def handle_new_call(system: VoiceAgentSystem, call_request: CallRequest):
 
     # Save call analytics for insights and tracking
     await save_call_analytics(call_summary)
+
+    # =========================================================================
+    # UPDATE TRUST SCORES - Based on call outcome
+    # =========================================================================
+    if (
+        PERSONA_AVAILABLE
+        and trust_score_service
+        and call_summary.promise_kept is not None
+    ):
+        # Check if they used their favorite excuse
+        identity = user_context.get("identity", {})
+        onboarding = identity.get("onboarding_context", {})
+        favorite_excuse = onboarding.get("favorite_excuse", "")
+        used_favorite = (
+            any(
+                favorite_excuse.lower() in excuse.lower()
+                for excuse in call_summary.excuses_detected
+            )
+            if favorite_excuse and call_summary.excuses_detected
+            else False
+        )
+
+        # Apply trust delta based on call outcome
+        trust_result = await trust_score_service.apply_checkin_result(
+            user_id=user_id,
+            task_id="legacy_commitment",  # For legacy single-commitment users
+            goal_id="",  # No goal_id for legacy users
+            kept=call_summary.promise_kept,
+            used_favorite_excuse=used_favorite,
+            streak_count=current_streak,
+        )
+
+        logger.info(
+            f"📈 Trust updated: {trust_result['old_trust']} -> {trust_result['new_trust']} "
+            f"({trust_result['reason']})"
+        )
+
+        # Update severity level in call memory for next call
+        if persona_controller:
+            updated_memory["severity_level"] = (
+                persona_controller.user_state.severity_level
+            )
+            # Also track primary persona for context
+            updated_memory["current_persona"] = (
+                persona_controller.get_primary_persona().value
+            )
 
     # =========================================================================
     # SAVE EXCUSE PATTERNS - For future callouts

@@ -1,0 +1,29 @@
+{
+  "include": ["."],
+  "exclude": ["**/__pycache__", ".venv", "tests"],
+  "pythonVersion": "3.10",
+  "pythonPlatform": "All",
+  "typeCheckingMode": "basic",
+  "extraPaths": [
+    ".",
+    "./core",
+    "./services",
+    "./conversation",
+    "./agents",
+    "./content"
+  ],
+  "reportMissingImports": "warning",
+  "reportMissingModuleSource": "none",
+  "reportOptionalMemberAccess": "warning",
+  "reportGeneralTypeIssues": "warning",
+  "reportUnusedImport": "information",
+  "reportUnusedVariable": "information",
+  "reportPrivateImportUsage": "none",
+  "reportUnknownMemberType": "none",
+  "reportUnknownArgumentType": "none",
+  "reportUnknownVariableType": "none",
+  "reportArgumentType": "none",
+  "reportAttributeAccessIssue": "none",
+  "useLibraryCodeForTypes": true,
+  "stubPath": ""
+}

@@ -223,12 +223,23 @@ class PaymentService {
     id: string;
     name: string;
     description: string;
-    amountCents: number;
+    amountCents?: number;
+    price_cents?: number;
+    price?: number;
     currency: string;
-    interval: 'month' | 'year';
+    interval?: string;
   }>> {
     try {
-      const response = await apiClient.get<{ plans: any[] }>('/api/billing/plans');
+      const response = await apiClient.get<{ plans: Array<{
+        id: string;
+        name: string;
+        description: string;
+        amountCents?: number;
+        price_cents?: number;
+        price?: number;
+        currency: string;
+        interval?: string;
+      }> }>('/api/billing/plans');
       return response.plans || [];
     } catch (error) {
       console.error('Error fetching plans:', error);

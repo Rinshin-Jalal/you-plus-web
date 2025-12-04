@@ -1,5 +1,35 @@
 import { apiClient } from './api';
 
+// Map step IDs to backend field names
+const STEP_ID_TO_FIELD: Record<number, string> = {
+  4: 'name',
+  6: 'goal',
+  7: 'goalDeadline',
+  8: 'motivationLevel',
+  10: 'whyItMattersAudio', // voice step
+  12: 'whoDisappointed',
+  13: 'biggestObstacle', // "What actually stopped you?"
+  14: 'attemptCount',
+  15: 'lastAttemptOutcome', // "How does it usually end?"
+  16: 'favoriteExcuse',
+  17: 'quitTime', // "When do you usually give up?"
+  19: 'age',
+  20: 'gender',
+  21: 'location',
+  23: 'successVision', // "What does victory look like?"
+  24: 'costOfQuittingAudio', // voice step
+  25: 'futureIfNoChange',
+  26: 'whatSpent', // "What have you already wasted?"
+  27: 'biggestFear', // "What scares you more?"
+  30: 'beliefLevel',
+  33: 'callsGranted',
+  34: 'voiceGranted',
+  35: 'dailyCommitment',
+  36: 'callTime',
+  37: 'strikeLimit',
+  39: 'commitmentAudio', // voice step
+};
+
 class StorageService {
   private STORAGE_KEY = 'youplus_onboarding_data';
   private VOICE_KEY = 'youplus_onboarding_voice';
@@ -96,18 +126,43 @@ class StorageService {
 
   // Push onboarding data to backend (requires auth + paid subscription)
   async pushOnboardingData(): Promise<{ success: boolean; error?: string }> {
-    const data = this.getAllOnboardingData();
+    const { formData, voiceData } = this.getAllOnboardingData();
     
     if (!this.hasOnboardingData()) {
       console.log('[Storage] No onboarding data to push');
       return { success: true };
     }
 
+    // Map step IDs to field names
+    const mappedData: Record<string, unknown> = {};
+    for (const [stepId, value] of Object.entries(formData)) {
+      const fieldName = STEP_ID_TO_FIELD[Number(stepId)];
+      if (fieldName) {
+        mappedData[fieldName] = value;
+      } else {
+        // Keep unknown fields as-is (might be metadata)
+        mappedData[stepId] = value;
+      }
+    }
+
+    // Map voice recordings to their field names
+    const mappedVoice: Record<string, string> = {};
+    for (const [stepId, voiceInfo] of Object.entries(voiceData)) {
+      const fieldName = STEP_ID_TO_FIELD[Number(stepId)];
+      if (fieldName && voiceInfo.data) {
+        mappedVoice[fieldName] = voiceInfo.data;
+      }
+    }
+
+    // Merge voice data into mapped data
+    if (mappedVoice.whyItMattersAudio) mappedData.whyItMattersAudio = mappedVoice.whyItMattersAudio;
+    if (mappedVoice.costOfQuittingAudio) mappedData.costOfQuittingAudio = mappedVoice.costOfQuittingAudio;
+    if (mappedVoice.commitmentAudio) mappedData.commitmentAudio = mappedVoice.commitmentAudio;
+
+    console.log('[Storage] Mapped onboarding data:', Object.keys(mappedData));
+
     try {
-      await apiClient.post('/onboarding/conversion/complete', {
-        profile_data: data.formData,
-        voice_recordings: data.voiceData
-      });
+      await apiClient.post('/onboarding/conversion/complete', mappedData);
       
       // Clear local data after successful push
       this.clearOnboardingData();

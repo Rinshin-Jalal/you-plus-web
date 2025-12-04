@@ -2,17 +2,8 @@ import { type NextRequest, NextResponse } from 'next/server'
 import { updateSession } from '@/utils/supabase/proxy'
 
 export async function proxy(request: NextRequest) {
-    const { pathname, search } = request.nextUrl
-    
-    // Debug: log full URL for callback
-    if (pathname === '/auth/callback') {
-        console.log('[PROXY] /auth/callback hit')
-        console.log('[PROXY] Full URL:', request.url)
-        console.log('[PROXY] Search params:', search)
-        console.log('[PROXY] Code param:', request.nextUrl.searchParams.get('code'))
-    }
+    const { pathname } = request.nextUrl
 
-    // Public routes that don't require auth or onboarding
     const publicRoutes = [
         '/',
         '/auth/login',
