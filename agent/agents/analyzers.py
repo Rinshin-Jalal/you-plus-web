@@ -160,14 +160,6 @@ class ExcuseCalloutNode(Node):
         logger.info(f"🎯 Excuse callout ({callout_type}): {suggested_response[:50]}...")
         return callout
 
-    async def process_context(
-        self, context: ConversationContext
-    ) -> AsyncGenerator[ExcuseCallout, None]:
-        """Not used - this node responds to ExcuseDetected events via receive_excuse."""
-        return
-        yield  # Make this a generator
-
-
 class PatternAnalyzerNode(Node):
     """
     Analyzes user's behavior against historical patterns.
