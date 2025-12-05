@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import type { Env } from '@/index';
 import { requireAuth } from '@/middleware/auth';
-import { createDodoPaymentsService } from '@/services/dodopayments-service';
+import { createDodoPaymentsService } from './dodopayments-service';
 import { createSupabaseClient } from '@/features/core/utils/database';
 
 const billing = new Hono<{

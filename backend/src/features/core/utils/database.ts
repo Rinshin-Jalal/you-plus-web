@@ -1,30 +1,322 @@
 import { createClient } from "@supabase/supabase-js";
-import {
-  CallAnalytics,
-  CallMemory,
-  Database,
-  ExcusePattern,
-  Status,
-  User,
-  UserContext,
-} from "@/types/database";
 import { format, subDays } from "date-fns";
 import { Env } from "@/index";
+
+// ============================================================================
+// DATABASE TYPES
+// ============================================================================
+
+export type BigBruhhTone =
+  | "Confrontational"
+  | "ColdMirror"
+  | "Encouraging";
+
+export type CallMood =
+  | "motivated"
+  | "tired"
+  | "defensive"
+  | "honest"
+  | "defeated"
+  | "energized";
+
+export type PersonaType =
+  | "mentor"
+  | "champion"
+  | "drill_sergeant"
+  | "disappointed"
+  | "strategist"
+  | "ally";
+
+export type NarrativeArc =
+  | "early_struggle"
+  | "building_momentum"
+  | "breakthrough"
+  | "maintaining"
+  | "recovery";
+
+export type CallSource = "cartesia" | "elevenlabs";
+export type CallOutcome = "success" | "failure" | "unknown";
+export type RetryReason = "missed" | "declined" | "failed";
+
+// ============================================================================
+// TABLE INTERFACES
+// ============================================================================
+
+export interface User {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  name: string;
+  email: string;
+  timezone: string;
+  subscription_status: "active" | "trialing" | "cancelled" | "past_due";
+  dodo_customer_id?: string;
+  phone_number?: string;
+  onboarding_completed: boolean;
+  onboarding_completed_at?: string;
+}
+
+export interface OnboardingContext {
+  goal: string;
+  goal_deadline?: string;
+  motivation_level: number;
+  attempt_count?: number;
+  attempt_history?: string;
+  favorite_excuse?: string;
+  who_disappointed?: string;
+  biggest_obstacle?: string;
+  how_did_quit?: string;
+  quit_time?: string;
+  quit_pattern?: string;
+  age?: number;
+  gender?: string;
+  location?: string;
+  acquisition_source?: string;
+  success_vision?: string;
+  future_if_no_change: string;
+  what_spent?: string;
+  biggest_fear?: string;
+  demo_call_rating?: number;
+  witness?: string;
+  will_do_this?: boolean;
+  permissions: {
+    notifications: boolean;
+    calls: boolean;
+  };
+  completed_at: string;
+  time_spent_minutes: number;
+  [key: string]: any;
+}
+
+export interface Identity {
+  id: string;
+  user_id: string;
+  created_at: string;
+  updated_at: string;
+  name: string;
+  daily_commitment: string;
+  call_time: string;
+  cartesia_voice_id?: string;
+  supermemory_container_id?: string;
+  onboarding_context: OnboardingContext;
+}
+
+export interface Status {
+  id: string;
+  user_id: string;
+  created_at: string;
+  updated_at: string;
+  current_streak_days: number;
+  longest_streak_days: number;
+  total_calls_completed: number;
+  last_call_at?: string | null;
+  trust_score: number;
+  promises_kept_total: number;
+  promises_broken_total: number;
+  promises_kept_last_7_days: number;
+  promises_broken_last_7_days: number;
+  calls_paused: boolean;
+  calls_paused_until?: string | null;
+}
+
+export interface CallMemory {
+  id: string;
+  user_id: string;
+  created_at: string;
+  updated_at: string;
+  memorable_quotes: Array<{ quote: string; context: string; date: string }>;
+  emotional_peaks: Array<{ moment: string; emotion: string; date: string }>;
+  open_loops: Array<{ topic: string; mentioned_at: string; resolved: boolean }>;
+  last_call_type: string;
+  call_type_history: string[];
+  narrative_arc: NarrativeArc;
+  last_mood: CallMood | string;
+  current_persona: PersonaType;
+  severity_level: number;
+  last_commitment?: string;
+  last_commitment_time?: string;
+  last_commitment_specific: boolean;
+}
+
+export interface CallAnalytics {
+  id: string;
+  user_id: string;
+  created_at: string;
+  call_type: string;
+  mood: CallMood | string;
+  call_duration_seconds: number;
+  call_quality_score: number;
+  promise_kept?: boolean;
+  tomorrow_commitment?: string;
+  commitment_time?: string;
+  commitment_is_specific: boolean;
+  sentiment_trajectory: Array<{ timestamp: string; sentiment: string; score: number }>;
+  excuses_detected: Array<{ excuse: string; pattern: string; confidence: number }>;
+  quotes_captured: Array<{ quote: string; context: string }>;
+  is_retry: boolean;
+  retry_attempt_number: number;
+  original_call_uuid?: string;
+  retry_reason?: RetryReason;
+  acknowledged: boolean;
+  acknowledged_at?: string;
+  timeout_at?: string;
+  conversation_id?: string;
+  source?: CallSource;
+  audio_url?: string;
+  transcript_json?: Record<string, any>;
+  transcript_summary?: string;
+  call_successful: CallOutcome;
+  start_time?: string;
+  end_time?: string;
+  cost_cents?: number;
+}
+
+export interface ExcusePattern {
+  id: string;
+  user_id: string;
+  created_at: string;
+  excuse_text: string;
+  excuse_pattern: string;
+  matches_favorite: boolean;
+  confidence: number;
+  streak_day?: number;
+  call_type?: string;
+  was_called_out: boolean;
+}
+
+export interface Subscription {
+  id: string;
+  user_id: string;
+  created_at: string;
+  updated_at: string;
+  provider: "dodopayments";
+  provider_subscription_id: string;
+  provider_customer_id?: string;
+  status: "active" | "cancelled" | "past_due" | "trialing" | "paused";
+  plan_id?: string;
+  plan_name?: string;
+  amount_cents?: number;
+  currency: string;
+  current_period_start?: string;
+  current_period_end?: string;
+  cancelled_at?: string;
+  cancel_at_period_end: boolean;
+  trial_start?: string;
+  trial_end?: string;
+}
+
+export interface Onboarding {
+  id: string;
+  user_id?: string;
+  responses: Record<string, any>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UserContext {
+  user: User;
+  identity: Identity | null;
+  status: Status | null;
+  callMemory: CallMemory | null;
+  recentCallAnalytics: CallAnalytics[];
+  stats: {
+    totalCalls: number;
+    currentStreak: number;
+    longestStreak: number;
+    trustScore: number;
+    promisesKeptTotal: number;
+    promisesBrokenTotal: number;
+    promisesKeptLast7Days: number;
+    promisesBrokenLast7Days: number;
+    successRate: number;
+  };
+}
+
+// ============================================================================
+// DATABASE SCHEMA TYPE (for Supabase client)
+// ============================================================================
+
+export interface Database {
+  public: {
+    Tables: {
+      users: {
+        Row: User;
+        Insert: Omit<User, "id" | "created_at" | "updated_at">;
+        Update: Partial<Omit<User, "id" | "created_at">>;
+      };
+      identity: {
+        Row: Identity;
+        Insert: Omit<Identity, "id" | "created_at" | "updated_at">;
+        Update: Partial<Omit<Identity, "id" | "created_at">>;
+      };
+      status: {
+        Row: Status;
+        Insert: Omit<Status, "id" | "created_at" | "updated_at">;
+        Update: Partial<Omit<Status, "id" | "created_at">>;
+      };
+      call_memory: {
+        Row: CallMemory;
+        Insert: Omit<CallMemory, "id" | "created_at" | "updated_at">;
+        Update: Partial<Omit<CallMemory, "id" | "created_at">>;
+      };
+      call_analytics: {
+        Row: CallAnalytics;
+        Insert: Omit<CallAnalytics, "id" | "created_at">;
+        Update: Partial<Omit<CallAnalytics, "id" | "created_at">>;
+      };
+      excuse_patterns: {
+        Row: ExcusePattern;
+        Insert: Omit<ExcusePattern, "id" | "created_at">;
+        Update: Partial<Omit<ExcusePattern, "id" | "created_at">>;
+      };
+      subscriptions: {
+        Row: Subscription;
+        Insert: Omit<Subscription, "id" | "created_at" | "updated_at">;
+        Update: Partial<Omit<Subscription, "id" | "created_at">>;
+      };
+      onboarding: {
+        Row: Onboarding;
+        Insert: Omit<Onboarding, "id" | "created_at" | "updated_at">;
+        Update: Partial<Omit<Onboarding, "id" | "created_at">>;
+      };
+    };
+    Views: {
+      [_ in never]: never;
+    };
+    Functions: {
+      update_trust_score: {
+        Args: { p_user_id: string; p_change: number; p_reason: string };
+        Returns: number;
+      };
+      get_excuse_callout_data: {
+        Args: { p_user_id: string };
+        Returns: Array<{
+          excuse_pattern: string;
+          times_this_week: number;
+          times_total: number;
+          days_used: number[];
+          is_favorite: boolean;
+          last_used: string;
+        }>;
+      };
+    };
+    Enums: {
+      [_ in never]: never;
+    };
+    CompositeTypes: {
+      [_ in never]: never;
+    };
+  };
+}
 
 // ============================================================================
 // CLIENT CREATION
 // ============================================================================
 
-/**
- * Utility to check if we're in development mode
- */
 export function isDevelopmentMode(): boolean {
   return process.env.NODE_ENV !== "production";
 }
 
-/**
- * Service role client for bypassing RLS policies (admin access)
- */
 export function createSupabaseServiceClient(env: Env) {
   return createClient<Database>(
     env.SUPABASE_URL,
@@ -32,9 +324,6 @@ export function createSupabaseServiceClient(env: Env) {
   );
 }
 
-/**
- * Standard client using service role key
- */
 export function createSupabaseClient(env: Env) {
   return createClient<Database>(
     env.SUPABASE_URL,
@@ -72,7 +361,7 @@ export async function getUser(env: Env, userId: string): Promise<User | null> {
 }
 
 // ============================================================================
-// STATUS QUERIES (formerly identity_status)
+// STATUS QUERIES
 // ============================================================================
 
 export async function getStatus(env: Env, userId: string): Promise<Status | null> {
@@ -147,7 +436,6 @@ export async function updateUserStreak(
 ): Promise<void> {
   const supabase = createSupabaseClient(env);
 
-  // Get current longest streak
   const { data: status } = await supabase
     .from("status")
     .select("longest_streak_days")
@@ -396,7 +684,7 @@ export async function getExcuseCalloutData(
 }
 
 // ============================================================================
-// USER CONTEXT (aggregated data for AI)
+// USER CONTEXT
 // ============================================================================
 
 export async function getUserContext(
@@ -407,7 +695,6 @@ export async function getUserContext(
     const supabase = createSupabaseClient(env);
     const sevenDaysAgo = format(subDays(new Date(), 7), "yyyy-MM-dd");
 
-    // Execute all queries in parallel
     const [
       { data: user, error: userError },
       { data: identity, error: identityError },
@@ -415,19 +702,10 @@ export async function getUserContext(
       { data: callMemory, error: callMemoryError },
       { data: recentCalls, error: recentCallsError },
     ] = await Promise.all([
-      // Fetch user
       supabase.from("users").select("*").eq("id", userId).maybeSingle(),
-
-      // Fetch identity
       supabase.from("identity").select("*").eq("user_id", userId).maybeSingle(),
-
-      // Fetch status
       supabase.from("status").select("*").eq("user_id", userId).maybeSingle(),
-
-      // Fetch call memory
       supabase.from("call_memory").select("*").eq("user_id", userId).maybeSingle(),
-
-      // Fetch recent call analytics (last 7 days)
       supabase
         .from("call_analytics")
         .select("*")
@@ -441,7 +719,6 @@ export async function getUserContext(
       return buildFallbackUserContext(userId);
     }
 
-    // Log non-critical errors
     if (identityError && identityError.code !== "PGRST116") {
       console.warn("getUserContext: identity fetch issue:", identityError.message);
     }
@@ -452,7 +729,6 @@ export async function getUserContext(
       console.warn("getUserContext: call_memory fetch issue:", callMemoryError.message);
     }
 
-    // Calculate stats from status
     const currentStreak = status?.current_streak_days ?? 0;
     const longestStreak = status?.longest_streak_days ?? 0;
     const trustScore = status?.trust_score ?? 50;
