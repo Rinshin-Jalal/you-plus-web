@@ -10,13 +10,14 @@ export async function proxy(request: NextRequest) {
         '/auth/signup',
         '/auth/callback',
         '/api/auth/signout',
-        '/checkout',
         '/legal',
     ]
 
-    // Routes that require auth but not onboarding/subscription
-    const authOnlyRoutes = [
+    // Routes that should stay open to unauthenticated users
+    // (onboarding, checkout, post-payment handoff)
+    const authOptionalRoutes = [
         '/onboarding',
+        '/checkout',
         '/billing/success',
     ]
 
@@ -28,12 +29,17 @@ export async function proxy(request: NextRequest) {
         return pathname === route || pathname.startsWith(route + '/');
     });
 
+    // Check if route allows guests (no auth required)
+    const isAuthOptionalRoute = authOptionalRoutes.some(route =>
+        pathname === route || pathname.startsWith(route + '/'),
+    );
+
     // ALWAYS refresh session (proxy runs on all routes per Supabase docs)
     const { supabaseResponse, claims } = await updateSession(request)
     const user = claims?.sub ? claims : null
 
-    // Allow public routes even without auth
-    if (isPublicRoute) {
+    // Allow public or guest-friendly routes without forcing auth
+    if (isPublicRoute || isAuthOptionalRoute) {
         return supabaseResponse
     }
 
@@ -45,12 +51,6 @@ export async function proxy(request: NextRequest) {
     }
 
     console.log(`[MIDDLEWARE] ${pathname} - User authenticated: ${claims?.email}`)
-
-    // For auth-only routes (onboarding, checkout), allow access
-    const isAuthOnlyRoute = authOnlyRoutes.some(route => pathname.startsWith(route))
-    if (isAuthOnlyRoute) {
-        return supabaseResponse
-    }
 
     // For all other routes, check onboarding and subscription status
     // We need to create a server client here for database queries

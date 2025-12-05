@@ -256,11 +256,11 @@ class PersonaController:
         else:
             # No yesterday data (first call or no promise)
             if trust_score >= 60:
-                return Persona.WISE_MENTOR
+                return Persona.COMPASSIONATE_ALLY
             elif trust_score <= 30:
-                return Persona.WISE_MENTOR  # Still start gentle on first call
+                return Persona.DISAPPOINTED_PARENT  # Start firm for low trust
             else:
-                return Persona.WISE_MENTOR
+                return Persona.STRATEGIST
 
     def update_from_insight(self, event_type: str, event_data: dict):
         """

@@ -77,24 +77,30 @@ export const corsMiddleware = () => {
       "http://127.0.0.1:3000", // Local dev
     ];
 
-    // Allow all origins for development, or check allowed list
-    if (env.ENVIRONMENT === "development") {
-      c.header("Access-Control-Allow-Origin", origin || "*");
-    } else if (origin && allowedOrigins.includes(origin)) {
-      c.header("Access-Control-Allow-Origin", origin);
-    } else if (origin && origin.includes("localhost")) {
-      // Always allow localhost for development convenience
-      c.header("Access-Control-Allow-Origin", origin);
+    // Decide which origin to echo back (or fallback to *)
+    let allowOrigin: string | undefined;
+    if (env?.ENVIRONMENT === "development") {
+      allowOrigin = origin || "*";
+    } else if (origin && (allowedOrigins.includes(origin) || origin.includes("localhost"))) {
+      allowOrigin = origin;
     }
+
+    // Fallback to wildcard to avoid accidental CORS blocks in non-prod
+    if (!allowOrigin) {
+      allowOrigin = "*";
+    }
+
+    c.header("Access-Control-Allow-Origin", allowOrigin);
+    c.header("Vary", "Origin");
 
     c.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, PATCH, OPTIONS");
     c.header("Access-Control-Allow-Headers", "Content-Type, Authorization, ngrok-skip-browser-warning");
     c.header("Access-Control-Allow-Credentials", "true");
     c.header("Access-Control-Max-Age", "86400"); // 24 hours
 
-    // Handle preflight requests
+    // Handle preflight requests (echo headers)
     if (c.req.method === "OPTIONS") {
-      return new Response(null, { status: 204 });
+      return new Response(null, { status: 204, headers: c.res.headers });
     }
 
     return await next();

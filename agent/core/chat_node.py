@@ -400,8 +400,21 @@ class FutureYouNode(ReasoningNode):
 
         recent = [
             {
-                "role": "assistant" if m["role"] == "assistant" else "user",
-                "parts": [{"text": m["content"]}],
+                "role": (
+                    "assistant"
+                    if m.get("role") == "assistant"
+                    else "model"
+                    if m.get("role") == "system"
+                    else "user"
+                ),
+                "parts": (
+                    m.get("parts")
+                    or (
+                        [{"text": c.get("text", "")} for c in m["content"]]
+                        if isinstance(m.get("content"), list)
+                        else [{"text": str(m.get("content", ""))}]
+                    )
+                ),
             }
             for m in self.messages[-4:]
         ]

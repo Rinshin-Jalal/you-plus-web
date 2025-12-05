@@ -153,14 +153,26 @@ def build_transition_check_prompt(
             role = "Agent"
         elif role == "user":
             role = "User"
-        content = msg.get("parts", [{}])
-        if isinstance(content, list) and content:
-            text = content[0].get("text", "")
+
+        # Prefer Gemini-style parts but fall back to OpenAI-style content
+        content_parts = msg.get("parts")
+        if not content_parts:
+            raw_content = msg.get("content")
+            if isinstance(raw_content, list):
+                content_parts = [
+                    {"text": part.get("text", "")} for part in raw_content if part is not None
+                ]
+            else:
+                content_parts = [{"text": str(raw_content or "")}]
+
+        if isinstance(content_parts, list) and content_parts:
+            text = content_parts[0].get("text", "")
             # Remove stage context from display
             if "[CURRENT STAGE:" in text:
                 text = text.split("[CURRENT STAGE:")[0].strip()
         else:
-            text = str(content)
+            text = str(content_parts)
+
         if text:
             conversation_text += f"{role}: {text}\n"
 

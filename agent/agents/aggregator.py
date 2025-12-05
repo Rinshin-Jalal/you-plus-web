@@ -119,9 +119,9 @@ class CallSummaryAggregator:
 
         # Promise kept
         if self.promise_response:
-            if self.promise_response.kept:
+            if self.promise_response.kept is True:
                 score += 0.15
-            else:
+            elif self.promise_response.kept is False:
                 score -= 0.1
 
         # Memorable quotes indicate engagement

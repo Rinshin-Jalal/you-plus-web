@@ -80,10 +80,10 @@ export default function BillingSuccessPage() {
   // Loading states
   if (authLoading || processing) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-purple-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">
+      <div className="min-h-screen flex items-center justify-center bg-white text-gray-900">
+        <div className="text-center space-y-4">
+          <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-purple-600 mx-auto" />
+          <p className="text-gray-700">
             {processing ? 'Setting up your account...' : 'Loading...'}
           </p>
         </div>
@@ -93,12 +93,11 @@ export default function BillingSuccessPage() {
 
   // Main UI - Sign in to activate
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
-      <div className="max-w-md w-full text-center">
-        {/* Success Icon */}
-        <div className="mb-6">
+    <div className="min-h-screen flex items-center justify-center bg-white px-4 text-gray-900">
+      <div className="max-w-md w-full text-center space-y-8">
+        <div className="flex justify-center">
           <svg
-            className="h-16 w-16 text-green-500 mx-auto"
+            className="h-16 w-16 text-green-600"
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
             viewBox="0 0 24 24"
@@ -113,16 +112,14 @@ export default function BillingSuccessPage() {
           </svg>
         </div>
 
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
-          Payment Successful!
-        </h1>
+        <div className="space-y-2">
+          <h1 className="text-3xl font-bold">Payment Successful!</h1>
+          <p className="text-lg text-gray-700">
+            Sign in to activate your subscription
+          </p>
+        </div>
 
-        <p className="text-lg text-gray-600 dark:text-gray-400 mb-8">
-          Sign in to activate your subscription
-        </p>
-
-        {/* Sign In Buttons */}
-        <div className="space-y-4 mb-8">
+        <div className="space-y-3">
           <Button
             onClick={() => handleSignIn('google')}
             className="w-full flex items-center justify-center gap-3"
@@ -150,11 +147,9 @@ export default function BillingSuccessPage() {
           </Button>
         </div>
 
-        {error && (
-          <p className="text-red-500 text-sm mb-4">{error}</p>
-        )}
+        {error && <p className="text-red-600 text-sm">{error}</p>}
 
-        <p className="text-sm text-gray-500 dark:text-gray-400">
+        <p className="text-sm text-gray-600">
           Your payment is secure. Sign in to activate your subscription.
         </p>
       </div>
