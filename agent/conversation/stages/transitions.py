@@ -149,10 +149,18 @@ def build_transition_check_prompt(
     conversation_text = ""
     for msg in recent:
         role = msg.get("role", "")
+
+        # Skip system messages - they contain internal instructions, not conversation
+        if role == "system":
+            continue
+
         if role in ("model", "assistant"):
             role = "Agent"
         elif role == "user":
             role = "User"
+        else:
+            # Skip any other non-conversation roles
+            continue
 
         # Prefer Gemini-style parts but fall back to OpenAI-style content
         content_parts = msg.get("parts")
@@ -160,7 +168,9 @@ def build_transition_check_prompt(
             raw_content = msg.get("content")
             if isinstance(raw_content, list):
                 content_parts = [
-                    {"text": part.get("text", "")} for part in raw_content if part is not None
+                    {"text": part.get("text", "")}
+                    for part in raw_content
+                    if part is not None
                 ]
             else:
                 content_parts = [{"text": str(raw_content or "")}]
