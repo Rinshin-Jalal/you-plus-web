@@ -53,14 +53,14 @@ from conversation.stages import (
 )
 
 # Background Agents
-from agents.background_agents import (
+from agents.detectors import (
     ExcuseDetectorNode,
     SentimentAnalyzerNode,
-    CommitmentExtractorNode,
     PromiseDetectorNode,
     QuoteExtractorNode,
-    CallSummaryAggregator,
 )
+from agents.analyzers import CommitmentExtractorNode
+from agents.aggregator import CallSummaryAggregator
 from agents.events import (
     ExcuseDetected,
     SentimentAnalysis,

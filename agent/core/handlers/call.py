@@ -40,16 +40,18 @@ except ImportError:
     trust_score_service = None
     PERSONA_AVAILABLE = False
 
-from agents.background_agents import (
+from agents.detectors import (
     ExcuseDetectorNode,
-    ExcuseCalloutNode,
     SentimentAnalyzerNode,
-    CommitmentExtractorNode,
     PromiseDetectorNode,
-    PatternAnalyzerNode,
     QuoteExtractorNode,
-    CallSummaryAggregator,
 )
+from agents.analyzers import (
+    CommitmentExtractorNode,
+    ExcuseCalloutNode,
+    PatternAnalyzerNode,
+)
+from agents.aggregator import CallSummaryAggregator
 from agents.events import (
     ExcuseDetected,
     ExcuseCallout,

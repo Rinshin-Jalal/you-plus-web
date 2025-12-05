@@ -19,16 +19,18 @@ AGENT_DIR = str(Path(__file__).parent.parent)
 if AGENT_DIR not in sys.path:
     sys.path.insert(0, AGENT_DIR)
 
-from agents.background_agents import (
+from agents.detectors import (
     ExcuseDetectorNode,
     SentimentAnalyzerNode,
-    CommitmentExtractorNode,
     PromiseDetectorNode,
+    QuoteExtractorNode,
+)
+from agents.analyzers import (
+    CommitmentExtractorNode,
     ExcuseCalloutNode,
     PatternAnalyzerNode,
-    QuoteExtractorNode,
-    CallSummaryAggregator,
 )
+from agents.aggregator import CallSummaryAggregator
 from agents.events import (
     ExcuseDetected,
     SentimentAnalysis,

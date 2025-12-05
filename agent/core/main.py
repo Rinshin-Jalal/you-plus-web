@@ -20,8 +20,8 @@ DEPLOYMENT:
 TESTING:
   cartesia call +1XXXXXXXXXX --metadata '{"user_id": "uuid"}'
 
-DEPRECATED: This module is now a thin entry point.
-Import handlers directly from core.handlers for new code.
+This module is the entry point for the Cartesia Line agent.
+For reusable code, import from core.handlers directly.
 """
 
 import sys

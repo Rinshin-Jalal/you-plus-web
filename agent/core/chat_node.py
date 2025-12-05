@@ -39,8 +39,8 @@ from agents.events import (
 )
 from conversation.call_types import CallType
 from conversation.mood import Mood
-from conversation.stages import (
-    CallStage,
+from conversation.stages.models import CallStage
+from conversation.stages.transitions import (
     get_stage_prompt,
     get_next_stage,
     should_advance_stage,

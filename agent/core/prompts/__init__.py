@@ -13,7 +13,6 @@ from .prompt_sections import (
     get_conversation_rules,
     build_call_type_instructions,
 )
-from .legacy import build_legacy_psychological_context
 
 __all__ = [
     "build_system_prompt_v2",
@@ -23,5 +22,4 @@ __all__ = [
     "build_open_loop_section",
     "get_conversation_rules",
     "build_call_type_instructions",
-    "build_legacy_psychological_context",
 ]

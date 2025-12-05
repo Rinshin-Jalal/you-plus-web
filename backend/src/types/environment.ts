@@ -4,12 +4,6 @@
  * This file provides type-safe definitions for all environment variables
  * used in the application. It includes runtime validation to ensure
  * all required environment variables are present and correctly typed.
- * 
- * Benefits:
- * 1. Compile-time type checking for environment variables
- * 2. Runtime validation with clear error messages
- * 3. Documentation for all environment variables
- * 4. Centralized environment variable management
  */
 
 import { z } from "zod";
@@ -26,26 +20,12 @@ export const EnvSchema = z.object({
   // OpenAI configuration
   OPENAI_API_KEY: z.string().min(1, "OpenAI API key is required"),
 
-  // LiveKit configuration (new)
-  LIVEKIT_API_KEY: z.string().min(1, "LiveKit API key is required"),
-  LIVEKIT_API_SECRET: z.string().min(1, "LiveKit API secret is required"),
-  LIVEKIT_URL: z.string().url("LiveKit URL must be a valid WebSocket URL"),
-
-  // Cartesia configuration (new)
+  // Cartesia configuration (agent uses this for voice calls)
   CARTESIA_API_KEY: z.string().min(1, "Cartesia API key is required"),
   CARTESIA_AGENT_ID: z.string().optional(), // Deployed agent ID from 'cartesia deploy'
-
-  // ElevenLabs configuration (legacy - optional for backward compatibility)
-  ELEVENLABS_API_KEY: z.string().optional(),
-  
-  // iOS VoIP configuration
-  IOS_VOIP_KEY_ID: z.string().min(1, "iOS VoIP key ID is required"),
-  IOS_VOIP_TEAM_ID: z.string().min(1, "iOS VoIP team ID is required"),
-  IOS_VOIP_AUTH_KEY: z.string().min(1, "iOS VoIP auth key is required"),
   
   // Optional configuration
   SUPERMEMORY_API_KEY: z.string().optional(),
-  DEEPGRAM_API_KEY: z.string().optional(),
   REVENUECAT_WEBHOOK_SECRET: z.string().optional(),
   REVENUECAT_API_KEY: z.string().optional(),
   REVENUECAT_PROJECT_ID: z.string().optional(),
@@ -128,24 +108,13 @@ export const EnvCategories = {
   
   ai: {
     OPENAI_API_KEY: "OpenAI API key for embeddings and AI processing",
-    ELEVENLABS_API_KEY: "ElevenLabs API key for voice cloning and synthesis (legacy, optional)",
-    LIVEKIT_API_KEY: "LiveKit API key for real-time communication",
-    LIVEKIT_API_SECRET: "LiveKit API secret for token generation",
-    LIVEKIT_URL: "LiveKit Cloud WebSocket URL (wss://...)",
     CARTESIA_API_KEY: "Cartesia API key for STT (Ink) and TTS (Sonic-3)",
     CARTESIA_AGENT_ID: "Deployed Cartesia Line agent ID for outbound calls",
-    DEEPGRAM_API_KEY: "Deepgram API key for speech recognition (optional, deprecated)",
     GEMINI_API_KEY: "Gemini API key for returning user personalization (optional)",
   },
 
   memory: {
     SUPERMEMORY_API_KEY: "Supermemory API key for persistent user context (optional)",
-  },
-  
-  ios: {
-    IOS_VOIP_KEY_ID: "iOS VoIP push notification key ID",
-    IOS_VOIP_TEAM_ID: "iOS VoIP push notification team ID",
-    IOS_VOIP_AUTH_KEY: "iOS VoIP push notification authentication key",
   },
   
   revenue: {
@@ -154,9 +123,16 @@ export const EnvCategories = {
     REVENUECAT_PROJECT_ID: "RevenueCat project ID for v2 API",
   },
   
+  payments: {
+    DODO_PAYMENTS_API_KEY: "DodoPayments API key for web payments",
+    DODO_PAYMENTS_WEBHOOK_SECRET: "DodoPayments webhook secret for payment events",
+    DODO_PAYMENTS_ENVIRONMENT: "DodoPayments environment (test_mode/live_mode)",
+  },
+  
   deployment: {
     ENVIRONMENT: "Application environment (development/staging/production)",
     BACKEND_URL: "Public URL of the backend API",
+    FRONTEND_URL: "Public URL of the frontend app",
   },
   
   development: {
