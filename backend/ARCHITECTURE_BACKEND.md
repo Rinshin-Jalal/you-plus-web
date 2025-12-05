@@ -8,7 +8,7 @@ This document provides a comprehensive, skimmable, and technically detailed over
 - Configuration and SQL
 - HTTP routing entrypoint and middleware
 - Feature route modules
-- Services (scheduler, retries, push/VoIP, tone, prompts, embeddings, identity/onboarding extractors, R2 uploads)
+- Services (scheduler, retries, push/VoIP, tone, embeddings, identity/onboarding extractors, R2 uploads)
 - Utilities and types
 - Operational guidance and notes
 
@@ -16,7 +16,7 @@ This document provides a comprehensive, skimmable, and technically detailed over
 
 ## Overview
 
-The backend engine is a Cloudflare Worker (Hono-based) that powers YOU+ core workflows: V3 onboarding, daily ritual calls (morning/evening), promise loop management, identity and psychological profiling, tone selection, prompt generation, and deep integration with 11labs Convo AI for post-call ingestion (transcripts/audio/analytics). It uses Supabase for database and R2 (S3-compatible) for file storage. A cron-triggered scheduler creates call batches by user time windows and manages retries for missed calls.
+The backend engine is a Cloudflare Worker (Hono-based) that powers YOU+ core workflows: V3 onboarding, daily ritual calls (morning/evening), promise loop management, identity and psychological profiling, tone selection, and deep integration with 11labs Convo AI for post-call ingestion (transcripts/audio/analytics). It uses Supabase for database and R2 (S3-compatible) for file storage. A cron-triggered scheduler creates call batches by user time windows and manages retries for missed calls. Note: Prompts are now handled by the agent, not by the backend.
 
 Key pillars:
 
@@ -198,10 +198,11 @@ Key pillars:
 
 ### `src/routes/11labs-call-init.ts`
 
-- Generates per-call configuration for 11labs Convo AI: agent ID, mood (tone), prompts (system + first message), and analytics metadata.
+- Generates per-call configuration for 11labs Convo AI: agent ID, mood (tone), and analytics metadata.
 - Validates `callType` in `[morning, evening, apology_call]`.
-- Fetches canonical `UserContext`, computes tone via `tone-engine`, and builds prompts via `prompt-engine`.
+- Fetches canonical `UserContext`, computes tone via `tone-engine`.
 - Returns an easy-to-trace `callUUID` for logging and analytics.
+- Note: Prompts are now handled by the agent.
 
 ### `src/routes/onboarding.ts`
 
@@ -313,29 +314,7 @@ Key pillars:
 
 - Computes the optimal psychological tone (Encouraging, Confrontational, Ruthless, ColdMirror) using recent performance success rate, consecutive failures, trend detection, streak health, and collapse risk.
 - Produces an explainable `ToneAnalysis` with reasoning factors and intensity; includes helpers for future-identity phrasing and tone descriptions.
-- Central input for call-mode prompt generation.
-
-### `src/services/prompt-engine/*`
-
-- Types and mode registry for call prompt generation.
-- Modes: morning, evening, first, apology, and missed-call variants, each producing `firstMessage` and `systemPrompt` conditioned on tone.
-- Behavioral and onboarding intelligence modules transform context into prompt text; enhancers inject onboarding-derived details.
-- Unified `getPromptForCall` returns the correct mode output for use by `11labs-call-init`.
-
-#### Semantic memory enrichment
-
-- Before generating a call prompt, the engine fetches Top‑K semantically similar memories (via pgvector RPC) and injects a concise block into the `systemPrompt`:
-  - `related_memories` (Top‑3 with text/date/emotion)
-  - `pattern_summary` (one line)
-- Source: `embedding-services/memory.ts#buildRelatedMemoriesPayload`, integrated in `prompt-engine/modes/call-mode-registry.ts`.
-
-#### `src/services/prompt-engine/index.ts`
-
-- Entry point exporting `getPromptForCall` and mode registry.
-
-#### `src/services/prompt-engine/modes/emergency-call.ts`
-
-- Scaffold for emergency interventions; implement `CallModeResult` to activate.
+- Central input for call configuration.
 
 ### `src/services/embedding-services/*`
 
@@ -414,6 +393,6 @@ Key pillars:
 - Security: Use `requireActiveSubscription` for most user-facing routes. Debug/trigger routes are intentionally disabled in production and require a header token in development.
 - Storage: Sensitive payloads (audio) should go into R2; database rows store URLs and minimal summaries.
 - Scheduling: The Worker `scheduled` handler executes both call scheduling and retry processing for resilience.
-- Personalization: Tone and prompt engines rely on fresh `UserContext` and embeddings—keep webhook and extraction pipelines healthy to maintain quality.
-- Extensibility: New call modes can be added in the prompt-engine with consistent types; new data collections from ElevenLabs can flow through the webhook handler and embeddings.
+- Personalization: Tone engine relies on fresh `UserContext` and embeddings—keep webhook and extraction pipelines healthy to maintain quality. Prompts are now handled by the agent.
+- Extensibility: New data collections from ElevenLabs can flow through the webhook handler and embeddings.
 - Completeness: All routes wired in `src/index.ts` are enumerated above. Modules present but not yet registered (e.g., `token-init-push.ts`) are noted for follow-up wiring.

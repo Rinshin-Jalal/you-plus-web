@@ -1,22 +1,41 @@
 """
-Call Stages - State machine for conversation flow (Legacy Re-export)
-=====================================================================
+Stages Package
+==============
 
-This module re-exports from the stages package for backward compatibility.
-All new code should import directly from conversation.stages.
+Call Stages - State machine for conversation flow.
+
+Each stage has:
+- A focused prompt (what to do in THIS stage)
+- Transition rules (AI decides when to move on)
+- Max turns (safety valve - don't get stuck)
+- Mood modifiers (different moods affect pacing)
+
+Stages:
+1. HOOK - Open with one line, wait for response
+2. ACKNOWLEDGE - Respond to what they said, connect
+3. ACCOUNTABILITY - Ask "did you do it?" get YES/NO
+4. DIG_DEEPER - Follow up based on their answer
+5. PEAK - One emotional moment that lands
+6. TOMORROW_LOCK - Get specific commitment (time + action)
+7. CLOSE - End with anticipation
 """
 
-# Re-export everything from the stages package
-from conversation.stages import (
-    # Models
+# Models
+from conversation.stages.models import (
     CallStage,
     MoodModifiers,
     StageConfig,
-    # Config
+)
+
+# Config
+from conversation.stages.config import (
     MOOD_STAGE_MODIFIERS,
     STAGE_PROMPTS,
     TRANSITION_DETECTOR_PROMPT,
-    # Transitions & helpers
+)
+
+# Transitions & helpers
+from conversation.stages.transitions import (
     get_stage_prompt,
     get_stage_config,
     get_next_stage,

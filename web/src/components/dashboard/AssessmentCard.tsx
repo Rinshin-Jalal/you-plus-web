@@ -1,9 +1,9 @@
-
 import React from 'react';
 import { AlertTriangle, Shield, Flame, Skull } from 'lucide-react';
+import type { Status } from '@/types';
 
 interface AssessmentCardProps {
-  status: string;
+  status: Status | null;
   trustScore: number;
 }
 

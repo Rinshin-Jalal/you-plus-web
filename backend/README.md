@@ -39,33 +39,27 @@ This Cloudflare Worker-based system orchestrates:
    - Recommends optimal transmission mood
    - Supports: `supportive`, `neutral`, `concerned`
 
-4. **Prompt Engine** (`/services/prompt-engine.ts`)
-
-   - Generates contextual AI prompts
-   - Incorporates user history, memories, and patterns
-   - Creates compelling accountability dialogue
-
-5. **File Processing** (`/utils/onboardingFileProcessor.ts`)
+4. **File Processing** (`/utils/onboardingFileProcessor.ts`)
 
    - Processes base64 audio/images from frontend
    - Uploads to R2 cloud storage
    - Replaces local URIs with cloud URLs
    - Handles multiple file types and formats
 
-6. **Identity Extraction** (`/services/identity-extractor.ts`)
+5. **Identity Extraction** (`/services/identity-extractor.ts`)
 
    - Transcribes voice recordings using OpenAI Whisper
    - Extracts psychological insights from responses
    - Creates comprehensive user profiles
    - Generates personalized call scripts
 
-7. **TTS Service** (`/services/tts-service.ts`)
+6. **TTS Service** (`/services/tts-service.ts`)
 
    - Primary: 11labs (voice cloning support)
    - Fallbacks: OpenAI → Cartesia AI
    - Personalized voice generation
 
-8. **Database Layer** (`/utils/database.ts`)
+7. **Database Layer** (`/utils/database.ts`)
    - Supabase integration
    - All CRUD operations for schema
    - User context aggregation
@@ -267,9 +261,9 @@ const identity = await extractAndSaveIdentityUnified(userId, env);
 ### Direct Enhancement System
 
 ```typescript
-// Use Identity data directly for prompt enhancement
-const enhancedPrompt = enhancePromptWithOnboardingData(basePrompt, identity);
-// → Enhanced prompt with all Identity fields directly integrated
+// Use Identity data directly for call configuration
+const callConfig = await generateCallMetadata(env, userId, callType, callUUID);
+// → Returns mood, voice ID, user context
 ```
 
 ### Memory & Pattern Recognition

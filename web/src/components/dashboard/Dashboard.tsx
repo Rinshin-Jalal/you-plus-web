@@ -36,7 +36,7 @@ export default function Dashboard({ onLogout, onJoinCall }: { onLogout: () => vo
               You<span className="text-black/30">+</span>
             </h1>
             <span className="hidden sm:block font-mono text-[10px] uppercase tracking-widest text-black/40 border-l-2 border-black/10 pl-4">
-              {data.user.name} // {data.user.identity}
+              {data.user?.name} // {data.identity?.daily_commitment}
             </span>
           </div>
         </div>
@@ -48,7 +48,7 @@ export default function Dashboard({ onLogout, onJoinCall }: { onLogout: () => vo
         <div className="mb-8 md:mb-12">
           <p className="font-mono text-xs uppercase tracking-widest text-black/40 mb-2">Welcome back,</p>
           <h2 className="font-display font-extrabold text-4xl md:text-5xl uppercase tracking-tight">
-            {data.user.name}
+            {data.user?.name}
           </h2>
         </div>
 
@@ -79,7 +79,7 @@ export default function Dashboard({ onLogout, onJoinCall }: { onLogout: () => vo
                 <div className="flex-1">
                   <p className="font-mono text-[10px] uppercase tracking-widest text-black/40 mb-1">Your Mission</p>
                   <h4 className="font-display font-extrabold text-xl md:text-2xl uppercase tracking-tight mb-3">
-                    {data.user.identity}
+                    {data.identity?.daily_commitment}
                   </h4>
                   <div className="w-full h-3 bg-black/10 border border-black/20">
                     <div 
@@ -100,7 +100,7 @@ export default function Dashboard({ onLogout, onJoinCall }: { onLogout: () => vo
           <div className="space-y-6 md:space-y-8">
             
             {/* Status Card */}
-            <AssessmentCard status={data.identityStatus} trustScore={data.stats.trustScore} />
+            <AssessmentCard status={data.status} trustScore={data.stats.trustScore} />
 
             {/* Daily Streak */}
             <div className="border-2 border-black bg-black text-white p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.2)]">
@@ -110,12 +110,12 @@ export default function Dashboard({ onLogout, onJoinCall }: { onLogout: () => vo
               </div>
               <div className="flex items-baseline gap-2">
                 <span className="font-display font-extrabold text-6xl tracking-tighter leading-none">
-                  {data.stats.streak}
+                  {data.stats.currentStreak}
                 </span>
                 <span className="font-mono text-sm uppercase tracking-widest text-white/40">Days</span>
               </div>
               <p className="font-mono text-xs text-white/40 mt-4">
-                {data.stats.streak === 0 
+                {data.stats.currentStreak === 0 
                   ? "Start building momentum today." 
                   : "Don't break the chain."}
               </p>

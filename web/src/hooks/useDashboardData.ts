@@ -1,17 +1,14 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { db, auth } from '@/services/supabase';
-import type { 
-  DashboardData, 
-  DashboardStats, 
-  User, 
-  Identity, 
-  Status, 
-  CallMemory, 
-  CallAnalytics,
-  Subscription 
-} from '@/types';
+import { useEffect } from 'react';
+import {
+  useDashboardStore,
+  selectDashboardData,
+  selectDashboardLoading,
+  selectDashboardError,
+  selectStats,
+} from '@/stores/dashboardStore';
+import type { DashboardStats } from '@/types';
 
 const DEFAULT_STATS: DashboardStats = {
   currentStreak: 0,
@@ -25,88 +22,21 @@ const DEFAULT_STATS: DashboardStats = {
   successRate: 0,
 };
 
-/**
- * Calculate next call time based on identity.call_time
- */
-function calculateNextCallTime(callTime: string | undefined): Date | null {
-  if (!callTime) return null;
-
-  try {
-    // Parse call_time format "HH:MM:SS"
-    const [hours, minutes] = callTime.split(':').map(Number);
-    
-    const now = new Date();
-    const nextCall = new Date();
-    nextCall.setHours(hours, minutes, 0, 0);
-    
-    // If the time has passed today, schedule for tomorrow
-    if (now > nextCall) {
-      nextCall.setDate(nextCall.getDate() + 1);
-    }
-    
-    return nextCall;
-  } catch {
-    return null;
-  }
-}
-
 export const useDashboardData = () => {
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
+  const data = useDashboardStore(selectDashboardData);
+  const loading = useDashboardStore(selectDashboardLoading);
+  const error = useDashboardStore(selectDashboardError);
+  const fetchData = useDashboardStore((state) => state.fetchData);
+  const refresh = useDashboardStore((state) => state.refresh);
 
-  const fetchData = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Get current user
-      const user = await auth.getUser();
-      if (!user) {
-        setData(null);
-        setLoading(false);
-        return;
-      }
-
-      // Fetch all dashboard data in parallel
-      const dashboardData = await db.getDashboardData(user.id);
-      
-      // Compute stats from status
-      const stats = db.computeStats(dashboardData.status);
-      
-      // Calculate next call time
-      const nextCallTime = calculateNextCallTime(dashboardData.identity?.call_time);
-
-      setData({
-        user: dashboardData.user,
-        identity: dashboardData.identity,
-        status: dashboardData.status,
-        callMemory: dashboardData.callMemory,
-        recentCalls: dashboardData.recentCalls,
-        subscription: dashboardData.subscription,
-        stats,
-        nextCallTime,
-      });
-    } catch (err) {
-      console.error('Failed to fetch dashboard data:', err);
-      setError(err instanceof Error ? err : new Error('Failed to fetch dashboard data'));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
+  // Fetch on mount (will use cache if available and fresh)
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  // Refresh function for manual refresh
-  const refresh = useCallback(() => {
-    fetchData();
-  }, [fetchData]);
-
-  return { 
-    data, 
-    loading, 
+  return {
+    data,
+    loading,
     error,
     refresh,
     // Convenience accessors
@@ -121,32 +51,16 @@ export const useDashboardData = () => {
 };
 
 /**
- * Hook to get just the stats (lighter weight)
+ * Hook to get just the stats (uses cached data from store)
  */
 export const useStats = () => {
-  const [stats, setStats] = useState<DashboardStats>(DEFAULT_STATS);
-  const [loading, setLoading] = useState(true);
+  const stats = useDashboardStore(selectStats);
+  const loading = useDashboardStore(selectDashboardLoading);
+  const fetchData = useDashboardStore((state) => state.fetchData);
 
   useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const user = await auth.getUser();
-        if (!user) {
-          setLoading(false);
-          return;
-        }
-
-        const { data: status } = await db.getStatus(user.id);
-        setStats(db.computeStats(status));
-      } catch (err) {
-        console.error('Failed to fetch stats:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchStats();
-  }, []);
+    fetchData();
+  }, [fetchData]);
 
   return { stats, loading };
 };

@@ -94,7 +94,7 @@ export const corsMiddleware = () => {
 
     // Handle preflight requests
     if (c.req.method === "OPTIONS") {
-      return c.text("", 204);
+      return new Response(null, { status: 204 });
     }
 
     return await next();

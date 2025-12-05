@@ -4,17 +4,16 @@ from .call_types import CallType, select_call_type
 from .mood import Mood, select_mood
 from .stages import CallStage, StageConfig, get_stage_prompt, get_next_stage
 from .persona import (
-    PersonaType,
+    Persona,
     PersonaConfig,
     PersonaController,
-    PersonaEvent,
-    ExcuseDetected,
-    SentimentShift,
-    PromiseKept,
-    PromiseBroken,
-    PatternAlert,
+    UserState,
 )
-from .identity_questions import get_identity_question
+from .identity_questions import (
+    get_accountability_question,
+    get_followup_question,
+    get_identity_statement,
+)
 
 __all__ = [
     # Call types
@@ -29,15 +28,12 @@ __all__ = [
     "get_stage_prompt",
     "get_next_stage",
     # Persona system
-    "PersonaType",
+    "Persona",
     "PersonaConfig",
     "PersonaController",
-    "PersonaEvent",
-    "ExcuseDetected",
-    "SentimentShift",
-    "PromiseKept",
-    "PromiseBroken",
-    "PatternAlert",
+    "UserState",
     # Identity questions
-    "get_identity_question",
+    "get_accountability_question",
+    "get_followup_question",
+    "get_identity_statement",
 ]

@@ -1,5 +1,5 @@
 -- ============================================================================
--- YOU+ DATABASE SCHEMA (Post-Cleanup v4 - Supermemory Integration)
+-- YOU+ DATABASE SCHEMA (Post-Cleanup v5 - R2 Voice Storage)
 -- ============================================================================
 -- 
 -- This is the CLEAN schema with Supermemory integration.
@@ -8,7 +8,10 @@
 -- ARCHITECTURE:
 -- - identity table: Minimal - only scheduling + voice cloning
 -- - Supermemory: All psychological data (goal, fears, patterns, etc.)
--- - voice_samples table: Audio recordings for voice cloning
+-- - Voice recordings: Stored in Cloudflare R2 with predictable paths
+--   - Path pattern: audio/{user_id}/{step_name}.m4a
+--   - Public URL: https://audio.yourbigbruhh.app/audio/{user_id}/{step_name}.m4a
+--   - No URLs stored in database (can be reconstructed on demand)
 --
 -- WARNING: This schema is for context only and is not meant to be run.
 -- ============================================================================
@@ -51,10 +54,6 @@ CREATE TABLE public.identity (
   cartesia_voice_id text,
   -- Link to Supermemory container (usually same as user_id)
   supermemory_container_id text,
-  -- DEPRECATED: Voice URLs moving to voice_samples table (migration 007)
-  why_it_matters_audio_url text,
-  cost_of_quitting_audio_url text,
-  commitment_audio_url text,
   -- DEPRECATED: Profile now in Supermemory (migration 006)
   onboarding_context jsonb,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -62,6 +61,10 @@ CREATE TABLE public.identity (
   CONSTRAINT identity_pkey PRIMARY KEY (id),
   CONSTRAINT identity_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
 );
+
+-- NOTE: Voice recordings are stored in Cloudflare R2, NOT in this table
+-- Path: audio/{user_id}/{step_name}.m4a (why_it_matters, cost_of_quitting, commitment)
+-- Public URL: https://audio.yourbigbruhh.app/audio/{user_id}/{step_name}.m4a
 
 -- ============================================================================
 -- 3. STATUS - User progress (streak, trust score, promise stats)

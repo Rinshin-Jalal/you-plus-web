@@ -1,13 +1,9 @@
 import { Hono } from "hono";
 import { requireActiveSubscription, requireAuth } from "@/middleware/auth";
-import { getHealth, getStats, getDebugSchedules } from "./handlers/health";
-import { getCallEligibility, getScheduleSettings, updateScheduleSettings, updateSubscriptionStatus, updateRevenueCatCustomerId } from "./handlers/settings";
+import { getHealth, getStats } from "./handlers/health";
+import { getScheduleSettings, updateScheduleSettings, updateSubscriptionStatus } from "./handlers/settings";
 import { getPhoneNumber, updatePhoneNumber } from "./handlers/phone";
-import { postUserPushToken } from "./handlers/token-init-push";
-import { testR2Upload, testR2Connection } from "./handlers/test-r2";
-import { postTestIdentityExtraction, deleteTestIdentityData } from "./handlers/debug/identity-test";
-import { postGuestToken } from "./handlers/auth"; // Added import for postGuestToken
-import identityRouter from "../identity/router";
+import { postGuestToken } from "./handlers/auth";
 import { createSupabaseClient } from "./utils/database";
 import type { Env } from "@/index";
 
@@ -19,16 +15,15 @@ const router = new Hono<{
   };
 }>();
 
-// Health and stats endpoints (no auth required)
+// Health endpoints (no auth required)
 router.get("/health", getHealth);
 router.get("/stats", getStats);
-router.get("/debug/schedules", getDebugSchedules);
 
 // Auth routes
-router.post("/auth/guest", postGuestToken); // Added guest token endpoint
+router.post("/auth/guest", postGuestToken);
 
-// Get current user info
-router.get("/api/users/me", requireAuth, async (c) => {
+// Get current user profile
+router.get("/api/core/profile", requireAuth, async (c) => {
   const userId = c.get("userId");
   const env = c.env;
   
@@ -36,7 +31,7 @@ router.get("/api/users/me", requireAuth, async (c) => {
     const supabase = createSupabaseClient(env);
     const { data: user, error } = await supabase
       .from("users")
-      .select("id, email, name, onboarding_completed, onboarding_completed_at, created_at")
+      .select("id, email, name, timezone, onboarding_completed, onboarding_completed_at, created_at")
       .eq("id", userId)
       .single();
     
@@ -51,30 +46,67 @@ router.get("/api/users/me", requireAuth, async (c) => {
   }
 });
 
-// API Settings endpoints
-router.get("/api/calls/eligibility", requireAuth, getCallEligibility);
+// Update user profile
+router.put("/api/core/profile", requireAuth, async (c) => {
+  const userId = c.get("userId");
+  const env = c.env;
+  const body = await c.req.json();
+  
+  try {
+    const supabase = createSupabaseClient(env);
+    const updateData: any = {};
+    
+    if (body.name !== undefined) updateData.name = body.name;
+    if (body.timezone !== undefined) updateData.timezone = body.timezone;
+    
+    const { data: user, error } = await supabase
+      .from("users")
+      .update(updateData)
+      .eq("id", userId)
+      .select("id, email, name, timezone")
+      .single();
+    
+    if (error) {
+      return c.json({ error: "Failed to update profile" }, 500);
+    }
+    
+    return c.json({ user });
+  } catch (error) {
+    console.error("Error updating user:", error);
+    return c.json({ error: "Failed to update user" }, 500);
+  }
+});
+
+// Delete user account
+router.delete("/api/core/profile", requireAuth, async (c) => {
+  const userId = c.get("userId");
+  const env = c.env;
+  
+  try {
+    const supabase = createSupabaseClient(env);
+    const { error } = await supabase
+      .from("users")
+      .delete()
+      .eq("id", userId);
+    
+    if (error) {
+      return c.json({ error: "Failed to delete account" }, 500);
+    }
+    
+    return c.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting user:", error);
+    return c.json({ error: "Failed to delete account" }, 500);
+  }
+});
+
+// Settings endpoints
 router.get("/api/settings/schedule", requireActiveSubscription, getScheduleSettings);
 router.put("/api/settings/schedule", requireAuth, updateScheduleSettings);
 router.put("/api/settings/subscription-status", requireAuth, updateSubscriptionStatus);
-router.put("/api/settings/revenuecat-customer-id", requireAuth, updateRevenueCatCustomerId);
 
-// Phone number endpoints (for Cartesia Line telephony)
+// Phone number endpoints
 router.get("/api/settings/phone", requireAuth, getPhoneNumber);
 router.put("/api/settings/phone", requireAuth, updatePhoneNumber);
-
-// API Device push token endpoints
-router.put("/api/device/push-token", requireAuth, postUserPushToken);
-router.post("/api/device/push-token", requireAuth, postUserPushToken);
-
-// Test endpoints
-router.get("/test-r2-upload", testR2Upload);
-router.get("/test-r2-connection", testR2Connection);
-
-// Debug endpoints
-router.post("/debug/identity-test", postTestIdentityExtraction);
-router.delete("/debug/identity-test/:userId", deleteTestIdentityData);
-
-// Mount API routes
-router.route("/api/identity", identityRouter);
 
 export default router;

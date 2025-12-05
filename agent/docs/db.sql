@@ -1,5 +1,8 @@
 -- WARNING: This schema is for context only and is not meant to be run.
 -- Table order and constraints may not be valid for execution.
+-- Voice recordings are stored in Cloudflare R2, not in the database.
+-- Path: audio/{user_id}/{step_name}.m4a
+-- Public URL: https://audio.yourbigbruhh.app/audio/{user_id}/{step_name}.m4a
 
 CREATE TABLE public.call_analytics (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -59,9 +62,6 @@ CREATE TABLE public.identity (
   name text NOT NULL,
   daily_commitment text NOT NULL,
   call_time time without time zone NOT NULL,
-  why_it_matters_audio_url text,
-  cost_of_quitting_audio_url text,
-  commitment_audio_url text,
   onboarding_context jsonb,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),

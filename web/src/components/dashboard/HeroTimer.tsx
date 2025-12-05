@@ -4,7 +4,7 @@ import { Clock, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 
 interface HeroTimerProps {
-  targetDate: Date;
+  targetDate: Date | null;
   onJoinCall: () => void;
 }
 
@@ -14,6 +14,11 @@ export const HeroTimer = ({ targetDate, onJoinCall }: HeroTimerProps) => {
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
+    if (!targetDate) {
+      setIsReady(true);
+      return;
+    }
+
     const interval = setInterval(() => {
       const now = new Date();
       const diff = targetDate.getTime() - now.getTime();

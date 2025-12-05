@@ -1,5 +1,6 @@
 import { Context, Next } from "hono";
 import { Env } from "@/index";
+import { ContentfulStatusCode } from "hono/utils/http-status";
 
 export class AppError extends Error {
   constructor(
@@ -17,8 +18,6 @@ export class AppError extends Error {
 export enum ServiceType {
   SUPABASE = "supabase",
   REVENUECAT = "revenuecat",
-  ELEVENLABS = "elevenlabs",
-  LIVEKIT = "livekit",
   R2 = "r2",
   UNKNOWN = "unknown",
 }
@@ -52,14 +51,15 @@ export const errorHandler = () => {
       });
 
       if (error instanceof AppError) {
+        const details = isDevelopment && error.details ? { details: error.details } : {};
         return c.json(
           {
             error: error.message,
             statusCode: error.statusCode,
             timestamp: new Date().toISOString(),
-            ...(isDevelopment && error.details && { details: error.details }),
+            ...details,
           },
-          error.statusCode
+          error.statusCode as ContentfulStatusCode
         );
       }
 
@@ -68,6 +68,7 @@ export const errorHandler = () => {
       }
 
       console.error("Unexpected error:", error);
+      const stack = isDevelopment ? { stack: (error as Error).stack } : {};
       return c.json(
         {
           error: isDevelopment
@@ -75,7 +76,7 @@ export const errorHandler = () => {
             : "An unexpected error occurred. Please try again later.",
           statusCode: 500,
           timestamp: new Date().toISOString(),
-          ...(isDevelopment && { stack: (error as Error).stack }),
+          ...stack,
         },
         500
       );
@@ -106,37 +107,19 @@ function handleServiceError(
         503
       );
 
-    case ServiceType.REVENUECAT:
+    case ServiceType.REVENUECAT: {
       console.warn("RevenueCat service degraded - implementing fallback");
+      const details = isDevelopment ? { details: error.originalError } : {};
       return c.json(
         {
           ...baseResponse,
           message: "Payment service temporarily unavailable. Your existing access is preserved.",
           degradedMode: true,
-          ...(isDevelopment && { details: error.originalError }),
+          ...details,
         },
         503
       );
-
-    case ServiceType.ELEVENLABS:
-      return c.json(
-        {
-          ...baseResponse,
-          message: "Voice service temporarily unavailable. Please try again later.",
-          fallback: "text-to-speech temporarily disabled",
-        },
-        503
-      );
-
-    case ServiceType.LIVEKIT:
-      return c.json(
-        {
-          ...baseResponse,
-          message: "Call service temporarily unavailable. Please try again in a few minutes.",
-          retryAfter: 300,
-        },
-        503
-      );
+    }
 
     case ServiceType.R2:
       console.warn("R2 storage service degraded");
@@ -149,15 +132,17 @@ function handleServiceError(
         503
       );
 
-    default:
+    default: {
+      const details = isDevelopment ? { details: error.originalError } : {};
       return c.json(
         {
           ...baseResponse,
           message: "External service temporarily unavailable. Please try again later.",
-          ...(isDevelopment && { details: error.originalError }),
+          ...details,
         },
         503
       );
+    }
   }
 }
 

@@ -306,7 +306,12 @@ AGENT OBSERVATIONS:
         """
         Store a voice recording transcript as a memory.
 
-        The actual audio is stored in voice_samples table.
+        The actual audio is stored in Cloudflare R2 with predictable paths:
+        - Path pattern: audio/{user_id}/{recording_type}.m4a
+        - Example: audio/abc123/commitment.m4a
+        - Public URL: https://audio.yourbigbruhh.app/audio/{user_id}/{recording_type}.m4a
+
+        Transcription is done via Deepgram during onboarding.
         This stores the TEXT content for Supermemory to learn from.
         """
         content = f"""

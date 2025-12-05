@@ -99,6 +99,12 @@ export interface User {
  * Simplified - removed:
  * - chosen_path (not used)
  * - strike_limit (not used)
+ * - Audio URLs (now stored in R2 with predictable paths)
+ * 
+ * Voice recordings are stored in Cloudflare R2:
+ * - Path pattern: audio/{user_id}/{step_name}.m4a
+ * - Example: audio/abc123/commitment.m4a
+ * - Public URL: https://audio.yourbigbruhh.app/audio/{user_id}/{step_name}.m4a
  */
 export interface Identity {
   id: string;
@@ -114,10 +120,8 @@ export interface Identity {
   // Voice (Cartesia)
   cartesia_voice_id?: string;
 
-  // Voice recordings (R2 URLs)
-  why_it_matters_audio_url?: string | null;
-  cost_of_quitting_audio_url?: string | null;
-  commitment_audio_url?: string | null;
+  // Supermemory container reference
+  supermemory_container_id?: string;
 
   // All onboarding context (JSONB)
   onboarding_context: OnboardingContext;

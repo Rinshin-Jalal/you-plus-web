@@ -1,14 +1,9 @@
-
 import React from 'react';
 import { Check, X } from 'lucide-react';
+import type { DashboardStats } from '@/types';
 
 interface StatsGridProps {
-  stats: {
-    promisesKept: number;
-    promisesBroken: number;
-    streak: number;
-    trustScore: number;
-  }
+  stats: DashboardStats;
 }
 
 const StatBox = ({ 
@@ -41,20 +36,20 @@ const StatBox = ({
 };
 
 export const StatsGrid = ({ stats }: StatsGridProps) => {
-  const total = stats.promisesKept + stats.promisesBroken;
-  const keepRate = total > 0 ? Math.round((stats.promisesKept / total) * 100) : 0;
+  const total = stats.promisesKeptTotal + stats.promisesBrokenTotal;
+  const keepRate = total > 0 ? Math.round((stats.promisesKeptTotal / total) * 100) : 0;
 
   return (
     <div className="grid grid-cols-3 gap-3 md:gap-4">
       <StatBox 
         label="Kept" 
-        value={stats.promisesKept}
+        value={stats.promisesKeptTotal}
         variant="success"
         icon={<Check size={14} className="text-green-600" strokeWidth={3} />}
       />
       <StatBox 
         label="Broken" 
-        value={stats.promisesBroken}
+        value={stats.promisesBrokenTotal}
         variant="danger"
         icon={<X size={14} className="text-red-600" strokeWidth={3} />}
       />
