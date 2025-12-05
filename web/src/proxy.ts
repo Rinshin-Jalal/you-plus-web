@@ -9,6 +9,7 @@ export async function proxy(request: NextRequest) {
         '/auth/login',
         '/auth/signup',
         '/auth/callback',
+        '/auth/auth-code-error',
         '/api/auth/signout',
         '/legal',
     ]

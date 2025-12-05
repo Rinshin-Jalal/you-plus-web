@@ -167,11 +167,15 @@ def build_transition_check_prompt(
         if not content_parts:
             raw_content = msg.get("content")
             if isinstance(raw_content, list):
-                content_parts = [
-                    {"text": part.get("text", "")}
-                    for part in raw_content
-                    if part is not None
-                ]
+                # Handle both dict-like and string content items
+                content_parts = []
+                for part in raw_content:
+                    if part is None:
+                        continue
+                    if isinstance(part, dict):
+                        content_parts.append({"text": part.get("text", "")})
+                    else:
+                        content_parts.append({"text": str(part)})
             else:
                 content_parts = [{"text": str(raw_content or "")}]
 

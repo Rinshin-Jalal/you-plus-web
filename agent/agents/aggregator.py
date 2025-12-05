@@ -74,7 +74,10 @@ class CallSummaryAggregator:
 
     def add_commitment(self, event: CommitmentIdentified):
         """Record tomorrow's commitment (take the most specific one)."""
-        if self.commitment is None or event.is_specific:
+        # Only overwrite if we have no commitment, or if new one is specific and current isn't
+        if self.commitment is None or (
+            event.is_specific and not self.commitment.is_specific
+        ):
             self.commitment = event
 
     def add_quote(self, event: MemorableQuoteDetected):

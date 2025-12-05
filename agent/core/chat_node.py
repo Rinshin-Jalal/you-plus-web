@@ -416,6 +416,12 @@ class FutureYouNode(ReasoningNode):
         if not next_stage:
             return
 
+        def extract_text(content_item) -> str:
+            """Safely extract text from content item (dict or string)."""
+            if isinstance(content_item, dict):
+                return content_item.get("text", "")
+            return str(content_item) if content_item is not None else ""
+
         recent = [
             {
                 "role": (
@@ -430,7 +436,7 @@ class FutureYouNode(ReasoningNode):
                 "parts": (
                     m.get("parts")
                     or (
-                        [{"text": c.get("text", "")} for c in m["content"]]
+                        [{"text": extract_text(c)} for c in m["content"]]
                         if isinstance(m.get("content"), list)
                         else [{"text": str(m.get("content", ""))}]
                     )

@@ -72,20 +72,14 @@ export const auth = {
       provider: 'google',
       options: {
         redirectTo: redirectTo || `${window.location.origin}/auth/callback`,
-        queryParams: {
-          access_type: 'offline',
-          prompt: 'consent',
-        },
-        skipBrowserRedirect: true, // Handle redirect manually for Safari compatibility
+        flowType: 'pkce',
       },
     })
 
     if (error) return { error }
 
-    // Manual redirect - more reliable in Safari
-    if (data?.url) {
-      window.location.href = data.url
-    }
+    // Allow Supabase to redirect; as a fallback, follow the URL
+    if (data?.url) window.location.href = data.url
 
     return { error: null }
   },
@@ -96,16 +90,13 @@ export const auth = {
       provider: 'apple',
       options: {
         redirectTo: redirectTo || `${window.location.origin}/auth/callback`,
-        skipBrowserRedirect: true, // Handle redirect manually for Safari compatibility
+        flowType: 'pkce',
       },
     })
 
     if (error) return { error }
 
-    // Manual redirect - more reliable in Safari
-    if (data?.url) {
-      window.location.href = data.url
-    }
+    if (data?.url) window.location.href = data.url
 
     return { error: null }
   },

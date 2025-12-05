@@ -1,0 +1,38 @@
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# UV/pip
+.uv/
+*.egg-info/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Tests
+tests/
+
+# Docs
+docs/
+
+# Lock files (dependencies resolved on deploy)
+uv.lock
+
+# Git
+.git/
+.gitignore
+
+# Config
+pyrightconfig.json
+.env.example
