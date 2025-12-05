@@ -13,9 +13,9 @@ export default function OnboardingPage() {
     }, []);
 
     const completeOnboarding = () => {
-        // After onboarding, go to checkout (not dashboard)
-        // Checkout will handle auth check and redirect to signup if needed
-        router.push('/checkout');
+        // Require auth before checkout; send through login with return target
+        const next = encodeURIComponent('/checkout');
+        router.push(`/auth/login?next=${next}`);
     };
 
     return <OnboardingFlow onFinish={completeOnboarding} />;

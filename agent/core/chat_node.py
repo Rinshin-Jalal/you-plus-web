@@ -404,6 +404,8 @@ class FutureYouNode(ReasoningNode):
                     "assistant"
                     if m.get("role") == "assistant"
                     else "model"
+                    if m.get("role") == "model"
+                    else "system"
                     if m.get("role") == "system"
                     else "user"
                 ),

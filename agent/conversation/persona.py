@@ -190,17 +190,22 @@ class UserState:
         self.sentiment = sentiment
         self.energy = energy
         if sentiment == "frustrated":
-            self.frustration_level = (
-                "high" if self.frustration_level == "medium" else "medium"
-            )
+            # Frustration only escalates: low -> medium -> high
+            if self.frustration_level == "low":
+                self.frustration_level = "medium"
+            elif self.frustration_level == "medium":
+                self.frustration_level = "high"
+            # If already high, stays high
         elif sentiment == "vulnerable":
             self.is_vulnerable = True
         elif sentiment == "positive":
             self.is_celebrating = True
 
-    def update_from_promise(self, kept: bool):
+    def update_from_promise(self, kept: Optional[bool]):
         """Update state when promise response detected."""
         self.kept_promise = kept
+        if kept is None:
+            return
         if not kept:
             self.broken_promises_this_week += 1
 
@@ -295,7 +300,7 @@ class PersonaController:
                 self._blend_toward(Persona.COMPASSIONATE_ALLY, speed="slow")
 
         elif event_type == "promise_response":
-            self.user_state.update_from_promise(event_data.get("kept", False))
+            self.user_state.update_from_promise(event_data.get("kept"))
             if self.user_state.kept_promise:
                 # Kept promise - blend toward Champion (slow, let it build)
                 self._blend_toward(Persona.CELEBRATING_CHAMPION, speed="slow")

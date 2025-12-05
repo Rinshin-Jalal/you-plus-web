@@ -14,10 +14,9 @@ export async function proxy(request: NextRequest) {
     ]
 
     // Routes that should stay open to unauthenticated users
-    // (onboarding, checkout, post-payment handoff)
+    // (onboarding, post-payment handoff)
     const authOptionalRoutes = [
         '/onboarding',
-        '/checkout',
         '/billing/success',
     ]
 

@@ -1,14 +1,16 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { Check, ArrowRight, Phone, X, Clock, Mic, Calendar, TrendingUp, Volume2, User } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Check, ArrowRight, Phone, X, Clock, Mic, Calendar, TrendingUp, Volume2, User, LogOut } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 
 export default function LandingPage() {
   const router = useRouter();
-  const { user, isAuthenticated, loading: authLoading } = useAuth();
+  const { user, isAuthenticated, loading: authLoading, signOut } = useAuth();
   const [debugLogs, setDebugLogs] = useState<string[] | null>(null);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     // Check if we just came from a signout
@@ -26,6 +28,28 @@ export default function LandingPage() {
     }
   }, []);
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!profileMenuRef.current?.contains(event.target as Node)) {
+        setIsProfileMenuOpen(false);
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsProfileMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    window.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('keydown', handleEscape);
+    };
+  }, []);
+
   const clearLogs = () => {
     setDebugLogs(null);
     sessionStorage.removeItem('signout_complete');
@@ -34,6 +58,19 @@ export default function LandingPage() {
 
   const startOnboarding = () => {
     router.push('/onboarding');
+  };
+
+  const handleLogout = async () => {
+    setIsProfileMenuOpen(false);
+    try {
+      const { error } = await signOut();
+      if (error) {
+        console.error('[LANDING] Sign out error:', error);
+        return;
+      }
+    } catch (error) {
+      console.error('[LANDING] Unexpected sign out error:', error);
+    }
   };
 
   return (
@@ -59,12 +96,6 @@ export default function LandingPage() {
         </div>
       )}
       
-      {/* Dev buttons */}
-      <div className="fixed bottom-4 right-4 z-[999] flex flex-col gap-2">
-        <button onClick={() => router.push('/dashboard')} className="bg-black text-white text-xs px-3 py-1.5">[Dev] Dashboard</button>
-        <button onClick={() => router.push('/call')} className="bg-red-600 text-white text-xs px-3 py-1.5">[Dev] Call</button>
-      </div>
-
       {/* Nav */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-white border-b-2 border-black">
         <div className="max-w-5xl mx-auto px-6 h-14 flex justify-between items-center">
@@ -74,25 +105,53 @@ export default function LandingPage() {
           {authLoading ? (
             <div className="w-8 h-8 rounded-full bg-gray-200 animate-pulse" />
           ) : isAuthenticated ? (
-            <button 
-              onClick={() => router.push('/dashboard')}
-              className="flex items-center gap-2 group"
-            >
-              {user?.user_metadata?.avatar_url ? (
-                <img 
-                  src={user.user_metadata.avatar_url} 
-                  alt="Profile" 
-                  className="w-8 h-8 rounded-full border-2 border-black group-hover:border-black/50 transition-colors"
-                />
-              ) : (
-                <div className="w-8 h-8 rounded-full border-2 border-black bg-black text-white flex items-center justify-center group-hover:bg-gray-800 transition-colors">
-                  <User size={16} />
+            <div className="relative" ref={profileMenuRef}>
+              <button 
+                type="button"
+                onClick={() => setIsProfileMenuOpen((prev) => !prev)}
+                className="flex items-center gap-2 group focus:outline-none"
+                aria-haspopup="menu"
+                aria-expanded={isProfileMenuOpen}
+              >
+                {user?.user_metadata?.avatar_url ? (
+                  <img 
+                    src={user.user_metadata.avatar_url} 
+                    alt="Profile" 
+                    className="w-8 h-8 rounded-full border-2 border-black group-hover:border-black/50 transition-colors"
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-full border-2 border-black bg-black text-white flex items-center justify-center group-hover:bg-gray-800 transition-colors">
+                    <User size={16} />
+                  </div>
+                )}
+                <span className="text-sm font-medium hidden sm:block group-hover:underline underline-offset-4">
+                  {user?.user_metadata?.name?.split(' ')[0] || 'Dashboard'}
+                </span>
+              </button>
+
+              {isProfileMenuOpen && (
+                <div className="absolute right-0 mt-2 w-44 border-2 border-black bg-white shadow-[6px_6px_0px_0px_rgba(0,0,0,1)]">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsProfileMenuOpen(false);
+                      router.push('/dashboard');
+                    }}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 border-b border-black/10"
+                  >
+                    Dashboard
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center justify-between"
+                  >
+                    <span>Log out</span>
+                    <LogOut size={16} />
+                  </button>
                 </div>
               )}
-              <span className="text-sm font-medium hidden sm:block group-hover:underline underline-offset-4">
-                {user?.user_metadata?.name?.split(' ')[0] || 'Dashboard'}
-              </span>
-            </button>
+            </div>
           ) : (
             <button onClick={() => router.push('/auth/login')} className="text-sm hover:underline underline-offset-4">Login</button>
           )}

@@ -162,7 +162,8 @@ class StorageService {
     console.log('[Storage] Mapped onboarding data:', Object.keys(mappedData));
 
     try {
-      await apiClient.post('/onboarding/conversion/complete', mappedData);
+      // Send to backend API (needs /api prefix)
+      await apiClient.post('/api/onboarding/conversion/complete', mappedData);
       
       // Clear local data after successful push
       this.clearOnboardingData();

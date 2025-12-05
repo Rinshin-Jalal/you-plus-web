@@ -111,15 +111,15 @@ export default function CheckoutPage() {
     setCheckoutLoading(true);
 
     try {
-      if (isAuthenticated) {
-        // User is logged in - use authenticated checkout
-        console.log('[Checkout] User authenticated, using authenticated checkout');
-        await paymentService.redirectToCheckout(planId);
-      } else {
-        // User is not logged in - use guest checkout
-        console.log('[Checkout] User not authenticated, using guest checkout');
-        await paymentService.redirectToGuestCheckout(planId);
+      if (!isAuthenticated) {
+        const next = encodeURIComponent('/checkout');
+        router.push(`/auth/login?next=${next}`);
+        return;
       }
+
+      // Authenticated checkout only
+      console.log('[Checkout] User authenticated, using authenticated checkout');
+      await paymentService.redirectToCheckout(planId);
     } catch (err) {
       console.error('Checkout error:', err);
       setError('Failed to start checkout. Please try again.');
@@ -154,11 +154,6 @@ export default function CheckoutPage() {
           <p className="text-lg text-gray-600">
             Get unlimited access to AI-powered coaching
           </p>
-          {hasOnboardingData && !isAuthenticated && (
-            <p className="text-sm text-teal-600 mt-2">
-              Your profile is ready! Choose a plan to continue.
-            </p>
-          )}
         </div>
 
         {error && (
@@ -229,7 +224,7 @@ export default function CheckoutPage() {
                       Processing...
                     </span>
                   ) : !isAuthenticated ? (
-                    'Sign Up & Subscribe'
+                    'Login to Subscribe'
                   ) : (
                     'Get Started'
                   )}

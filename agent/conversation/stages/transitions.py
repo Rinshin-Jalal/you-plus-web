@@ -149,7 +149,7 @@ def build_transition_check_prompt(
     conversation_text = ""
     for msg in recent:
         role = msg.get("role", "")
-        if role == "model":
+        if role in ("model", "assistant"):
             role = "Agent"
         elif role == "user":
             role = "User"

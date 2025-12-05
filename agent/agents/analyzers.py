@@ -193,22 +193,38 @@ class PatternAnalyzerNode(Node):
             quit_lower = self.quit_pattern.lower()
 
             # Common quit patterns and their typical day ranges
-            if "week" in quit_lower and 5 <= self.current_streak <= 10:
+            if "week" in quit_lower and "two" not in quit_lower and 5 <= self.current_streak <= 10:
                 yield PatternAlert(
                     pattern_type="quit_pattern",
                     description="User is in their typical 'first week' quit zone",
                     historical_context=f"They usually quit: {self.quit_pattern}",
                 )
-            elif "two weeks" in quit_lower and 12 <= self.current_streak <= 16:
+            elif (
+                ("two week" in quit_lower or "2 week" in quit_lower)
+                and 12 <= self.current_streak <= 16
+            ):
                 yield PatternAlert(
                     pattern_type="quit_pattern",
                     description="User is in their typical 'two week' quit zone",
                     historical_context=f"They usually quit: {self.quit_pattern}",
                 )
-            elif "month" in quit_lower and 25 <= self.current_streak <= 35:
+            elif (
+                "month" in quit_lower
+                and "two" not in quit_lower
+                and 25 <= self.current_streak <= 35
+            ):
                 yield PatternAlert(
                     pattern_type="quit_pattern",
                     description="User is in their typical 'one month' quit zone",
+                    historical_context=f"They usually quit: {self.quit_pattern}",
+                )
+            elif (
+                ("two month" in quit_lower or "2 month" in quit_lower)
+                and 55 <= self.current_streak <= 65
+            ):
+                yield PatternAlert(
+                    pattern_type="quit_pattern",
+                    description="User is in their typical 'two month' quit zone",
                     historical_context=f"They usually quit: {self.quit_pattern}",
                 )
 

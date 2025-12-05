@@ -121,8 +121,9 @@ class SentimentAnalyzerNode(Node):
             yield UserFrustrated(
                 frustration_level=frustration_level,
                 trigger=None,
+                # High frustration needs de-escalation (soften_tone), medium just needs acknowledgment
                 suggested_action="soften_tone"
-                if frustration_level == "medium"
+                if frustration_level == "high"
                 else "acknowledge",
             )
 

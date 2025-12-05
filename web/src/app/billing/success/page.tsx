@@ -30,21 +30,35 @@ export default function BillingSuccessPage() {
       // Get guest checkout ID and onboarding data from localStorage
       const guestId = localStorage.getItem('youplus_guest_checkout_id') || '';
       const onboardingData = storageService.getData();
+      const hasOnboardingData = Object.keys(onboardingData).length > 0;
 
-      console.log('[billing-success] Processing:', { guestId, hasOnboardingData: Object.keys(onboardingData).length > 0 });
+      console.log('[billing-success] Processing:', { guestId, hasOnboardingData });
 
-      // Link payment and sync onboarding data
+      // Link payment to auth user
       const result = await paymentService.linkGuestCheckout(guestId, onboardingData);
 
       if (result.success) {
-        // Clear localStorage
+        console.log('[billing-success] Link succeeded, pushing onboarding data if present');
+
+        // Push onboarding data to backend now that we are authenticated
+        if (hasOnboardingData) {
+          const push = await storageService.pushOnboardingData();
+          if (!push.success) {
+            console.error('[billing-success] Onboarding push failed:', push.error);
+          } else {
+            console.log('[billing-success] Onboarding data pushed');
+          }
+        } else {
+          console.log('[billing-success] No onboarding data found in localStorage');
+        }
+
+        // Clear local cache
         localStorage.removeItem('youplus_guest_checkout_id');
         localStorage.removeItem('youplus_pending_plan_id');
         storageService.clearOnboardingData();
-        console.log('[billing-success] Success! Going to dashboard');
       } else {
         console.error('[billing-success] Link failed:', result.error);
-        // Still go to dashboard, webhook might handle subscription
+        // Still proceed; webhook might handle subscription
       }
 
       // Go to setup page (post-signup onboarding)
