@@ -33,6 +33,9 @@ export async function proxy(request: NextRequest) {
         pathname === route || pathname.startsWith(route + '/'),
     );
 
+    const isCheckoutRoute = pathname.startsWith('/checkout')
+    const isBillingSuccessRoute = pathname.startsWith('/billing/success')
+
     // ALWAYS refresh session (proxy runs on all routes per Supabase docs)
     const { supabaseResponse, claims } = await updateSession(request)
     const user = claims?.sub ? claims : null
@@ -50,6 +53,11 @@ export async function proxy(request: NextRequest) {
     }
 
     console.log(`[MIDDLEWARE] ${pathname} - User authenticated: ${claims?.email}`)
+
+    // Allow authenticated access to checkout/billing-success even if onboarding incomplete
+    if (isCheckoutRoute || isBillingSuccessRoute) {
+        return supabaseResponse
+    }
 
     // For all other routes, check onboarding and subscription status
     // We need to create a server client here for database queries

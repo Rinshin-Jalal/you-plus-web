@@ -393,12 +393,13 @@ def fill_template(template: str, **kwargs) -> str:
 
     Supports:
     - {name}, {streak}, {commitment}, etc.
-    - Missing values are replaced with empty string
+    - Missing values (None) are replaced with empty string
+    - Falsy values like 0 or False are preserved as strings
     """
     result = template
     for key, value in kwargs.items():
         placeholder = "{" + key + "}"
-        result = result.replace(placeholder, str(value) if value else "")
+        result = result.replace(placeholder, str(value) if value is not None else "")
 
     # Clean up any unfilled placeholders
     import re

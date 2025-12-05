@@ -25,7 +25,9 @@ class SentimentAnalysis(BaseModel):
 
     sentiment: str  # positive, negative, neutral, frustrated, deflecting, defensive
     confidence: float = 0.0
-    indicators: list[str] = []  # Words/phrases that triggered this
+    indicators: list[str] = Field(
+        default_factory=list
+    )  # Words/phrases that triggered this
     timestamp: datetime = Field(default_factory=datetime.now)
 
 
