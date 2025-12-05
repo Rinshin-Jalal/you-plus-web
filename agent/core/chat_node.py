@@ -10,6 +10,7 @@ Uses Groq GPT-OSS-120B for the main speaking agent.
 """
 
 import os
+import re
 import sys
 from pathlib import Path
 from typing import AsyncGenerator, Optional, Union
@@ -205,15 +206,32 @@ class FutureYouNode(ReasoningNode):
             await self._handle_response_end(full_response, user_message)
 
     def _detect_promise_response(self, message: str) -> None:
-        """Detect YES/NO for promise tracking."""
+        """Detect YES/NO for promise tracking using word boundaries."""
         lower = message.lower().strip()
-        yes_words = ["yes", "yeah", "yep", "yup", "did it", "i did", "completed"]
-        no_words = ["no", "nope", "didn't", "nah", "not yet", "couldn't"]
 
-        if any(word in lower for word in yes_words):
+        # Use word boundary regex to avoid false positives like "yesterday" matching "yes"
+        yes_patterns = [
+            r"\byes\b",
+            r"\byeah\b",
+            r"\byep\b",
+            r"\byup\b",
+            r"\bdid it\b",
+            r"\bi did\b",
+            r"\bcompleted\b",
+        ]
+        no_patterns = [
+            r"\bno\b",
+            r"\bnope\b",
+            r"\bdidn\'?t\b",
+            r"\bnah\b",
+            r"\bnot yet\b",
+            r"\bcouldn\'?t\b",
+        ]
+
+        if any(re.search(pattern, lower) for pattern in yes_patterns):
             self.kept_promise = True
             logger.info("Promise KEPT detected")
-        elif any(word in lower for word in no_words):
+        elif any(re.search(pattern, lower) for pattern in no_patterns):
             self.kept_promise = False
             logger.info("Promise BROKEN detected")
 
