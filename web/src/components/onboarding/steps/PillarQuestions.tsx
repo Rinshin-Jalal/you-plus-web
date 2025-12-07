@@ -28,7 +28,7 @@ export const PillarQuestions = ({
   selectedPillars, 
   data, 
   onUpdate, 
-  onComplete 
+  onComplete
 }: PillarQuestionsProps) => {
   const [pillarIndex, setPillarIndex] = useState(0);
   const [questionType, setQuestionType] = useState<QuestionType>('current');

@@ -215,7 +215,7 @@ export const VoiceVisualizer = ({
 
     return (
         <div className="flex flex-col items-center gap-10 animate-in fade-in duration-1000 w-full max-w-md">
-            <div className="w-full bg-gray-50 border-4 border-black relative overflow-hidden shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] rounded-lg">
+            <div className="w-full border-4 border-black relative overflow-hidden shadow-lg rounded-lg bg-gray-50">
                 <div className="absolute top-3 left-3 flex gap-1.5 z-10">
                     <div className="w-2 h-2 rounded-full bg-black/20" />
                     <div className="w-2 h-2 rounded-full bg-black/20" />
@@ -232,7 +232,7 @@ export const VoiceVisualizer = ({
                 {isRecording && (
                     <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
                         <div className={`w-3 h-3 rounded-full animate-pulse ${canStop ? 'bg-green-500' : 'bg-red-600'}`} />
-                        <span className={`font-mono text-sm font-bold tracking-wider ${canStop ? 'text-green-600' : 'text-red-600'}`}>
+                        <span className={`font-mono text-sm font-bold tracking-wider ${canStop ? 'text-green-400' : 'text-red-400'}`}>
                             {canStop ? 'READY' : `${timeRemaining}s`}
                         </span>
                     </div>
@@ -247,7 +247,7 @@ export const VoiceVisualizer = ({
                         ? canStop 
                             ? 'border-green-500 bg-green-500 text-white scale-110 shadow-[0_10px_20px_rgba(34,197,94,0.3)] cursor-pointer' 
                             : 'border-black/30 bg-black/30 text-white scale-105 cursor-not-allowed'
-                        : 'border-black hover:bg-black hover:text-white cursor-pointer'
+                        : 'border-black hover:bg-black hover:text-white cursor-pointer text-black'
                     }`}
             >
                 {isRecording ? (
@@ -257,7 +257,7 @@ export const VoiceVisualizer = ({
                 )}
             </button>
             
-            <p className="font-mono text-xs text-black/40 uppercase tracking-[0.2em] font-bold">
+            <p className="font-mono text-xs uppercase tracking-[0.2em] font-bold text-black/40">
                 {isRecording 
                     ? canStop 
                         ? 'Tap to Stop' 

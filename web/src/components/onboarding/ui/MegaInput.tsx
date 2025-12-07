@@ -1,7 +1,15 @@
 
 import React, { useRef, useEffect } from 'react';
 
-export const MegaInput = ({ value, onChange, placeholder, onEnter, autoFocus = true }: any) => {
+interface MegaInputProps {
+  value?: string;
+  onChange: (val: string) => void;
+  placeholder?: string;
+  onEnter: () => void;
+  autoFocus?: boolean;
+}
+
+export const MegaInput = ({ value, onChange, placeholder, onEnter, autoFocus = true }: MegaInputProps) => {
   const ref = useRef<HTMLInputElement>(null);
   
   useEffect(() => {
@@ -18,7 +26,7 @@ export const MegaInput = ({ value, onChange, placeholder, onEnter, autoFocus = t
         value={value || ''}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => e.key === 'Enter' && value && onEnter()}
-        className="w-full bg-transparent border-b-2 border-black/10 py-6 text-3xl md:text-4xl font-mono font-medium text-black placeholder-black/20 focus:outline-none focus:border-black transition-all duration-300 text-center"
+        className="w-full bg-transparent border-b-2 border-black/10 py-6 text-3xl md:text-4xl font-mono font-medium focus:outline-none transition-all duration-300 text-center text-black placeholder-black/20"
         placeholder={placeholder}
         autoComplete="off"
       />

@@ -6,6 +6,7 @@ import { TrendingUp, TrendingDown, Minus, Star } from 'lucide-react';
 interface PillarGridProps {
   pillars: FutureSelfPillar[];
   primaryPillar?: PillarType;
+  hasCompletedFirstCall?: boolean;
 }
 
 // Get pillar display info from presets or generate for custom pillars
@@ -133,7 +134,7 @@ const PillarCard = ({
   );
 };
 
-export const PillarGrid = ({ pillars, primaryPillar }: PillarGridProps) => {
+export const PillarGrid = ({ pillars, primaryPillar, hasCompletedFirstCall = true }: PillarGridProps) => {
   if (!pillars || pillars.length === 0) {
     return (
       <div className="border-2 border-dashed border-black/20 p-8 text-center bg-gray-50/50">
@@ -144,6 +145,65 @@ export const PillarGrid = ({ pillars, primaryPillar }: PillarGridProps) => {
         <p className="font-mono text-xs text-black/30">
           Complete onboarding to set up your transformation pillars
         </p>
+      </div>
+    );
+  }
+
+  // Show awaiting first call state - preview pillars in muted style
+  if (!hasCompletedFirstCall) {
+    // Sort: primary first
+    const sortedPillars = [...pillars].sort((a, b) => {
+      if (a.pillar === primaryPillar) return -1;
+      if (b.pillar === primaryPillar) return 1;
+      return 0;
+    });
+
+    return (
+      <div className="relative">
+        {/* Muted pillar preview grid */}
+        <div className={`grid gap-4 opacity-40 ${
+          pillars.length === 2 ? 'grid-cols-1 sm:grid-cols-2' :
+          pillars.length === 3 ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' :
+          pillars.length === 4 ? 'grid-cols-1 sm:grid-cols-2' :
+          'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
+        }`}>
+          {sortedPillars.map((pillar) => {
+            const { icon, label } = getPillarDisplay(pillar.pillar);
+            const isPrimary = pillar.pillar === primaryPillar;
+            return (
+              <div 
+                key={pillar.id}
+                className={`relative border-2 border-dashed p-5 ${
+                  isPrimary ? 'border-black/30' : 'border-black/15'
+                }`}
+              >
+                {isPrimary && (
+                  <div className="absolute -top-3 left-4 flex items-center gap-1.5 bg-black/20 text-black/50 text-[10px] font-mono uppercase tracking-widest px-2.5 py-1">
+                    <Star size={10} />
+                    Primary
+                  </div>
+                )}
+                <div className="flex items-center gap-3 mb-3">
+                  <span className="text-2xl grayscale">{icon}</span>
+                  <h4 className="font-display font-bold text-sm uppercase tracking-tight text-black/50">
+                    {label}
+                  </h4>
+                </div>
+                <div className="h-2 bg-black/10 w-full mb-3" />
+                <div className="h-2 bg-black/10 w-3/4" />
+              </div>
+            );
+          })}
+        </div>
+        
+        {/* Overlay message */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="bg-white/95 backdrop-blur-sm border-2 border-black px-6 py-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+            <p className="font-display font-bold text-sm uppercase tracking-tight text-center">
+              Complete your first call to unlock
+            </p>
+          </div>
+        </div>
       </div>
     );
   }

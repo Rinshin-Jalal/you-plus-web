@@ -1,7 +1,5 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Zap } from 'lucide-react';
-import { Button } from '@/components/ui/Button';
 import { audioService } from '@/services/audio';
 import { storageService } from '@/services/storage';
 
@@ -20,6 +18,7 @@ import { CommitmentCard } from '@/components/onboarding/steps/CommitmentCard';
 import { PillarSelection } from '@/components/onboarding/steps/PillarSelection';
 import { PillarQuestions } from '@/components/onboarding/steps/PillarQuestions';
 import { getPersonalizedLines, getPersonalizedLabel, getPersonalizedSubtext } from '@/utils/onboardingPersonalization';
+import { Button } from '@/components/ui/Button';
 
 const MIN_VOICE_DURATION = 15; // 15 seconds minimum recording
 const STEP_TRANSITION_DELAY = 800; // ms delay between steps
@@ -151,18 +150,25 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
   const canStopRecording = recordingTime >= MIN_VOICE_DURATION;
 
   return (
-    <div className="fixed inset-0 bg-white text-black font-sans flex flex-col z-[100]">
+    <div className="fixed inset-0 bg-white font-sans flex flex-col z-[100]">
       <GrainOverlay />
 
       {/* Header */}
-      <div className="relative z-10 px-8 py-8 flex justify-between items-center bg-white/90 backdrop-blur-sm border-b border-black/5">
-        <div className="flex items-center gap-6">
-            <div className="w-10 h-10 bg-black text-white flex items-center justify-center">
-                <span className="font-mono font-bold text-sm">{stepIndex + 1}</span>
+      <div className="relative z-10 px-8 py-6 flex justify-between items-center border-b border-black/10">
+        <div className="flex items-center gap-4">
+            {/* Progress bar */}
+            <div className="w-32 h-1 bg-black/10 rounded-full overflow-hidden">
+                <div 
+                    className="h-full bg-black transition-all duration-500 ease-out rounded-full"
+                    style={{ width: `${progress}%` }}
+                />
             </div>
-            <div className="h-1.5 w-32 bg-gray-100 rounded-full overflow-hidden">
-                <div className="h-full bg-black transition-all duration-500 ease-out" style={{ width: `${progress}%` }} />
-            </div>
+            
+            {/* Step counter */}
+            <span className="font-mono text-xs text-black/40">
+                {stepIndex + 1}/{STEPS.length}
+            </span>
+            
             {/* Act indicator */}
             {step.act && (
                 <span className="hidden md:block font-mono text-xs uppercase tracking-widest text-black/40">
@@ -170,7 +176,8 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
                 </span>
             )}
         </div>
-        <button onClick={onFinish} className="text-xs font-mono font-bold text-black/30 hover:text-black uppercase tracking-widest transition-colors">
+        
+        <button onClick={onFinish} className="text-xs font-mono font-bold uppercase tracking-widest text-black/30 hover:text-black transition-colors">
             Exit
         </button>
       </div>
@@ -183,7 +190,7 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
             <CommentarySection 
                 key={step.id} 
                 lines={personalizedLines} 
-                onNext={() => next()} 
+                onNext={() => next()}
             />
         )}
 
@@ -199,7 +206,7 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
 
         {step.type === 'input' && step.field && (
             <div key={step.id} className="w-full flex flex-col items-center text-center">
-                <h2 className="font-mono text-black text-2xl md:text-3xl leading-relaxed font-medium mb-12">
+                <h2 className="font-mono text-2xl md:text-3xl leading-relaxed font-medium mb-12 text-black">
                     {personalizedLabel}
                 </h2>
                 <MegaInput 
@@ -209,7 +216,7 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
                     onEnter={() => !isTransitioning && next(data[step.field!])}
                 />
                  <Button 
-                    className="mt-16 w-full max-w-xs border-black" 
+                    className="mt-16 w-full max-w-xs" 
                     variant="primary"
                     onClick={() => next(data[step.field!])}
                     disabled={isTransitioning}
@@ -221,7 +228,7 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
 
         {step.type === 'choice' && step.field && (
             <div key={step.id} className="w-full flex flex-col items-center text-center">
-                 <h2 className="font-mono text-black text-2xl md:text-3xl leading-relaxed font-medium mb-12">{personalizedLabel}</h2>
+                 <h2 className="font-mono text-2xl md:text-3xl leading-relaxed font-medium mb-12 text-black">{personalizedLabel}</h2>
                  <BrutalChoice 
                     options={
                         // For primary_pillar, dynamically generate choices from selected pillars
@@ -239,14 +246,14 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
                             : (step.choices || [])
                     } 
                     onSelect={next} 
-                    disabled={isTransitioning} 
+                    disabled={isTransitioning}
                  />
             </div>
         )}
 
         {step.type === 'multiselect' && step.choices && step.field && (
             <div key={step.id} className="w-full flex flex-col items-center text-center">
-                 <h2 className="font-mono text-black text-2xl md:text-3xl leading-relaxed font-medium mb-12">{personalizedLabel}</h2>
+                 <h2 className="font-mono text-2xl md:text-3xl leading-relaxed font-medium mb-12 text-black">{personalizedLabel}</h2>
                  <div className="flex flex-col gap-3 w-full max-w-lg">
                     {step.choices.map((option: string) => {
                         const selected = (data[step.field!] || []).includes(option);
@@ -264,7 +271,7 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
                                 className={`w-full p-4 border-2 font-mono text-left transition-all ${
                                     selected 
                                         ? 'border-black bg-black text-white' 
-                                        : 'border-black/20 bg-white text-black hover:border-black'
+                                        : 'border-black/10 bg-white text-black hover:border-black/40'
                                 }`}
                             >
                                 {option}
@@ -273,7 +280,7 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
                     })}
                  </div>
                  <Button 
-                    className="mt-12 w-full max-w-xs border-black" 
+                    className="mt-12 w-full max-w-xs" 
                     variant="primary"
                     onClick={() => next(data[step.field!] || [])}
                     disabled={isTransitioning || !(data[step.field!]?.length > 0)}
@@ -292,7 +299,7 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
                     label={personalizedLabel}
                 />
                 <Button 
-                    className="mt-20 w-full max-w-xs border-black" 
+                    className="mt-20 w-full max-w-xs" 
                     variant="primary" 
                     onClick={() => next(data[step.field!] || 5)}
                     disabled={isTransitioning}
@@ -304,7 +311,7 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
 
         {step.type === 'stepper' && step.field && (
             <div key={step.id} className="flex flex-col items-center text-center gap-16">
-                <h2 className="font-mono text-black text-2xl md:text-3xl leading-relaxed font-medium">{personalizedLabel}</h2>
+                <h2 className="font-mono text-2xl md:text-3xl leading-relaxed font-medium text-black">{personalizedLabel}</h2>
                 <Counter 
                     min={step.min} max={step.max}
                     value={data[step.field] || step.min}
@@ -312,7 +319,7 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
                 />
                 <Button 
                     variant="primary" 
-                    className="border-black w-40" 
+                    className="w-40" 
                     onClick={() => next(data[step.field!] || step.min)}
                     disabled={isTransitioning}
                 >
@@ -323,8 +330,8 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
 
         {step.type === 'voice' && step.field && (
              <div key={step.id} className="text-center w-full flex flex-col items-center">
-                 <h2 className="font-mono text-black text-2xl md:text-3xl leading-relaxed font-medium mb-4">{personalizedLabel}</h2>
-                 <p className="font-mono text-black/40 text-base mb-12">{personalizedSubtext}</p>
+                 <h2 className="font-mono text-2xl md:text-3xl leading-relaxed font-medium mb-4 text-black">{personalizedLabel}</h2>
+                 <p className="font-mono text-base mb-12 text-black/40">{personalizedSubtext}</p>
                  
                  <VoiceVisualizer 
                     isRecording={voiceState} 
@@ -339,15 +346,15 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
 
         {(step.type === 'date' || step.type === 'time') && step.field && (
             <div key={step.id} className="w-full flex flex-col items-center text-center">
-                 <h2 className="font-mono text-black text-2xl md:text-3xl leading-relaxed font-medium mb-12">{personalizedLabel}</h2>
+                 <h2 className="font-mono text-2xl md:text-3xl leading-relaxed font-medium mb-12 text-black">{personalizedLabel}</h2>
                  <input 
                     type={step.type}
                     defaultValue={step.type === 'time' ? '21:00' : undefined}
-                    className="w-full max-w-lg bg-transparent border-b-4 border-black/5 py-8 text-4xl md:text-5xl font-mono font-medium text-black focus:outline-none focus:border-neon-teal tracking-tight text-center px-4"
+                    className="w-full max-w-lg bg-transparent border-b-4 border-black/10 py-8 text-4xl md:text-5xl font-mono font-medium focus:outline-none tracking-tight text-center px-4 text-black"
                     onChange={(e) => setData({ ...data, [step.field!]: e.target.value })}
                  />
                  <Button 
-                    className="mt-16 w-full max-w-xs border-black" 
+                    className="mt-16 w-full max-w-xs" 
                     variant="primary" 
                     onClick={() => next(data[step.field!] || (step.type === 'time' ? '21:00' : undefined))}
                     disabled={isTransitioning}
@@ -430,28 +437,28 @@ function FinalLoader({ onComplete }: { onComplete: () => void }) {
 
     return (
         <div className="flex flex-col items-center gap-8 text-center max-w-md">
-            <h2 className="font-mono text-black text-2xl md:text-3xl font-medium">
+            <h2 className="font-mono text-2xl md:text-3xl font-medium text-black">
                 Creating your future self...
             </h2>
             
             {/* Progress bar */}
-            <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+            <div className="w-full h-2 bg-black/10 rounded-full overflow-hidden">
                 <div 
-                    className="h-full bg-teal-500 transition-all duration-100 ease-out"
+                    className="h-full bg-black rounded-full transition-all duration-100 ease-out"
                     style={{ width: `${progress}%` }}
                 />
             </div>
             
             {/* Fun fact */}
-            <p className="font-mono text-sm text-black/60 min-h-[3rem] transition-opacity duration-500">
+            <p className="font-mono text-sm min-h-[3rem] transition-opacity duration-500 text-black/40">
                 {FUN_FACTS[factIndex]}
             </p>
             
             {/* Loading dots */}
             <div className="flex gap-2">
-                <div className="w-3 h-3 bg-teal-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                <div className="w-3 h-3 bg-teal-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                <div className="w-3 h-3 bg-teal-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                <div className="w-3 h-3 rounded-full bg-black animate-bounce" style={{ animationDelay: '0ms' }} />
+                <div className="w-3 h-3 rounded-full bg-black animate-bounce" style={{ animationDelay: '150ms' }} />
+                <div className="w-3 h-3 rounded-full bg-black animate-bounce" style={{ animationDelay: '300ms' }} />
             </div>
         </div>
     );

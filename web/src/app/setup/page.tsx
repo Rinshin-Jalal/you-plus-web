@@ -8,6 +8,7 @@ import { storageService } from '@/services/storage';
 import { Button } from '@/components/ui/Button';
 import { PhoneInput, isValidE164 } from '@/components/shared/PhoneInput';
 import { apiClient } from '@/services/api';
+import { useDashboardStore } from '@/stores/dashboardStore';
 
 /**
  * Setup Page - The gateway after onboarding

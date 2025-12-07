@@ -204,6 +204,7 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
                 <PillarGrid 
                   pillars={data.pillars} 
                   primaryPillar={data.futureSelf?.primary_pillar}
+                  hasCompletedFirstCall={hasCompletedFirstCall}
                 />
                 {/* Identity Alignment Summary */}
                 {data.pillarAlignment && (
@@ -226,6 +227,24 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
                     </div>
                   </div>
                 )}
+              </div>
+            ) : data.futureSelf?.core_identity ? (
+              /* Awaiting pillars data - onboarding complete but pillars not yet loaded */
+              <div className="border-2 border-dashed border-black/25 p-5 md:p-6 bg-gray-50/30">
+                <div className="flex items-start gap-3 md:gap-4">
+                  <div className="w-10 h-10 md:w-12 md:h-12 bg-black/10 flex items-center justify-center flex-shrink-0 animate-pulse">
+                    <Compass size={20} className="text-black/40" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-mono text-[9px] uppercase tracking-widest text-black/40 mb-1">Loading</p>
+                    <h4 className="font-display font-extrabold text-lg md:text-xl uppercase tracking-tight mb-2 text-black/60">
+                      Awaiting pillars data...
+                    </h4>
+                    <p className="font-mono text-[11px] text-black/40 leading-relaxed">
+                      Your pillars are being loaded.
+                    </p>
+                  </div>
+                </div>
               </div>
             ) : (
               /* Empty state - no pillars set up yet */

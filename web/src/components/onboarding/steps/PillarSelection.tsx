@@ -40,7 +40,7 @@ export const PillarSelection = ({ selected, onSelect, onContinue }: PillarSelect
     <div className="w-full max-w-2xl mx-auto animate-in slide-in-from-bottom-8 duration-500">
       {/* Header */}
       <div className="text-center mb-8">
-        <h2 className="font-mono text-2xl md:text-3xl font-bold text-black mb-2">
+        <h2 className="font-mono text-2xl md:text-3xl font-bold mb-2 text-black">
           What do you want to change?
         </h2>
         <p className="font-mono text-gray-600">

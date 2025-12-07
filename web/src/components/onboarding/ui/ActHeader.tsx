@@ -37,19 +37,19 @@ export function ActHeader({ act, title, subtitle, onNext }: ActHeaderProps) {
             </div>
             
             {/* Title */}
-            <h1 className="font-display font-extrabold text-4xl md:text-6xl uppercase tracking-tight text-black mb-4">
+            <h1 className="font-display font-extrabold text-4xl md:text-6xl uppercase tracking-tight mb-4 text-black">
                 {title}
             </h1>
             
             {/* Subtitle */}
             {subtitle && (
-                <p className="font-mono text-lg md:text-xl text-black/50">
+                <p className="font-mono text-lg md:text-xl text-black/40">
                     {subtitle}
                 </p>
             )}
             
             {/* Decorative line */}
-            <div className="mt-8 w-24 h-1 bg-black" />
+            <div className="mt-8 w-24 h-1 rounded-full bg-black" />
         </div>
     );
 }

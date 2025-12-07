@@ -2,7 +2,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { audioService } from '../../../services/audio';
 
-export const Typewriter = ({ text, onComplete, speed = 30, startDelay = 0 }: { text: string; onComplete?: () => void; speed?: number; startDelay?: number }) => {
+interface TypewriterProps {
+  text: string;
+  onComplete?: () => void;
+  speed?: number;
+  startDelay?: number;
+  className?: string;
+}
+
+export const Typewriter = ({ text, onComplete, speed = 30, startDelay = 0, className }: TypewriterProps) => {
   const [display, setDisplay] = useState('');
   const [started, setStarted] = useState(false);
   const lastAudioTime = useRef(0);
@@ -39,9 +47,9 @@ export const Typewriter = ({ text, onComplete, speed = 30, startDelay = 0 }: { t
   }, [text, speed, onComplete, started]);
 
   return (
-    <span className="font-mono text-black text-xl md:text-2xl leading-relaxed font-medium">
+    <span className={className || "font-mono text-black text-xl md:text-2xl leading-relaxed font-medium"}>
       {display}
-      <span className="animate-pulse inline-block w-2 h-5 bg-neon-teal ml-1 align-middle" />
+      <span className="animate-pulse inline-block w-2 h-5 bg-current opacity-60 ml-1 align-middle" />
     </span>
   );
 };

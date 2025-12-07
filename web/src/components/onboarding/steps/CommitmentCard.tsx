@@ -4,7 +4,12 @@ import { Check, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { PILLAR_PRESETS, getPillarById } from '@/data/pillarPresets';
 
-export const CommitmentCard = ({ data, onAccept }: { data: any, onAccept: () => void }) => {
+interface CommitmentCardProps {
+  data: any;
+  onAccept: () => void;
+}
+
+export const CommitmentCard = ({ data, onAccept }: CommitmentCardProps) => {
   const [agreed, setAgreed] = useState(false);
   
   const commitments = [

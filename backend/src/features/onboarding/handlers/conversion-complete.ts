@@ -122,10 +122,10 @@ export const postConversionOnboardingComplete = async (c: Context) => {
       }
     }
 
-    // 1. Create future_self record
+    // 1. Create or update future_self record (upsert to handle re-onboarding)
     const { data: futureSelfData, error: futureSelfError } = await supabase
       .from("future_self")
-      .insert({
+      .upsert({
         user_id: userId,
         core_identity: core_identity,
         primary_pillar: mappedPrimaryPillar,
@@ -139,7 +139,7 @@ export const postConversionOnboardingComplete = async (c: Context) => {
         pledge_recording_url: pledge_recording || null,
         supermemory_container_id: userId,
         selected_pillars: selected_pillars, // Store the array of selected pillar IDs
-      })
+      }, { onConflict: 'user_id' })
       .select('id')
       .single();
 
@@ -149,9 +149,21 @@ export const postConversionOnboardingComplete = async (c: Context) => {
     }
 
     const futureSelfId = futureSelfData.id;
-    console.log(`✅ Future Self created with ID: ${futureSelfId}`);
+    console.log(`✅ Future Self created/updated with ID: ${futureSelfId}`);
 
-    // 2. Create pillar records for each selected pillar
+    // 2. Delete existing pillars for this user (for re-onboarding scenarios)
+    const { error: deletePillarsError } = await supabase
+      .from("future_self_pillars")
+      .delete()
+      .eq("user_id", userId);
+
+    if (deletePillarsError) {
+      console.error("❌ Failed to delete existing pillars:", deletePillarsError);
+      throw deletePillarsError;
+    }
+    console.log(`🗑️ Cleared existing pillars for user`);
+
+    // 3. Create pillar records for each selected pillar
     // Dynamic pillar data comes in as: {pillar_id}_current, {pillar_id}_goal, {pillar_id}_future
     const createdPillars: string[] = [];
     
@@ -197,7 +209,7 @@ export const postConversionOnboardingComplete = async (c: Context) => {
       createdPillars.push(pillarId);
     }
 
-    // 3. Create/update status record
+    // 4. Create/update status record
     const { error: statusError } = await supabase
       .from("status")
       .upsert({
