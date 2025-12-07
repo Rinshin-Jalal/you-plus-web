@@ -15,11 +15,33 @@ Key Concepts:
 - UserState tracks real-time signals from background agents
 - PersonaController manages blending and selection
 - Trust score influences starting persona and responses
+- Pillars provide context for persona-specific accountability
+
+Integration with Future-Self System:
+- Each pillar has its own trust score
+- Persona adapts to pillar-specific context
+- Identity-focused language based on pillar state
 """
 
 from enum import Enum
 from dataclasses import dataclass, field
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, TYPE_CHECKING
+
+# Import pillar system for integration
+from .future_self import (
+    Pillar,
+    PillarState,
+    FutureSelf,
+    PILLAR_CONFIGS,
+    ACTIONABLE_PILLARS,
+    get_pillar_question,
+    get_pillar_identity_statement,
+    get_language_mode,
+    LanguageMode,
+)
+
+if TYPE_CHECKING:
+    from .future_self import FutureSelf
 
 
 class Persona(Enum):
@@ -145,6 +167,8 @@ class UserState:
     """
     Real-time state aggregated from background agent insights.
     Updated throughout the call as events come in.
+
+    Now includes pillar-based context for identity-focused accountability.
     """
 
     # Excuse tracking
@@ -178,6 +202,25 @@ class UserState:
     trust_score: int = 50  # 0-100, overall
     goal_trust_scores: Dict[str, int] = field(default_factory=dict)  # goal_id -> trust
 
+    # ─────────────────────────────────────────────────────────────────────────
+    # PILLAR CONTEXT (new for future-self system)
+    # ─────────────────────────────────────────────────────────────────────────
+
+    # Current pillar focus for this call
+    focus_pillars: List[Pillar] = field(default_factory=list)
+
+    # Pillar-specific tracking for this call
+    pillar_results_this_call: Dict[Pillar, bool] = field(
+        default_factory=dict
+    )  # pillar -> kept
+
+    # Identity alignment (from FutureSelf)
+    identity_alignment: int = 50  # 0-100, average across pillars
+
+    # Slipping/winning pillars for context
+    slipping_pillars: List[Pillar] = field(default_factory=list)
+    winning_pillars: List[Pillar] = field(default_factory=list)
+
     def update_from_excuse(self, excuse_text: str, matches_favorite: bool):
         """Update state when excuse is detected."""
         self.excuse_count_this_call += 1
@@ -209,6 +252,30 @@ class UserState:
         if not kept:
             self.broken_promises_this_week += 1
 
+    def update_from_pillar_checkin(self, pillar: Pillar, kept: bool):
+        """Update state when a pillar check-in is recorded."""
+        self.pillar_results_this_call[pillar] = kept
+        if kept:
+            self.is_celebrating = True
+
+    def set_pillar_context(self, future_self: "FutureSelf"):
+        """
+        Initialize pillar context from a FutureSelf object.
+        Called at start of call to set up pillar-aware accountability.
+        """
+        self.focus_pillars = [p.pillar for p in future_self.get_focus_pillars(limit=2)]
+        self.slipping_pillars = [p.pillar for p in future_self.get_slipping_pillars()]
+        self.winning_pillars = [p.pillar for p in future_self.get_winning_pillars()]
+        self.identity_alignment = future_self.calculate_identity_alignment()
+
+    def get_pillar_wins_count(self) -> int:
+        """Count how many pillars were kept this call."""
+        return sum(1 for kept in self.pillar_results_this_call.values() if kept)
+
+    def has_compound_wins(self) -> bool:
+        """True if multiple pillars were won this call."""
+        return self.get_pillar_wins_count() >= 2
+
 
 class PersonaController:
     """
@@ -219,13 +286,26 @@ class PersonaController:
     - Blending is gradual, not instant
     - Fast blending for negative signals (catch problems)
     - Slow blending for positive signals (don't overreact)
+    - Pillar context influences persona selection and prompts
     """
 
     def __init__(
-        self, initial_trust_score: int = 50, yesterday_kept: Optional[bool] = None
+        self,
+        initial_trust_score: int = 50,
+        yesterday_kept: Optional[bool] = None,
+        future_self: Optional["FutureSelf"] = None,
     ):
         self.user_state = UserState(trust_score=initial_trust_score)
+        self.future_self = future_self
         self.current_blend: Dict[Persona, float] = {}
+
+        # If we have future-self data, initialize pillar context
+        if future_self:
+            self.user_state.set_pillar_context(future_self)
+            # Use identity alignment as trust score if available
+            self.user_state.trust_score = future_self.overall_trust_score
+            initial_trust_score = future_self.overall_trust_score
+
         self.primary_persona: Persona = self._select_starting_persona(
             initial_trust_score, yesterday_kept
         )
@@ -321,6 +401,41 @@ class PersonaController:
             self.user_state.asking_for_help = True
             self._blend_toward(Persona.STRATEGIST, speed="medium")
 
+        # ─────────────────────────────────────────────────────────────────────────
+        # PILLAR-BASED EVENTS
+        # ─────────────────────────────────────────────────────────────────────────
+
+        elif event_type == "pillar_checkin":
+            # Handle pillar-specific check-in response
+            pillar_str = event_data.get("pillar", "")
+            kept = event_data.get("kept", False)
+
+            try:
+                pillar = Pillar(pillar_str)
+                self.user_state.update_from_pillar_checkin(pillar, kept)
+
+                if kept:
+                    # Check for compound wins
+                    if self.user_state.has_compound_wins():
+                        # Multiple wins - celebrate bigger
+                        self._blend_toward(Persona.CELEBRATING_CHAMPION, speed="medium")
+                    else:
+                        self._blend_toward(Persona.CELEBRATING_CHAMPION, speed="slow")
+                else:
+                    # Broken - check if slipping
+                    if pillar in self.user_state.slipping_pillars:
+                        # Already slipping in this pillar - escalate
+                        self._blend_toward(Persona.DISAPPOINTED_PARENT, speed="medium")
+                    else:
+                        self._blend_toward(Persona.WISE_MENTOR, speed="slow")
+            except ValueError:
+                pass  # Invalid pillar string, ignore
+
+        elif event_type == "compound_win":
+            # Multiple pillars won - big celebration
+            self._blend_toward(Persona.CELEBRATING_CHAMPION, speed="fast")
+            self.user_state.is_celebrating = True
+
     def _blend_toward(self, target: Persona, speed: str = "medium"):
         """
         Gradually blend toward a target persona.
@@ -410,7 +525,75 @@ Also incorporate: {secondary_config.purpose}
 {"Pattern is chronic. Use their fears. Show them where this leads." if self.user_state.severity_level >= 4 else ""}
 """
 
+        # Add pillar context if available
+        prompt += self._build_pillar_context_section()
+
         return prompt
+
+    def _build_pillar_context_section(self) -> str:
+        """Build pillar-specific context for the persona prompt."""
+        if not self.future_self:
+            return ""
+
+        sections = []
+
+        # Focus pillars for this call
+        if self.user_state.focus_pillars:
+            focus_names = [
+                PILLAR_CONFIGS[p].name for p in self.user_state.focus_pillars
+            ]
+            sections.append(f"""
+## FOCUS PILLARS FOR THIS CALL
+Focus on: {", ".join(focus_names)}
+These need attention based on their current state.
+""")
+
+        # Slipping pillars (broken streaks)
+        if self.user_state.slipping_pillars:
+            slipping = []
+            for p in self.user_state.slipping_pillars:
+                pillar_state = self.future_self.get_pillar(p)
+                if pillar_state:
+                    config = PILLAR_CONFIGS[p]
+                    slipping.append(
+                        f"- {config.emoji} {config.name}: {pillar_state.consecutive_broken} days broken"
+                    )
+            if slipping:
+                sections.append(f"""
+## SLIPPING PILLARS (Need Accountability)
+{chr(10).join(slipping)}
+Address these with appropriate persona energy.
+""")
+
+        # Winning pillars (kept streaks)
+        if self.user_state.winning_pillars:
+            winning = []
+            for p in self.user_state.winning_pillars:
+                pillar_state = self.future_self.get_pillar(p)
+                if pillar_state:
+                    config = PILLAR_CONFIGS[p]
+                    winning.append(
+                        f"- {config.emoji} {config.name}: {pillar_state.consecutive_kept} days strong"
+                    )
+            if winning:
+                sections.append(f"""
+## WINNING PILLARS (Celebrate & Reinforce)
+{chr(10).join(winning)}
+Celebrate these wins and reinforce identity.
+""")
+
+        # Identity alignment context
+        alignment = self.user_state.identity_alignment
+        status = self.future_self.get_transformation_status()
+        sections.append(f"""
+## IDENTITY ALIGNMENT: {alignment}%
+Transformation status: {status.upper()}
+{"They're becoming who they said they'd be." if alignment >= 70 else ""}
+{"They're in the struggle. Stay with them." if 40 <= alignment < 70 else ""}
+{"They're slipping away. Intervene." if alignment < 40 else ""}
+""")
+
+        return "\n".join(sections)
 
     def get_trust_zone(self) -> str:
         """Get the trust zone for context."""
@@ -468,3 +651,145 @@ def get_severity_response(excuse_pattern: str, occurrence_count: int) -> dict:
     """
     severity_level = min(occurrence_count, 4)
     return SEVERITY_RESPONSES.get(severity_level, SEVERITY_RESPONSES[1])
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PILLAR-BASED PERSONA HELPERS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def get_persona_pillar_question(persona: Persona, pillar: Pillar) -> str:
+    """
+    Get a pillar-specific accountability question for the current persona.
+
+    Maps persona to persona_type for get_pillar_question():
+    - DRILL_SERGEANT -> drill_sergeant
+    - DISAPPOINTED_PARENT -> disappointed
+    - WISE_MENTOR -> mentor
+    - CELEBRATING_CHAMPION -> champion
+    """
+    persona_type_map = {
+        Persona.DRILL_SERGEANT: "drill_sergeant",
+        Persona.DISAPPOINTED_PARENT: "disappointed",
+        Persona.WISE_MENTOR: "mentor",
+        Persona.CELEBRATING_CHAMPION: "champion",
+        Persona.STRATEGIST: "mentor",  # Strategist uses mentor questions
+        Persona.COMPASSIONATE_ALLY: "mentor",  # Ally uses softer mentor questions
+    }
+
+    persona_type = persona_type_map.get(persona, "mentor")
+    return get_pillar_question(pillar, persona_type)
+
+
+def get_persona_for_pillar_state(pillar_state: PillarState) -> Persona:
+    """
+    Suggest a persona based on a pillar's current state.
+
+    Args:
+        pillar_state: The pillar state to analyze
+
+    Returns:
+        Suggested Persona for addressing this pillar
+    """
+    # Slipping hard - need accountability
+    if pillar_state.consecutive_broken >= 3:
+        return Persona.DISAPPOINTED_PARENT
+
+    # Starting to slip
+    if pillar_state.consecutive_broken >= 2:
+        return Persona.DRILL_SERGEANT
+
+    # Winning streak - celebrate
+    if pillar_state.consecutive_kept >= 5:
+        return Persona.CELEBRATING_CHAMPION
+
+    # Building momentum
+    if pillar_state.consecutive_kept >= 2:
+        return Persona.WISE_MENTOR
+
+    # Low trust - needs attention
+    if pillar_state.trust_score < 40:
+        return Persona.WISE_MENTOR
+
+    # Default to strategist for balanced state
+    return Persona.STRATEGIST
+
+
+def build_pillar_accountability_prompt(
+    future_self: "FutureSelf",
+    focus_pillars: List[Pillar],
+    persona: Persona,
+) -> str:
+    """
+    Build a pillar-focused accountability section for the system prompt.
+
+    Args:
+        future_self: The user's FutureSelf object
+        focus_pillars: Pillars to focus on this call
+        persona: Current primary persona
+
+    Returns:
+        Formatted prompt section for pillar accountability
+    """
+    if not focus_pillars:
+        return ""
+
+    sections = []
+    sections.append("# PILLAR ACCOUNTABILITY FOR THIS CALL\n")
+
+    for pillar in focus_pillars:
+        pillar_state = future_self.get_pillar(pillar)
+        if not pillar_state:
+            continue
+
+        config = PILLAR_CONFIGS[pillar]
+        question = get_persona_pillar_question(persona, pillar)
+
+        # Build pillar section
+        pillar_section = f"""
+## {config.emoji} {config.name.upper()}
+
+Identity: "{pillar_state.identity_statement or "Not set yet"}"
+Non-negotiable: "{pillar_state.non_negotiable or "Not set yet"}"
+Trust Score: {pillar_state.trust_score}/100
+Streak: {"🔥 " + str(pillar_state.consecutive_kept) + " days kept" if pillar_state.consecutive_kept > 0 else "❄️ " + str(pillar_state.consecutive_broken) + " days broken"}
+
+Ask: "{question}"
+"""
+        sections.append(pillar_section)
+
+    # Add identity statements for wins
+    sections.append("""
+## WHEN THEY WIN A PILLAR
+Use these identity reinforcement statements:""")
+
+    for pillar in focus_pillars:
+        statement = get_pillar_identity_statement(pillar)
+        sections.append(f'- {PILLAR_CONFIGS[pillar].emoji}: "{statement}"')
+
+    return "\n".join(sections)
+
+
+def get_language_mode_for_persona(persona: Persona) -> LanguageMode:
+    """
+    Get the appropriate language mode (we/you) for a persona.
+
+    "We" personas (building identity together):
+    - CELEBRATING_CHAMPION
+    - WISE_MENTOR
+    - STRATEGIST
+
+    "You" personas (confronting/accountability):
+    - DRILL_SERGEANT
+    - DISAPPOINTED_PARENT
+    - COMPASSIONATE_ALLY (uses "you" but gently)
+    """
+    we_personas = {
+        Persona.CELEBRATING_CHAMPION,
+        Persona.WISE_MENTOR,
+        Persona.STRATEGIST,
+    }
+
+    if persona in we_personas:
+        return LanguageMode.WE
+    return LanguageMode.YOU

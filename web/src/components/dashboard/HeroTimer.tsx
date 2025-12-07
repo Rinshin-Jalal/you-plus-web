@@ -1,14 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { Clock, Phone } from 'lucide-react';
-import { Button } from '@/components/ui/Button';
 
 interface HeroTimerProps {
   targetDate: Date | null;
-  onJoinCall: () => void;
 }
 
-export const HeroTimer = ({ targetDate, onJoinCall }: HeroTimerProps) => {
+export const HeroTimer = ({ targetDate }: HeroTimerProps) => {
   const [timeLeft, setTimeLeft] = useState({ hours: 0, minutes: 0, seconds: 0 });
   const [isUrgent, setIsUrgent] = useState(false);
   const [isReady, setIsReady] = useState(false);
@@ -43,68 +41,90 @@ export const HeroTimer = ({ targetDate, onJoinCall }: HeroTimerProps) => {
 
   const formatNumber = (num: number) => num.toString().padStart(2, '0');
 
+  // Ready state - call time has arrived, waiting for incoming call
   if (isReady) {
     return (
-      <div className="bg-black text-white border-2 border-black p-8 md:p-10 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.2)]">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-          <div>
-            <div className="flex items-center gap-2 mb-4">
-              <span className="w-3 h-3 bg-green-500 animate-pulse" />
-              <span className="font-mono text-xs uppercase tracking-widest text-white/60">Session Ready</span>
-            </div>
-            <h2 className="font-display font-extrabold text-3xl md:text-4xl uppercase tracking-tight mb-2">
-              Time to Answer.
-            </h2>
-            <p className="font-mono text-sm text-white/50">
-              The audit is waiting. Be honest with yourself.
-            </p>
+      <div className="bg-black text-white border-2 border-black p-6 md:p-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative overflow-hidden">
+        {/* Animated pulse background */}
+        <div className="absolute inset-0 bg-gradient-to-r from-green-500/20 to-transparent animate-pulse" />
+        
+        <div className="relative z-10">
+          <div className="flex items-center gap-2 mb-4">
+            <span className="relative flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-sm bg-green-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-sm h-3 w-3 bg-green-500"></span>
+            </span>
+            <span className="font-mono text-[10px] uppercase tracking-widest text-white/60">Call Window Open</span>
           </div>
-          <Button 
-            variant="secondary" 
-            size="lg"
-            className="bg-white text-black hover:bg-gray-100 border-2 border-white shadow-[4px_4px_0px_0px_rgba(255,255,255,0.3)]"
-            onClick={onJoinCall}
-          >
-            <Phone size={18} className="mr-2" />
-            JOIN NOW
-          </Button>
+          
+          <div className="flex items-center gap-4 mb-4">
+            <div className="w-14 h-14 bg-white/10 flex items-center justify-center">
+              <Phone size={28} className="text-white animate-pulse" />
+            </div>
+            <div>
+              <h2 className="font-display font-extrabold text-2xl md:text-3xl uppercase tracking-tight">
+                Expecting Your Call
+              </h2>
+              <p className="font-mono text-xs text-white/50 mt-1">
+                You will receive a call shortly at your scheduled time.
+              </p>
+            </div>
+          </div>
+          
+          <p className="font-mono text-xs text-white/40 pt-4 border-t border-white/10">
+            Keep your phone nearby. Be ready to answer honestly.
+          </p>
         </div>
       </div>
     );
   }
 
+  // Countdown state - waiting for scheduled time
   return (
-    <div className={`bg-white border-2 border-black p-8 md:p-10 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all duration-300 ${
-      isUrgent ? 'border-red-600 shadow-[8px_8px_0px_0px_rgba(220,38,38,1)]' : ''
+    <div className={`bg-white border-2 p-6 md:p-8 transition-all duration-300 ${
+      isUrgent 
+        ? 'border-red-600 shadow-[8px_8px_0px_0px_rgba(220,38,38,1)]' 
+        : 'border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]'
     }`}>
-      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6">
-        <div>
-          <div className="flex items-center gap-2 mb-4">
-            <Clock size={16} className="text-black/40" />
-            <span className="font-mono text-xs uppercase tracking-widest text-black/40">Next Audit In</span>
-          </div>
-          
-          {/* Timer Display */}
-          <div className="flex items-baseline gap-2">
-            <span className="font-display font-extrabold text-6xl md:text-8xl tracking-tighter leading-none">
+      <div className="flex flex-col gap-4">
+        {/* Header */}
+        <div className="flex items-center gap-2">
+          <Clock size={16} className={isUrgent ? 'text-red-600' : 'text-black/40'} />
+          <span className={`font-mono text-[10px] uppercase tracking-widest ${isUrgent ? 'text-red-600' : 'text-black/40'}`}>
+            {isUrgent ? 'Almost Time' : 'Next Check-In'}
+          </span>
+        </div>
+        
+        {/* Timer Display */}
+        <div className="flex items-baseline gap-1 md:gap-2">
+          <div className="flex flex-col items-center">
+            <span className={`font-display font-extrabold text-5xl md:text-7xl tracking-tighter leading-none ${isUrgent ? 'text-red-600' : ''}`}>
               {formatNumber(timeLeft.hours)}
             </span>
-            <span className="font-display font-extrabold text-4xl md:text-5xl text-black/30">:</span>
-            <span className="font-display font-extrabold text-6xl md:text-8xl tracking-tighter leading-none">
+            <span className="font-mono text-[8px] uppercase tracking-widest text-black/30 mt-1">hrs</span>
+          </div>
+          <span className="font-display font-extrabold text-3xl md:text-5xl text-black/20 self-start mt-2">:</span>
+          <div className="flex flex-col items-center">
+            <span className={`font-display font-extrabold text-5xl md:text-7xl tracking-tighter leading-none ${isUrgent ? 'text-red-600' : ''}`}>
               {formatNumber(timeLeft.minutes)}
             </span>
-            <span className="font-display font-extrabold text-4xl md:text-5xl text-black/30">:</span>
-            <span className="font-display font-extrabold text-6xl md:text-8xl tracking-tighter leading-none text-black/40">
+            <span className="font-mono text-[8px] uppercase tracking-widest text-black/30 mt-1">min</span>
+          </div>
+          <span className="font-display font-extrabold text-3xl md:text-5xl text-black/20 self-start mt-2">:</span>
+          <div className="flex flex-col items-center">
+            <span className="font-display font-extrabold text-5xl md:text-7xl tracking-tighter leading-none text-black/30">
               {formatNumber(timeLeft.seconds)}
             </span>
+            <span className="font-mono text-[8px] uppercase tracking-widest text-black/30 mt-1">sec</span>
           </div>
-          
-          <p className="font-mono text-xs text-black/40 mt-4 uppercase tracking-widest">
-            {isUrgent 
-              ? "⚠️ Almost time. Prepare yourself." 
-              : "Use this time wisely."}
-          </p>
         </div>
+
+        {/* Message */}
+        <p className="font-mono text-xs text-black/40 pt-2 border-t border-black/10">
+          {isUrgent 
+            ? "Prepare yourself. You'll receive a call soon." 
+            : "You'll receive a call at your scheduled time."}
+        </p>
       </div>
     </div>
   );

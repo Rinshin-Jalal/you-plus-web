@@ -6,7 +6,8 @@ import { audioService } from '@/services/audio';
 import { storageService } from '@/services/storage';
 
 // Imports from extracted files
-import { STEPS } from '@/data/onboardingSteps';
+import { STEPS, ACTS, Step } from '@/data/onboardingSteps';
+import { PILLAR_PRESETS, getPillarById } from '@/data/pillarPresets';
 import { GrainOverlay } from '@/components/onboarding/ui/GrainOverlay';
 import { CommentarySection } from '@/components/onboarding/ui/CommentarySection';
 import { MegaInput } from '@/components/onboarding/ui/MegaInput';
@@ -14,7 +15,10 @@ import { BrutalChoice } from '@/components/onboarding/ui/BrutalChoice';
 import { MinimalSlider } from '@/components/onboarding/ui/MinimalSlider';
 import { Counter } from '@/components/onboarding/ui/Counter';
 import { VoiceVisualizer } from '@/components/onboarding/ui/VoiceVisualizer';
+import { ActHeader } from '@/components/onboarding/ui/ActHeader';
 import { CommitmentCard } from '@/components/onboarding/steps/CommitmentCard';
+import { PillarSelection } from '@/components/onboarding/steps/PillarSelection';
+import { PillarQuestions } from '@/components/onboarding/steps/PillarQuestions';
 import { getPersonalizedLines, getPersonalizedLabel, getPersonalizedSubtext } from '@/utils/onboardingPersonalization';
 
 const MIN_VOICE_DURATION = 15; // 15 seconds minimum recording
@@ -81,9 +85,10 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
     // 1. Play Audio
     audioService.playBinauralBurst();
 
-    // 2. Save Data
-    const newData = val !== undefined ? { ...data, [step.id]: val } : data;
-    if (val !== undefined) {
+    // 2. Save Data - only save if step has a field and value is provided
+    const shouldSave = val !== undefined && step.field;
+    const newData = shouldSave ? { ...data, [step.field!]: val } : data;
+    if (shouldSave) {
       setData(newData);
       storageService.saveData(newData);
     }
@@ -103,7 +108,7 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
         setIsTransitioning(false);
       }, 100);
     }, STEP_TRANSITION_DELAY);
-  }, [isTransitioning, data, step.id, stepIndex, onFinish]);
+  }, [isTransitioning, data, step.field, stepIndex, onFinish]);
 
   const handleVoiceToggle = () => {
     if (!voiceState) {
@@ -158,6 +163,12 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
             <div className="h-1.5 w-32 bg-gray-100 rounded-full overflow-hidden">
                 <div className="h-full bg-black transition-all duration-500 ease-out" style={{ width: `${progress}%` }} />
             </div>
+            {/* Act indicator */}
+            {step.act && (
+                <span className="hidden md:block font-mono text-xs uppercase tracking-widest text-black/40">
+                    Act {step.act}/7
+                </span>
+            )}
         </div>
         <button onClick={onFinish} className="text-xs font-mono font-bold text-black/30 hover:text-black uppercase tracking-widest transition-colors">
             Exit
@@ -176,21 +187,31 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
             />
         )}
 
-        {step.type === 'input' && (
+        {step.type === 'act_header' && step.actTitle && (
+            <ActHeader
+                key={step.id}
+                act={step.act || 1}
+                title={step.actTitle}
+                subtitle={step.actSubtitle}
+                onNext={() => next()}
+            />
+        )}
+
+        {step.type === 'input' && step.field && (
             <div key={step.id} className="w-full flex flex-col items-center text-center">
                 <h2 className="font-mono text-black text-2xl md:text-3xl leading-relaxed font-medium mb-12">
                     {personalizedLabel}
                 </h2>
                 <MegaInput 
                     placeholder={step.placeholder} 
-                    value={data[step.id]}
-                    onChange={(val: string) => setData({ ...data, [step.id]: val })}
-                    onEnter={() => !isTransitioning && next(data[step.id])}
+                    value={data[step.field]}
+                    onChange={(val: string) => setData({ ...data, [step.field!]: val })}
+                    onEnter={() => !isTransitioning && next(data[step.field!])}
                 />
                  <Button 
                     className="mt-16 w-full max-w-xs border-black" 
                     variant="primary"
-                    onClick={() => next(data[step.id])}
+                    onClick={() => next(data[step.field!])}
                     disabled={isTransitioning}
                 >
                     {isTransitioning ? 'Processing...' : 'Confirm'}
@@ -198,25 +219,82 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
             </div>
         )}
 
-        {step.type === 'choice' && step.choices && (
+        {step.type === 'choice' && step.field && (
             <div key={step.id} className="w-full flex flex-col items-center text-center">
                  <h2 className="font-mono text-black text-2xl md:text-3xl leading-relaxed font-medium mb-12">{personalizedLabel}</h2>
-                 <BrutalChoice options={step.choices} onSelect={next} disabled={isTransitioning} />
+                 <BrutalChoice 
+                    options={
+                        // For primary_pillar, dynamically generate choices from selected pillars
+                        step.field === 'primary_pillar' && data.selected_pillars?.length > 0
+                            ? data.selected_pillars.map((pillarId: string) => {
+                                const preset = getPillarById(pillarId);
+                                if (preset) return `${preset.icon} ${preset.label}`;
+                                // Handle custom pillars
+                                if (pillarId.startsWith('custom_')) {
+                                    const label = pillarId.replace('custom_', '').replace(/_/g, ' ');
+                                    return `✨ ${label.charAt(0).toUpperCase() + label.slice(1)}`;
+                                }
+                                return pillarId;
+                            })
+                            : (step.choices || [])
+                    } 
+                    onSelect={next} 
+                    disabled={isTransitioning} 
+                 />
             </div>
         )}
 
-        {step.type === 'slider' && (
+        {step.type === 'multiselect' && step.choices && step.field && (
+            <div key={step.id} className="w-full flex flex-col items-center text-center">
+                 <h2 className="font-mono text-black text-2xl md:text-3xl leading-relaxed font-medium mb-12">{personalizedLabel}</h2>
+                 <div className="flex flex-col gap-3 w-full max-w-lg">
+                    {step.choices.map((option: string) => {
+                        const selected = (data[step.field!] || []).includes(option);
+                        return (
+                            <button
+                                key={option}
+                                onClick={() => {
+                                    const current = data[step.field!] || [];
+                                    const updated = selected 
+                                        ? current.filter((o: string) => o !== option)
+                                        : [...current, option];
+                                    setData({ ...data, [step.field!]: updated });
+                                }}
+                                disabled={isTransitioning}
+                                className={`w-full p-4 border-2 font-mono text-left transition-all ${
+                                    selected 
+                                        ? 'border-black bg-black text-white' 
+                                        : 'border-black/20 bg-white text-black hover:border-black'
+                                }`}
+                            >
+                                {option}
+                            </button>
+                        );
+                    })}
+                 </div>
+                 <Button 
+                    className="mt-12 w-full max-w-xs border-black" 
+                    variant="primary"
+                    onClick={() => next(data[step.field!] || [])}
+                    disabled={isTransitioning || !(data[step.field!]?.length > 0)}
+                 >
+                    {isTransitioning ? 'Processing...' : 'Continue'}
+                 </Button>
+            </div>
+        )}
+
+        {step.type === 'slider' && step.field && (
              <div key={step.id} className="w-full flex flex-col items-center">
                 <MinimalSlider 
                     min={step.min} max={step.max} 
-                    value={data[step.id] || 5} 
-                    onChange={(val: number) => setData({ ...data, [step.id]: val })}
+                    value={data[step.field] || 5} 
+                    onChange={(val: number) => setData({ ...data, [step.field!]: val })}
                     label={personalizedLabel}
                 />
                 <Button 
                     className="mt-20 w-full max-w-xs border-black" 
                     variant="primary" 
-                    onClick={() => next(data[step.id] || 5)}
+                    onClick={() => next(data[step.field!] || 5)}
                     disabled={isTransitioning}
                 >
                     {isTransitioning ? 'Processing...' : 'Confirm'}
@@ -224,18 +302,18 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
              </div>
         )}
 
-        {step.type === 'stepper' && (
+        {step.type === 'stepper' && step.field && (
             <div key={step.id} className="flex flex-col items-center text-center gap-16">
                 <h2 className="font-mono text-black text-2xl md:text-3xl leading-relaxed font-medium">{personalizedLabel}</h2>
                 <Counter 
                     min={step.min} max={step.max}
-                    value={data[step.id] || step.min}
-                    onChange={(val: number) => setData({ ...data, [step.id]: val })}
+                    value={data[step.field] || step.min}
+                    onChange={(val: number) => setData({ ...data, [step.field!]: val })}
                 />
                 <Button 
                     variant="primary" 
                     className="border-black w-40" 
-                    onClick={() => next(data[step.id] || step.min)}
+                    onClick={() => next(data[step.field!] || step.min)}
                     disabled={isTransitioning}
                 >
                     {isTransitioning ? '...' : 'Next'}
@@ -243,7 +321,7 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
             </div>
         )}
 
-        {step.type === 'voice' && (
+        {step.type === 'voice' && step.field && (
              <div key={step.id} className="text-center w-full flex flex-col items-center">
                  <h2 className="font-mono text-black text-2xl md:text-3xl leading-relaxed font-medium mb-4">{personalizedLabel}</h2>
                  <p className="font-mono text-black/40 text-base mb-12">{personalizedSubtext}</p>
@@ -254,28 +332,51 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
                     recordingTime={recordingTime}
                     minDuration={MIN_VOICE_DURATION}
                     canStop={canStopRecording}
-                    stepId={String(step.id)}
+                    stepId={step.field}
                  />
              </div>
         )}
 
-        {(step.type === 'date' || step.type === 'time') && (
+        {(step.type === 'date' || step.type === 'time') && step.field && (
             <div key={step.id} className="w-full flex flex-col items-center text-center">
                  <h2 className="font-mono text-black text-2xl md:text-3xl leading-relaxed font-medium mb-12">{personalizedLabel}</h2>
                  <input 
-                    type={step.type} 
+                    type={step.type}
+                    defaultValue={step.type === 'time' ? '21:00' : undefined}
                     className="w-full max-w-lg bg-transparent border-b-4 border-black/5 py-8 text-4xl md:text-5xl font-mono font-medium text-black focus:outline-none focus:border-neon-teal tracking-tight text-center px-4"
-                    onChange={(e) => setData({ ...data, [step.id]: e.target.value })}
+                    onChange={(e) => setData({ ...data, [step.field!]: e.target.value })}
                  />
                  <Button 
                     className="mt-16 w-full max-w-xs border-black" 
                     variant="primary" 
-                    onClick={() => next(data[step.id] || 'skipped')}
+                    onClick={() => next(data[step.field!] || (step.type === 'time' ? '21:00' : undefined))}
                     disabled={isTransitioning}
                  >
                     {isTransitioning ? 'Processing...' : 'Set'}
                  </Button>
             </div>
+        )}
+
+        {step.type === 'pillar_selection' && (
+            <PillarSelection
+                key={step.id}
+                selected={data.selected_pillars || []}
+                onSelect={(pillars) => setData({ ...data, selected_pillars: pillars })}
+                onContinue={() => next(data.selected_pillars)}
+            />
+        )}
+
+        {step.type === 'pillar_questions' && data.selected_pillars?.length > 0 && (
+            <PillarQuestions
+                key={step.id}
+                selectedPillars={data.selected_pillars}
+                data={data}
+                onUpdate={(newData) => {
+                    setData(newData);
+                    storageService.saveData(newData);
+                }}
+                onComplete={() => next()}
+            />
         )}
 
         {step.type === 'card' && (

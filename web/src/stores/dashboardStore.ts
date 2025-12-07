@@ -5,11 +5,13 @@ import type {
   DashboardData,
   DashboardStats,
   User,
-  Identity,
   Status,
   CallMemory,
   CallAnalytics,
   Subscription,
+  FutureSelf,
+  FutureSelfPillar,
+  IdentityAlignment,
 } from '@/types';
 
 const DEFAULT_STATS: DashboardStats = {
@@ -106,20 +108,23 @@ export const useDashboardStore = create<DashboardState>()(
             set({ data: null, lastFetchedAt: null });
           }
 
-          const dashboardData = await db.getDashboardData(user.id);
-          const stats = db.computeStats(dashboardData.status);
-          const nextCallTime = calculateNextCallTime(dashboardData.identity?.call_time);
+          // Fetch dashboard data including pillars
+          const dashboardData = await db.getDashboardDataWithPillars(user.id);
+          const stats = db.computeStatsWithPillars(dashboardData.status, dashboardData.pillarAlignment);
+          const nextCallTime = calculateNextCallTime(dashboardData.status?.call_time);
 
           set({
             data: {
               user: dashboardData.user,
-              identity: dashboardData.identity,
               status: dashboardData.status,
               callMemory: dashboardData.callMemory,
               recentCalls: dashboardData.recentCalls,
               subscription: dashboardData.subscription,
               stats,
               nextCallTime,
+              futureSelf: dashboardData.futureSelf,
+              pillars: dashboardData.pillars,
+              pillarAlignment: dashboardData.pillarAlignment,
             },
             loading: false,
             lastFetchedAt: Date.now(),
@@ -188,6 +193,7 @@ export const selectDashboardLoading = (state: DashboardState) => state.loading;
 export const selectDashboardError = (state: DashboardState) => state.error;
 export const selectStats = (state: DashboardState) => state.data?.stats ?? DEFAULT_STATS;
 export const selectUser = (state: DashboardState) => state.data?.user ?? null;
-export const selectIdentity = (state: DashboardState) => state.data?.identity ?? null;
+export const selectFutureSelf = (state: DashboardState) => state.data?.futureSelf ?? null;
+export const selectPillars = (state: DashboardState) => state.data?.pillars ?? [];
 export const selectStatus = (state: DashboardState) => state.data?.status ?? null;
 export const selectNextCallTime = (state: DashboardState) => state.data?.nextCallTime ?? null;

@@ -202,13 +202,13 @@ async def handle_call_request(call_request: CallRequest):
         return None
     
     # Reject if subscription expired
-    identity_status = user_context.get("identity_status", {})
-    if identity_status.get("subscription_status") == "expired":
+    status = user_context.get("status", {})
+    if status.get("subscription_status") == "expired":
         logger.warning(f"Rejecting call: user {user_id} subscription expired")
         return None
     
     # Reject if user paused calls
-    if identity_status.get("calls_paused"):
+    if status.get("calls_paused"):
         logger.warning(f"Rejecting call: user {user_id} paused calls")
         return None
     

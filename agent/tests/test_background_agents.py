@@ -453,7 +453,7 @@ async def test_pattern_analyzer():
         "identity": {
             "onboarding_context": {"quit_pattern": "Usually after first week"}
         },
-        "identity_status": {"current_streak_days": 7},
+        "status": {"current_streak_days": 7},
     }
     node = PatternAnalyzerNode(user_context=user_context)
     context = MockContext(transcript="I'm not sure I can keep going")
@@ -467,7 +467,7 @@ async def test_pattern_analyzer():
     # Test 2: Detects two week quit zone
     user_context = {
         "identity": {"onboarding_context": {"quit_pattern": "After two weeks usually"}},
-        "identity_status": {"current_streak_days": 14},
+        "status": {"current_streak_days": 14},
     }
     node = PatternAnalyzerNode(user_context=user_context)
     context = MockContext(transcript="This is getting hard")
@@ -483,7 +483,7 @@ async def test_pattern_analyzer():
         "identity": {
             "onboarding_context": {"quit_pattern": "Usually after first week"}
         },
-        "identity_status": {"current_streak_days": 20},
+        "status": {"current_streak_days": 20},
     }
     node = PatternAnalyzerNode(user_context=user_context)
     context = MockContext(transcript="Things are going well")

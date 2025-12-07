@@ -27,7 +27,16 @@ billing.post('/link-guest-checkout', requireAuth, async (c) => {
     const supabase = createSupabaseClient(env);
     const dodo = createDodoPaymentsService(env);
 
-    const customer = await dodo.ensureCustomer(userId, userEmail || '');
+    const { data: userProfile } = await supabase
+      .from('users')
+      .select('name, email')
+      .eq('id', userId)
+      .maybeSingle();
+
+    const preferredEmail = userProfile?.email || userEmail || '';
+    const preferredName = userProfile?.name?.trim();
+
+    const customer = await dodo.ensureCustomer(userId, preferredEmail, preferredName);
     console.log('[link-guest-checkout] User customer:', customer.customer_id);
 
     await supabase
@@ -57,23 +66,60 @@ billing.post('/link-guest-checkout', requireAuth, async (c) => {
         console.log('[link-guest-checkout] User marked as onboarding complete');
       }
 
-      if (onboardingData.goal || onboardingData.dailyCommitment) {
-        const identityData = {
+      // Create future_self record with 5 Pillars system
+      if (onboardingData.futureSelfStatement || onboardingData.pillars) {
+        const futureSelfData = {
           user_id: userId,
-          name: onboardingData.name || 'User',
-          daily_commitment: onboardingData.dailyCommitment || onboardingData.daily_commitment || 30,
-          call_time: onboardingData.callTime || onboardingData.call_time || '09:00:00',
+          future_self_statement: onboardingData.futureSelfStatement || '',
+          favorite_excuse: onboardingData.favoriteExcuse || onboardingData.favorite_excuse || null,
           onboarding_context: onboardingData,
         };
 
-        const { error: identityError } = await supabase
-          .from('identity')
-          .upsert(identityData, { onConflict: 'user_id' });
+        const { error: futureSelfError } = await supabase
+          .from('future_self')
+          .upsert(futureSelfData, { onConflict: 'user_id' });
 
-        if (identityError) {
-          console.error('[link-guest-checkout] Failed to create identity:', identityError);
+        if (futureSelfError) {
+          console.error('[link-guest-checkout] Failed to create future_self:', futureSelfError);
         } else {
-          console.log('[link-guest-checkout] Identity record created/updated');
+          console.log('[link-guest-checkout] future_self record created/updated');
+        }
+
+        // Upsert pillars if provided
+        if (onboardingData.pillars && Array.isArray(onboardingData.pillars)) {
+          for (const pillar of onboardingData.pillars) {
+            const { error: pillarError } = await supabase
+              .from('future_self_pillars')
+              .upsert({
+                user_id: userId,
+                pillar_type: pillar.type,
+                current_state: pillar.currentState || '',
+                future_state: pillar.futureState || '',
+                next_action: pillar.nextAction || null,
+                commitment_time: pillar.commitmentTime || null,
+              }, { onConflict: 'user_id,pillar_type' });
+
+            if (pillarError) {
+              console.error(`[link-guest-checkout] Failed to create pillar ${pillar.type}:`, pillarError);
+            }
+          }
+          console.log('[link-guest-checkout] Pillars created/updated');
+        }
+      }
+
+      // Update users table with call_time if provided
+      if (onboardingData.callTime || onboardingData.call_time) {
+        const { error: callTimeError } = await supabase
+          .from('users')
+          .update({
+            call_time: onboardingData.callTime || onboardingData.call_time || '21:00',
+          })
+          .eq('id', userId);
+
+        if (callTimeError) {
+          console.error('[link-guest-checkout] Failed to update call_time:', callTimeError);
+        } else {
+          console.log('[link-guest-checkout] call_time saved to users table');
         }
       }
     }
@@ -96,13 +142,17 @@ billing.get('/subscription', requireAuth, async (c) => {
   try {
     const supabase = createSupabaseClient(env);
 
-    const { data: subscription, error } = await supabase
-      .from('subscriptions')
-      .select('*')
-      .eq('user_id', userId)
+    // Get user's dodo_customer_id
+    const { data: userData } = await supabase
+      .from('users')
+      .select('dodo_customer_id')
+      .eq('id', userId)
       .single();
 
-    if (error || !subscription) {
+    console.log('userData:', userData);
+    console.log('userId:', userId);
+
+    if (!userData?.dodo_customer_id) {
       return c.json({
         subscription: {
           hasActiveSubscription: false,
@@ -113,25 +163,106 @@ billing.get('/subscription', requireAuth, async (c) => {
           currentPeriodEnd: null,
           cancelledAt: null,
           amountCents: null,
-          currency: 'INR',
+          currency: 'USD',
+          subscriptionId: null,
         },
       });
     }
 
-    const isActive = subscription.status === 'active' &&
-      (!subscription.current_period_end || new Date(subscription.current_period_end) > new Date());
+    console.log('userData.dodo_customer_id:', userData.dodo_customer_id);
+
+    // Fetch subscriptions from DodoPayments API
+    const dodo = createDodoPaymentsService(env);
+    const subscriptions = await dodo.getCustomerSubscriptions(userData.dodo_customer_id);
+
+
+    // Prefer truly active subscriptions; treat pending as not yet active to avoid false positives
+    const activeSubscription = subscriptions
+      .filter((sub) => sub.status === 'active')
+      .sort((a, b) => {
+        const aEnd = a.current_period_end ? new Date(a.current_period_end).getTime() : 0;
+        const bEnd = b.current_period_end ? new Date(b.current_period_end).getTime() : 0;
+        return bEnd - aEnd;
+      })[0];
+    const pendingSubscription = subscriptions.find((sub) => sub.status === 'pending');
+
+    if (!activeSubscription) {
+      if (pendingSubscription) {
+        const products = await dodo.listProductsForCheckout();
+        const pendingProduct = products.find((p) => p.product_id === pendingSubscription.product_id);
+
+        return c.json({
+          subscription: {
+            hasActiveSubscription: false,
+            status: pendingSubscription.status,
+            paymentProvider: 'dodopayments',
+            planId: pendingSubscription.product_id,
+            planName: pendingProduct?.name || pendingSubscription.product_id,
+            currentPeriodEnd: pendingSubscription.current_period_end,
+            cancelledAt: null,
+            amountCents: pendingProduct?.price_cents || null,
+            currency: pendingProduct?.currency || 'USD',
+            subscriptionId: pendingSubscription.subscription_id,
+          },
+        });
+      }
+
+      return c.json({
+        subscription: {
+          hasActiveSubscription: false,
+          status: 'inactive',
+          paymentProvider: 'dodopayments',
+          planId: null,
+          planName: null,
+          currentPeriodEnd: null,
+          cancelledAt: null,
+          amountCents: null,
+          currency: 'USD',
+          subscriptionId: null,
+        },
+      });
+    }
+
+    // Treat as active only if status is active AND we have a future period end
+    const now = Date.now();
+    const periodEndRaw = activeSubscription.current_period_end;
+    const periodEnd = periodEndRaw ? new Date(periodEndRaw).getTime() : null;
+    const periodValid = periodEnd !== null && periodEnd > now;
+    const isActive = activeSubscription.status === 'active' && periodValid;
+
+    // If Dodo says active but period is missing/expired, demote to inactive to avoid false banners
+    if (!isActive) {
+      return c.json({
+        subscription: {
+          hasActiveSubscription: false,
+          status: 'inactive',
+          paymentProvider: 'dodopayments',
+          planId: null,
+          planName: null,
+          currentPeriodEnd: periodEndRaw ?? null,
+          cancelledAt: null,
+          amountCents: null,
+          currency: 'USD',
+          subscriptionId: null,
+        },
+      });
+    }
+
+    const products = await dodo.listProductsForCheckout();
+    const product = products.find((p) => p.product_id === activeSubscription.product_id);
 
     return c.json({
       subscription: {
         hasActiveSubscription: isActive,
-        status: subscription.status,
-        paymentProvider: subscription.payment_provider || 'dodopayments',
-        planId: subscription.plan_id,
-        planName: subscription.plan_name,
-        currentPeriodEnd: subscription.current_period_end,
-        cancelledAt: subscription.cancelled_at,
-        amountCents: subscription.amount_cents,
-        currency: subscription.currency || 'INR',
+        status: isActive ? 'active' : activeSubscription.status,
+        paymentProvider: 'dodopayments',
+        planId: activeSubscription.product_id,
+        planName: product?.name || activeSubscription.product_id,
+        currentPeriodEnd: activeSubscription.current_period_end,
+        cancelledAt: activeSubscription.cancel_at_period_end ? activeSubscription.current_period_end : null,
+        amountCents: product?.price_cents || null,
+        currency: product?.currency || 'USD',
+        subscriptionId: activeSubscription.subscription_id,
       },
     });
   } catch (error) {
@@ -232,14 +363,17 @@ billing.post('/checkout/create', requireAuth, async (c) => {
 
     const { data: userData } = await supabase
       .from('users')
-      .select('dodo_customer_id')
+      .select('dodo_customer_id, name, email')
       .eq('id', userId)
       .single();
+
+    const preferredEmail = userData?.email || userEmail || '';
+    const preferredName = userData?.name?.trim();
 
     let customerId = userData?.dodo_customer_id;
 
     if (!customerId) {
-      const customer = await dodo.ensureCustomer(userId, userEmail || '');
+      const customer = await dodo.ensureCustomer(userId, preferredEmail, preferredName);
       customerId = customer.customer_id;
 
       await supabase
@@ -249,6 +383,13 @@ billing.post('/checkout/create', requireAuth, async (c) => {
           payment_provider: 'dodopayments',
         })
         .eq('id', userId);
+    } else if (preferredName) {
+      // Ensure the name in Dodo is up to date for existing customers
+      try {
+        await dodo.ensureCustomer(userId, preferredEmail, preferredName);
+      } catch (updateError) {
+        console.warn('[checkout/create] Failed to refresh customer name', updateError);
+      }
     }
 
     const session = await dodo.createCheckoutSession({
@@ -405,6 +546,74 @@ billing.get('/portal', requireAuth, async (c) => {
   } catch (error) {
     console.error('Error creating customer portal:', error);
     return c.json({ error: 'Failed to create customer portal' }, 500);
+  }
+});
+
+// Change subscription plan (upgrade/downgrade)
+billing.post('/change-plan', requireAuth, async (c) => {
+  const userId = c.get('userId');
+  const env = c.env;
+
+  try {
+    const body = await c.req.json();
+    const { newPlanId } = body;
+
+    if (!newPlanId) {
+      return c.json({ error: 'New plan ID is required' }, 400);
+    }
+
+    const supabase = createSupabaseClient(env);
+
+    // Get user's dodo_customer_id
+    const { data: userData } = await supabase
+      .from('users')
+      .select('dodo_customer_id')
+      .eq('id', userId)
+      .single();
+
+    if (!userData?.dodo_customer_id) {
+      return c.json({ error: 'No customer account found' }, 404);
+    }
+
+    const dodo = createDodoPaymentsService(env);
+
+    // Fetch subscriptions from DodoPayments API
+    const subscriptions = await dodo.getCustomerSubscriptions(userData.dodo_customer_id);
+
+    // Find active subscription
+    const activeSubscription = subscriptions.find(
+      (sub) => sub.status === 'active' || sub.status === 'pending'
+    );
+
+    if (!activeSubscription) {
+      return c.json({ error: 'No active subscription found' }, 404);
+    }
+
+    // Check if trying to change to the same plan
+    if (activeSubscription.product_id === newPlanId) {
+      return c.json({ error: 'Already subscribed to this plan' }, 400);
+    }
+
+    // Change the plan in DodoPayments
+    await dodo.changePlan(activeSubscription.subscription_id, newPlanId);
+
+    // Get the new plan details
+    const products = await dodo.listProductsForCheckout();
+    const newPlan = products.find(p => p.product_id === newPlanId);
+
+    return c.json({
+      success: true,
+      message: 'Plan changed successfully',
+      newPlan: {
+        id: newPlanId,
+        name: newPlan?.name || newPlanId,
+        price_cents: newPlan?.price_cents,
+        currency: newPlan?.currency,
+      },
+    });
+  } catch (error) {
+    console.error('Error changing plan:', error);
+    return c.json({ error: 'Failed to change plan' }, 500);
   }
 });
 

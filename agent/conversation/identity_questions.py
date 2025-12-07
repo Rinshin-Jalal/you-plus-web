@@ -371,3 +371,231 @@ def get_streak_celebration(streak_count: int, task_text: str) -> str:
         statements = [f"{streak_count} days. Keep going."]
 
     return random.choice(statements)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PILLAR-BASED ACCOUNTABILITY (5 PILLARS SYSTEM)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+from .future_self import (
+    Pillar,
+    PillarState,
+    get_pillar_question as _get_pillar_question,
+    get_pillar_identity_statement as _get_pillar_identity_statement,
+    get_compound_win_statement,
+    PILLAR_CONFIGS,
+)
+
+
+def _persona_to_type(persona: Persona) -> str:
+    """Convert Persona enum to pillar question type."""
+    mapping = {
+        Persona.CELEBRATING_CHAMPION: "champion",
+        Persona.WISE_MENTOR: "mentor",
+        Persona.DRILL_SERGEANT: "drill_sergeant",
+        Persona.DISAPPOINTED_PARENT: "disappointed",
+        Persona.STRATEGIST: "mentor",  # Use mentor-style for strategist
+        Persona.COMPASSIONATE_ALLY: "mentor",  # Use mentor-style for ally
+    }
+    return mapping.get(persona, "mentor")
+
+
+def get_pillar_accountability_question(persona: Persona, pillar: Pillar) -> str:
+    """
+    Get a pillar-specific accountability question for the persona.
+
+    Args:
+        persona: Current persona (affects tone)
+        pillar: The pillar being checked (BODY, MISSION, STACK, TRIBE)
+
+    Returns:
+        Question appropriate for the pillar and persona
+    """
+    persona_type = _persona_to_type(persona)
+    return _get_pillar_question(pillar, persona_type)
+
+
+def get_pillar_win_statement(persona: Persona, pillar: Pillar) -> str:
+    """
+    Get an identity reinforcement statement for a pillar win.
+
+    Args:
+        persona: Current persona
+        pillar: The pillar where they won
+
+    Returns:
+        Identity statement celebrating the win
+    """
+    # Get the pillar-specific statement
+    base_statement = _get_pillar_identity_statement(pillar)
+
+    # Add persona flavor for certain personas
+    if persona == Persona.CELEBRATING_CHAMPION:
+        prefixes = ["Yes!", "There it is.", "That's it."]
+        return f"{random.choice(prefixes)} {base_statement}"
+    elif persona == Persona.DRILL_SERGEANT:
+        suffixes = ["Now keep it.", "Standard met."]
+        return f"{base_statement} {random.choice(suffixes)}"
+    elif persona == Persona.DISAPPOINTED_PARENT:
+        prefixes = ["Good.", "See?", "That's who you can be."]
+        return f"{random.choice(prefixes)} {base_statement}"
+
+    return base_statement
+
+
+def get_pillar_broken_statement(
+    persona: Persona, pillar: Pillar, pillar_state: PillarState
+) -> str:
+    """
+    Get a response for when a pillar promise was broken.
+
+    Args:
+        persona: Current persona
+        pillar: The pillar that was broken
+        pillar_state: State of the pillar (for consecutive broken count)
+
+    Returns:
+        Appropriate response based on persona and severity
+    """
+    config = PILLAR_CONFIGS.get(pillar)
+    pillar_name = config.name if config else pillar.value.title()
+    consecutive = pillar_state.consecutive_broken if pillar_state else 1
+
+    if persona == Persona.CELEBRATING_CHAMPION:
+        statements = [
+            f"That's not who you said you'd be with {pillar_name}.",
+            f"The person you're becoming wouldn't skip {pillar_name}.",
+        ]
+    elif persona == Persona.DRILL_SERGEANT:
+        if consecutive >= 3:
+            statements = [
+                f"Third time. This isn't a slip - this is becoming a pattern.",
+                f"That's {consecutive} in a row. We need to talk about this.",
+            ]
+        else:
+            statements = [
+                f"What happened with {pillar_name}?",
+                f"That's not acceptable. What's the excuse?",
+            ]
+    elif persona == Persona.DISAPPOINTED_PARENT:
+        statements = [
+            f"Again? With {pillar_name}?",
+            f"I expected more from you here.",
+            f"What happened to the person who said this mattered?",
+        ]
+    elif persona == Persona.STRATEGIST:
+        statements = [
+            f"What was the actual blocker for {pillar_name}?",
+            f"Let's figure out what went wrong with {pillar_name}.",
+            f"What needs to change for tomorrow?",
+        ]
+    elif persona == Persona.COMPASSIONATE_ALLY:
+        statements = [
+            f"What happened with {pillar_name}?",
+            f"Talk to me. What got in the way?",
+            f"It's okay. What do you need to show up tomorrow?",
+        ]
+    else:  # WISE_MENTOR
+        statements = [
+            f"What story are you telling yourself about {pillar_name}?",
+            f"Is this the path to who you want to become?",
+            f"What would future you say about today?",
+        ]
+
+    return random.choice(statements)
+
+
+def get_pillar_transition(
+    from_pillar: Pillar, to_pillar: Pillar, from_result: bool
+) -> str:
+    """
+    Get a transition phrase when moving between pillars in a call.
+
+    Args:
+        from_pillar: The pillar just discussed
+        to_pillar: The pillar to discuss next
+        from_result: Whether they kept the previous pillar's promise
+
+    Returns:
+        Transition phrase
+    """
+    to_config = PILLAR_CONFIGS.get(to_pillar)
+    to_name = to_config.name if to_config else to_pillar.value.title()
+    to_emoji = to_config.emoji if to_config else ""
+
+    if from_result:
+        transitions = [
+            f"Good. Now let's talk about {to_emoji} {to_name}.",
+            f"That's one win. What about {to_name}?",
+            f"Nice. Moving to {to_name} -",
+        ]
+    else:
+        transitions = [
+            f"Okay. Let's move on to {to_emoji} {to_name}.",
+            f"We'll come back to that. {to_name} -",
+            f"Moving on. What about {to_name}?",
+        ]
+    return random.choice(transitions)
+
+
+def get_all_pillars_win_statement(pillars_won: List[Pillar]) -> str:
+    """
+    Get a celebration for multiple pillar wins (compound win).
+
+    Args:
+        pillars_won: List of pillars they kept
+
+    Returns:
+        Compound celebration statement
+    """
+    return get_compound_win_statement(pillars_won)
+
+
+def get_pillar_focus_intro(focus_pillars: List[PillarState]) -> str:
+    """
+    Get an intro for the pillars being focused on in a call.
+
+    Args:
+        focus_pillars: List of pillar states to focus on
+
+    Returns:
+        Intro statement for the call
+    """
+    if len(focus_pillars) == 1:
+        pillar = focus_pillars[0]
+        config = PILLAR_CONFIGS.get(pillar.pillar)
+        name = config.name if config else pillar.pillar.value.title()
+        emoji = config.emoji if config else ""
+
+        if pillar.is_slipping:
+            intros = [
+                f"We need to talk about {emoji} {name}. You've been slipping.",
+                f"Let's focus on {name} today. I'm concerned.",
+                f"{emoji} {name} needs attention. Let's address it.",
+            ]
+        elif pillar.needs_attention:
+            intros = [
+                f"Let's check in on {emoji} {name} today.",
+                f"I want to talk about {name}. How's it going?",
+            ]
+        else:
+            intros = [
+                f"Let's talk about {emoji} {name}.",
+                f"Quick check on {name}.",
+            ]
+        return random.choice(intros)
+    else:
+        names = []
+        for p in focus_pillars:
+            config = PILLAR_CONFIGS.get(p.pillar)
+            emoji = config.emoji if config else ""
+            name = config.name if config else p.pillar.value.title()
+            names.append(f"{emoji} {name}")
+
+        pillars_text = " and ".join(names)
+        intros = [
+            f"Let's check in on {pillars_text} today.",
+            f"Two pillars today: {pillars_text}.",
+            f"We're going to talk about {pillars_text}.",
+        ]
+        return random.choice(intros)

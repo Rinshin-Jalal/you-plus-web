@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "react-phone-number-input/style.css";
 
 @layer base {
   /* Force light mode - disable dark mode */

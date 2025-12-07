@@ -1,5 +1,5 @@
 // ============================================================================
-// YOU+ WEB TYPES - Aligned with migrations 002-005
+// YOU+ WEB TYPES - Aligned with migrations 002-005 + 009 (5 Pillars)
 // ============================================================================
 
 // Design System Types
@@ -14,6 +14,137 @@ export interface ApiResponse<T> {
 }
 
 // ============================================================================
+// DYNAMIC PILLARS SYSTEM (Migration 010)
+// ============================================================================
+// Pillars are now user-selected from presets (see pillarPresets.ts)
+// IDs can be preset IDs (health, career, etc.) or custom_* for user-created
+
+export type PillarType = string; // Now dynamic - any pillar ID
+
+/**
+ * Future Self Table - Core identity and patterns
+ */
+export interface FutureSelf {
+  id: string;
+  user_id: string;
+  created_at: string;
+  updated_at: string;
+  
+  // Core identity
+  core_identity: string;
+  primary_pillar: PillarType;
+  
+  // The Why (integration layer)
+  the_why: string;
+  dark_future?: string;
+  
+  // Patterns (AI learns from these)
+  quit_pattern?: string;
+  favorite_excuse?: string;
+  who_disappointed?: string[];
+  fears?: string[];
+  
+  // Voice recordings (R2 URLs)
+  future_self_intro_url?: string;
+  why_recording_url?: string;
+  pledge_recording_url?: string;
+  
+  // Voice cloning
+  cartesia_voice_id?: string;
+  
+  // Overall trust (aggregate)
+  overall_trust_score: number;
+  
+  // Supermemory
+  supermemory_container_id?: string;
+}
+
+/**
+ * Future Self Pillars Table - Per-pillar transformation states
+ */
+export interface FutureSelfPillar {
+  id: string;
+  user_id: string;
+  future_self_id: string;
+  created_at: string;
+  updated_at: string;
+  
+  // Pillar type
+  pillar: PillarType;
+  
+  // The transformation
+  current_state: string;
+  future_state: string;
+  identity_statement: string;
+  
+  // Daily behavior
+  non_negotiable: string;
+  
+  // Tracking
+  trust_score: number;
+  priority: number;
+  last_checked_at?: string;
+  consecutive_kept: number;
+  consecutive_broken: number;
+  total_kept: number;
+  total_checked: number;
+  
+  // Status
+  status: 'active' | 'paused' | 'achieved';
+}
+
+/**
+ * Pillar Checkin Table - Daily check-ins per pillar
+ */
+export interface PillarCheckin {
+  id: string;
+  pillar_id: string;
+  user_id: string;
+  call_id?: string;
+  
+  // Result
+  showed_up: boolean;
+  
+  // Context
+  what_happened?: string;
+  excuse_used?: string;
+  matched_pattern: boolean;
+  
+  // Identity tracking
+  identity_vote?: 'positive' | 'negative' | 'neutral';
+  reinforcement_given?: string;
+  
+  // Difficulty
+  difficulty_level?: 'easy' | 'medium' | 'hard';
+  
+  checked_at: string;
+  checked_for_date: string;
+}
+
+/**
+ * Pillar with trend information for dashboard
+ */
+export interface PillarWithTrend extends FutureSelfPillar {
+  trend: 'up' | 'down' | 'stable';
+  kept_last_7_days: number;
+  total_last_7_days: number;
+}
+
+/**
+ * Identity alignment for dashboard
+ */
+export interface IdentityAlignment {
+  overall_alignment: number;
+  pillar_alignments: Array<{
+    pillar: PillarType;
+    identity: string;
+    alignment: number;
+    trend: 'up' | 'down' | 'stable';
+  }>;
+  transformation_status: 'becoming' | 'progressing' | 'struggling' | 'slipping';
+}
+
+// ============================================================================
 // DATABASE TYPES (matching backend)
 // ============================================================================
 
@@ -25,7 +156,7 @@ export interface User {
   created_at: string;
   updated_at: string;
   
-  // Core identity
+  // Core
   name: string;
   email: string;
   timezone: string;
@@ -40,32 +171,6 @@ export interface User {
   // Onboarding
   onboarding_completed: boolean;
   onboarding_completed_at?: string;
-}
-
-/**
- * Identity Table
- */
-export interface Identity {
-  id: string;
-  user_id: string;
-  created_at: string;
-  updated_at: string;
-
-  // Core fields
-  name: string;
-  daily_commitment: string;
-  call_time: string;
-
-  // Voice (Cartesia)
-  cartesia_voice_id?: string;
-
-  // Voice recordings (R2 URLs)
-  why_it_matters_audio_url?: string | null;
-  cost_of_quitting_audio_url?: string | null;
-  commitment_audio_url?: string | null;
-
-  // All onboarding context (JSONB)
-  onboarding_context: OnboardingContext;
 }
 
 /**
@@ -110,7 +215,7 @@ export interface OnboardingContext {
 }
 
 /**
- * Status Table (renamed from identity_status)
+ * Status Table
  */
 export interface Status {
   id: string;
@@ -125,6 +230,7 @@ export interface Status {
   // Call tracking
   total_calls_completed: number;
   last_call_at?: string | null;
+  call_time?: string; // Preferred call time (HH:MM:SS)
 
   // Trust score (0-100)
   trust_score: number;
@@ -313,15 +419,21 @@ export interface DashboardStats {
   promisesBrokenLast7Days: number;
   totalCalls: number;
   successRate: number;
+  // 5 Pillars additions
+  identityAlignment?: number;
+  transformationStatus?: 'becoming' | 'progressing' | 'struggling' | 'slipping';
 }
 
 export interface DashboardData {
   user: User | null;
-  identity: Identity | null;
   status: Status | null;
   callMemory: CallMemory | null;
   recentCalls: CallAnalytics[];
   subscription: Subscription | null;
   stats: DashboardStats;
   nextCallTime: Date | null;
+  // 5 Pillars
+  futureSelf: FutureSelf | null;
+  pillars: FutureSelfPillar[];
+  pillarAlignment: IdentityAlignment | null;
 }

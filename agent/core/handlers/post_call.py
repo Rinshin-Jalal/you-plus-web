@@ -108,9 +108,16 @@ async def _update_trust_scores(
     if call_summary.promise_kept is None:
         return
 
-    identity = user_context.get("identity", {})
-    onboarding = identity.get("onboarding_context", {})
-    favorite_excuse = onboarding.get("favorite_excuse", "")
+    # Get favorite excuse from future_self data
+    future_self = user_context.get("future_self", {})
+    favorite_excuse = future_self.get("favorite_excuse", "")
+
+    # Fall back to legacy identity if future_self not available
+    if not favorite_excuse:
+        identity = user_context.get("identity", {})
+        onboarding = identity.get("onboarding_context", {})
+        favorite_excuse = onboarding.get("favorite_excuse", "")
+
     used_favorite = (
         any(
             favorite_excuse.lower() in excuse.lower()
@@ -120,10 +127,21 @@ async def _update_trust_scores(
         else False
     )
 
+    # Get primary pillar for trust updates
+    pillars = user_context.get("pillars", [])
+    primary_pillar = future_self.get("primary_pillar", "body")
+
+    # Find the pillar ID for the primary pillar
+    pillar_id = ""
+    for p in pillars:
+        if p.get("pillar") == primary_pillar:
+            pillar_id = p.get("id", "")
+            break
+
     trust_result = await trust_score_service.apply_checkin_result(
         user_id=user_id,
-        task_id="legacy_commitment",
-        goal_id="",
+        pillar=primary_pillar,
+        pillar_id=pillar_id,
         kept=call_summary.promise_kept,
         used_favorite_excuse=used_favorite,
         streak_count=current_streak,
@@ -131,7 +149,7 @@ async def _update_trust_scores(
 
     logger.info(
         f"📈 Trust updated: {trust_result['old_trust']} -> {trust_result['new_trust']} "
-        f"({trust_result['reason']})"
+        f"({trust_result['reason']}) for pillar: {trust_result.get('pillar', 'unknown')}"
     )
 
     if persona_controller:
@@ -154,9 +172,15 @@ async def _save_excuse_patterns(
 
     logger.info(f"💾 Saving {len(call_aggregator.excuses)} excuse patterns...")
 
-    identity = user_context.get("identity", {})
-    onboarding = identity.get("onboarding_context", {})
-    favorite_excuse = onboarding.get("favorite_excuse", "")
+    # Get favorite excuse from future_self data
+    future_self = user_context.get("future_self", {})
+    favorite_excuse = future_self.get("favorite_excuse", "")
+
+    # Fall back to legacy identity if future_self not available
+    if not favorite_excuse:
+        identity = user_context.get("identity", {})
+        onboarding = identity.get("onboarding_context", {})
+        favorite_excuse = onboarding.get("favorite_excuse", "")
 
     for excuse_event in call_aggregator.excuses:
         matches_favorite = (

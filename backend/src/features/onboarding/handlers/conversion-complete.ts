@@ -14,52 +14,51 @@ export const postConversionOnboardingComplete = async (c: Context) => {
 
   const {
     // Core identity
-    goal,
-    goalDeadline,
-    motivationLevel,
-    // Pattern recognition
-    attemptCount,
-    lastAttemptOutcome,
-    previousAttemptOutcome,
-    favoriteExcuse,
-    whoDisappointed,
-    biggestObstacle,
-    quitTime,
-    // Demographics
-    age,
-    gender,
-    location,
-    // Stakes
-    successVision,
-    futureIfNoChange,
-    whatSpent,
-    biggestFear,
-    // Belief
-    beliefLevel,
-    // Commitment setup
-    dailyCommitment,
-    callTime,
-    callsGranted,
-    voiceGranted,
-    // Legacy fields
-    witness,
-    willDoThis,
-    notificationsGranted,
-    completedAt,
-    totalTimeSpent,
-    deviceMetadata,
+    name,
+    times_tried,  // Not stored in DB yet, but collected
+    core_identity,
+    primary_pillar,
+    the_why,
+    dark_future,
+    
+    // Patterns
+    quit_pattern,
+    favorite_excuse,
+    who_disappointed,  // Array
+    
+    // Dynamic pillars - array of pillar IDs the user selected
+    selected_pillars,
+    
+    // Voice recordings (base64 or R2 URLs)
+    future_self_intro_recording,
+    why_recording,
+    pledge_recording,
+    
+    // Call settings
+    call_time,
   } = body;
 
-  // Core required fields
-  if (!goal || !dailyCommitment || !callTime) {
-    return c.json({ error: "Missing required fields: goal, dailyCommitment, callTime" }, 400);
+  // Validate required fields
+  if (!core_identity) {
+    return c.json({ error: "Missing required field: core_identity" }, 400);
+  }
+  
+  if (!the_why) {
+    return c.json({ error: "Missing required field: the_why" }, 400);
   }
 
+  if (!selected_pillars || !Array.isArray(selected_pillars) || selected_pillars.length === 0) {
+    return c.json({ error: "Missing required field: selected_pillars (must be an array)" }, 400);
+  }
+
+  // Use default call_time if not provided (21:00 = 9pm evening reflection)
+  const finalCallTime = call_time || '21:00';
+
   console.log(`\n📊 === CONVERSION ONBOARDING DATA ===`);
-  console.log(`Goal: ${goal}`);
-  console.log(`Motivation Level: ${motivationLevel}/10`);
-  console.log(`Attempt Count: ${attemptCount}`);
-  console.log(`Daily Commitment: ${dailyCommitment}`);
+  console.log(`Core Identity: ${core_identity}`);
+  console.log(`Selected Pillars: ${selected_pillars.join(', ')}`);
+  console.log(`Primary Pillar: ${primary_pillar || selected_pillars[0]}`);
+  console.log(`Call Time: ${finalCallTime}${!call_time ? ' (default)' : ''}`);
 
   const env = c.env as Env;
   const supabase = createSupabaseClient(env);
@@ -72,93 +71,158 @@ export const postConversionOnboardingComplete = async (c: Context) => {
       .eq("id", userId)
       .single();
 
-    const userName = userData?.name || "User";
+    const userName = name || userData?.name || "User";
 
     console.log(`\n📦 === BUILDING ONBOARDING CONTEXT ===`);
 
-    const callTimeDate = new Date(callTime);
-    const callTimeString = `${String(callTimeDate.getHours()).padStart(2, "0")}:${String(
-      callTimeDate.getMinutes()
-    ).padStart(2, "0")}:${String(callTimeDate.getSeconds()).padStart(2, "0")}`;
+    // Parse callTime
+    let callTimeString: string;
+    if (typeof finalCallTime === 'string') {
+      if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(finalCallTime)) {
+        const parts = finalCallTime.split(':');
+        callTimeString = `${parts[0]!.padStart(2, '0')}:${parts[1]!}:${parts[2] || '00'}`;
+      } else {
+        const callTimeDate = new Date(finalCallTime);
+        if (!isNaN(callTimeDate.getTime())) {
+          callTimeString = `${String(callTimeDate.getHours()).padStart(2, "0")}:${String(
+            callTimeDate.getMinutes()
+          ).padStart(2, "0")}:${String(callTimeDate.getSeconds()).padStart(2, "0")}`;
+        } else {
+          console.warn(`⚠️ Could not parse callTime: ${finalCallTime}, using default 21:00:00`);
+          callTimeString = '21:00:00';
+        }
+      }
+    } else {
+      console.warn(`⚠️ callTime is not a string: ${finalCallTime}, using default 21:00:00`);
+      callTimeString = '21:00:00';
+    }
+    
+    console.log(`📅 Parsed callTime: ${finalCallTime} -> ${callTimeString}`);
 
-    const onboardingContext = {
-      // Core goal info
-      goal: goal,
-      goal_deadline: goalDeadline || null,
-      motivation_level: motivationLevel || 5,
-      
-      // Pattern recognition
-      attempt_count: attemptCount || 0,
-      attempt_history: attemptCount 
-        ? `Failed ${attemptCount} times. Last: ${lastAttemptOutcome || 'unknown'}. Previous: ${previousAttemptOutcome || 'unknown'}.`
-        : null,
-      how_did_quit: lastAttemptOutcome || null,
-      favorite_excuse: favoriteExcuse || null,
-      quit_time: quitTime || null,
-      quit_pattern: quitTime || null,
-      biggest_obstacle: biggestObstacle || null,
-      who_disappointed: whoDisappointed || null,
-      
-      // Demographics
-      age: age || null,
-      gender: gender || null,
-      location: location || null,
-      
-      // Stakes
-      success_vision: successVision || null,
-      future_if_no_change: futureIfNoChange || null,
-      what_spent: whatSpent || null,
-      biggest_fear: biggestFear || null,
-      
-      // Belief tracking
-      belief_level: beliefLevel || 5,
-      
-      // Witness/accountability
-      witness: witness || null,
-      will_do_this: willDoThis ?? true,
-      
-      // Permissions
-      permissions: {
-        notifications: notificationsGranted || false,
-        calls: callsGranted || false,
-        voice: voiceGranted || false,
-      },
-      
-      // Metadata
-      completed_at: completedAt || new Date().toISOString(),
-      time_spent_minutes: totalTimeSpent ? Math.round(totalTimeSpent / 60) : null,
-    };
+    // ═══════════════════════════════════════════════════════════════════════
+    // FUTURE SELF SYSTEM - Dynamic Pillars
+    // ═══════════════════════════════════════════════════════════════════════
+    console.log(`\n💾 === SAVING TO FUTURE_SELF TABLE ===`);
 
-    console.log(`✅ Onboarding context built with ${Object.keys(onboardingContext).length} fields`);
-
-    console.log(`\n💾 === SAVING TO IDENTITY TABLE ===`);
-
-    const { error: insertError } = await supabase
-      .from("identity")
-      .insert({
-        user_id: userId,
-        name: userName,
-        daily_commitment: dailyCommitment,
-        call_time: callTimeString,
-        supermemory_container_id: userId,
-        onboarding_context: onboardingContext,
-      });
-
-    if (insertError) {
-      console.error("❌ Identity insert failed:", insertError);
-      throw insertError;
+    // Extract the primary pillar ID from the selection (strip emoji if present)
+    let mappedPrimaryPillar: string = selected_pillars[0]; // Default to first selected
+    if (primary_pillar) {
+      // Try to extract pillar ID from emoji+label format like "💪 Health & Fitness"
+      // Find which selected pillar matches
+      for (const pillarId of selected_pillars) {
+        // Check if primary_pillar contains this pillar ID or related text
+        const pillarLower = pillarId.toLowerCase();
+        const primaryLower = primary_pillar.toLowerCase();
+        if (primaryLower.includes(pillarLower) || 
+            primaryLower.includes(pillarLower.replace('_', ' ')) ||
+            primaryLower.includes(pillarLower.replace('custom_', ''))) {
+          mappedPrimaryPillar = pillarId;
+          break;
+        }
+      }
     }
 
-    console.log(`✅ Identity created (trigger auto-creates status)`);
+    // 1. Create future_self record
+    const { data: futureSelfData, error: futureSelfError } = await supabase
+      .from("future_self")
+      .insert({
+        user_id: userId,
+        core_identity: core_identity,
+        primary_pillar: mappedPrimaryPillar,
+        the_why: the_why,
+        dark_future: dark_future || null,
+        quit_pattern: quit_pattern || null,
+        favorite_excuse: favorite_excuse || null,
+        who_disappointed: who_disappointed || [],
+        future_self_intro_url: future_self_intro_recording || null,
+        why_recording_url: why_recording || null,
+        pledge_recording_url: pledge_recording || null,
+        supermemory_container_id: userId,
+        selected_pillars: selected_pillars, // Store the array of selected pillar IDs
+      })
+      .select('id')
+      .single();
+
+    if (futureSelfError) {
+      console.error("❌ Future Self insert failed:", futureSelfError);
+      throw futureSelfError;
+    }
+
+    const futureSelfId = futureSelfData.id;
+    console.log(`✅ Future Self created with ID: ${futureSelfId}`);
+
+    // 2. Create pillar records for each selected pillar
+    // Dynamic pillar data comes in as: {pillar_id}_current, {pillar_id}_goal, {pillar_id}_future
+    const createdPillars: string[] = [];
+    
+    for (let i = 0; i < selected_pillars.length; i++) {
+      const pillarId = selected_pillars[i];
+      
+      // Extract pillar data from body using dynamic field names
+      const currentState = body[`${pillarId}_current`];
+      const goal = body[`${pillarId}_goal`];
+      const futureState = body[`${pillarId}_future`];
+      
+      // Skip if we don't have the required data
+      if (!currentState || !futureState) {
+        console.warn(`⚠️ Skipping pillar ${pillarId} - missing required fields`);
+        continue;
+      }
+      
+      // Calculate priority - primary pillar gets 100, others get decreasing priority
+      const isPrimary = pillarId === mappedPrimaryPillar;
+      const priority = isPrimary ? 100 : Math.max(50, 90 - (i * 10));
+      
+      // Identity statement is derived from future state or core identity
+      const identityStatement = `I am someone who ${futureState.toLowerCase().startsWith('i ') ? futureState.slice(2) : futureState}`;
+      
+      const { error: pillarError } = await supabase
+        .from("future_self_pillars")
+        .insert({
+          user_id: userId,
+          future_self_id: futureSelfId,
+          pillar: pillarId,
+          current_state: currentState,
+          future_state: futureState,
+          identity_statement: identityStatement,
+          non_negotiable: goal || `I show up for ${pillarId.replace(/_/g, ' ')} every day`,
+          priority: priority,
+        });
+
+      if (pillarError) {
+        console.error(`❌ Pillar ${pillarId} insert failed:`, pillarError);
+        throw pillarError;
+      }
+      console.log(`✅ Pillar created: ${pillarId} (priority: ${priority})`);
+      createdPillars.push(pillarId);
+    }
+
+    // 3. Create/update status record
+    const { error: statusError } = await supabase
+      .from("status")
+      .upsert({
+        user_id: userId,
+        current_streak_days: 0,
+        longest_streak_days: 0,
+        total_calls_completed: 0,
+        last_call_at: null,
+      }, { onConflict: 'user_id' });
+
+    if (statusError) {
+      console.error("❌ Status upsert failed:", statusError);
+      throw statusError;
+    }
+    console.log(`✅ Status record created/updated`);
 
     console.log(`\n👤 === UPDATING USER RECORD ===`);
 
     const { error: updateError } = await supabase
       .from("users")
       .update({
+        name: userName,
+        call_time: callTimeString,
         onboarding_completed: true,
         onboarding_completed_at: new Date().toISOString(),
-        timezone: deviceMetadata?.timezone || "UTC",
         updated_at: new Date().toISOString(),
       })
       .eq("id", userId);
@@ -168,29 +232,27 @@ export const postConversionOnboardingComplete = async (c: Context) => {
       throw updateError;
     }
 
-    console.log(`✅ User marked as onboarding complete`);
+    console.log(`✅ User updated with call_time: ${callTimeString}`);
 
     console.log(`\n🎉 === CONVERSION ONBOARDING COMPLETE ===`);
-    console.log(`✅ Identity created with core fields`);
-    console.log(`✅ Status auto-created by trigger`);
+    console.log(`Created ${createdPillars.length} pillars: ${createdPillars.join(', ')}`);
 
     return c.json({
       success: true,
-      message: "Conversion onboarding completed successfully",
+      message: "Onboarding completed successfully",
       completedAt: new Date().toISOString(),
-      identity: {
-        created: true,
-        core_fields: ["name", "daily_commitment", "call_time", "supermemory_container_id"],
-        context_fields: Object.keys(onboardingContext).length,
+      futureSelf: {
+        id: futureSelfId,
+        pillars: createdPillars,
+        primaryPillar: mappedPrimaryPillar,
       },
-      statusCreated: true,
     });
   } catch (error) {
     console.error("💥 Conversion onboarding failed:", error);
     return c.json(
       {
         success: false,
-        error: "Failed to complete conversion onboarding",
+        error: "Failed to complete onboarding",
         details: error instanceof Error ? error.message : "Unknown error",
       },
       500

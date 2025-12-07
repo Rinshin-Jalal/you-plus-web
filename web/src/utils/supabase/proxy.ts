@@ -33,6 +33,10 @@ export async function updateSession(request: NextRequest) {
 
   const { data, error } = await supabase.auth.getClaims()
   const claims = data?.claims ?? null
+  
+  // Also get the session for access token
+  const { data: sessionData } = await supabase.auth.getSession()
+  const accessToken = sessionData?.session?.access_token ?? null
 
-  return { supabaseResponse, claims }
+  return { supabaseResponse, claims, accessToken }
 }

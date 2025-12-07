@@ -2,11 +2,11 @@
 Trust Score Service
 ===================
 
-Manages trust scores for users and their goals.
+Manages trust scores for users and their pillars.
 
 Trust Score: 0-100
 - Represents how much the user follows through on their commitments
-- Per-goal AND overall aggregate
+- Per-pillar AND overall aggregate
 - Influences persona selection and severity escalation
 
 Trust Deltas:
@@ -76,10 +76,10 @@ class TrustScoreService:
 
         # Get current scores
         overall = await service.get_overall_trust(user_id)
-        goal_trust = await service.get_goal_trust(goal_id)
+        pillar_trust = await service.get_pillar_trust(pillar_id)
 
         # Apply changes
-        await service.apply_delta(user_id, "kept_promise", goal_id="abc123")
+        await service.apply_delta(user_id, "kept_promise", pillar_id="abc123")
     """
 
     def __init__(self):
@@ -116,17 +116,17 @@ class TrustScoreService:
             logger.error(f"Failed to get trust score: {e}")
             return 50
 
-    async def get_goal_trust(self, goal_id: str) -> int:
-        """Get trust score for a specific goal."""
+    async def get_pillar_trust(self, pillar_id: str) -> int:
+        """Get trust score for a specific pillar."""
         client = self._get_client()
         if not client:
             return 50
 
         try:
             result = (
-                client.table("goals")
+                client.table("future_self_pillars")
                 .select("trust_score")
-                .eq("id", goal_id)
+                .eq("id", pillar_id)
                 .single()
                 .execute()
             )
@@ -134,28 +134,30 @@ class TrustScoreService:
                 return result.data.get("trust_score", 50) or 50
             return 50
         except Exception as e:
-            logger.error(f"Failed to get goal trust: {e}")
+            logger.error(f"Failed to get pillar trust: {e}")
             return 50
 
-    async def get_all_goal_trusts(self, user_id: str) -> Dict[str, int]:
-        """Get trust scores for all active goals."""
+    async def get_all_pillar_trusts(self, user_id: str) -> Dict[str, int]:
+        """Get trust scores for all pillars."""
         client = self._get_client()
         if not client:
             return {}
 
         try:
             result = (
-                client.table("goals")
-                .select("id,trust_score")
+                client.table("future_self_pillars")
+                .select("id,pillar,trust_score")
                 .eq("user_id", user_id)
-                .eq("status", "active")
                 .execute()
             )
             if result.data:
-                return {g["id"]: g.get("trust_score", 50) or 50 for g in result.data}
+                # Return dict keyed by pillar name (body, mission, stack, tribe)
+                return {
+                    p["pillar"]: p.get("trust_score", 50) or 50 for p in result.data
+                }
             return {}
         except Exception as e:
-            logger.error(f"Failed to get goal trusts: {e}")
+            logger.error(f"Failed to get pillar trusts: {e}")
             return {}
 
     async def get_trust_context(self, user_id: str) -> Dict:
@@ -163,10 +165,10 @@ class TrustScoreService:
         Get complete trust context for a user.
 
         Returns:
-            Dict with overall_trust, goal_trusts, trust_zone, and summary
+            Dict with overall_trust, pillar_trusts, trust_zone, and summary
         """
         overall = await self.get_overall_trust(user_id)
-        goal_trusts = await self.get_all_goal_trusts(user_id)
+        pillar_trusts = await self.get_all_pillar_trusts(user_id)
 
         # Determine trust zone
         if overall <= 30:
@@ -179,21 +181,21 @@ class TrustScoreService:
             zone = "high"
             zone_description = "Strong trust. Maintain consistency."
 
-        # Find goals needing attention (low trust)
-        goals_needing_attention = [
-            gid for gid, trust in goal_trusts.items() if trust < 40
+        # Find pillars needing attention (low trust)
+        pillars_needing_attention = [
+            pillar for pillar, trust in pillar_trusts.items() if trust < 40
         ]
 
         return {
             "overall_trust": overall,
-            "goal_trusts": goal_trusts,
+            "pillar_trusts": pillar_trusts,
             "trust_zone": zone,
             "zone_description": zone_description,
-            "goals_needing_attention": goals_needing_attention,
+            "pillars_needing_attention": pillars_needing_attention,
         }
 
     async def apply_delta(
-        self, user_id: str, delta_type: str, goal_id: Optional[str] = None
+        self, user_id: str, delta_type: str, pillar_id: Optional[str] = None
     ) -> Tuple[int, int]:
         """
         Apply a trust score change.
@@ -201,7 +203,7 @@ class TrustScoreService:
         Args:
             user_id: User's ID
             delta_type: Key from TRUST_DELTAS
-            goal_id: Optional goal to apply delta to
+            pillar_id: Optional pillar ID to apply delta to
 
         Returns:
             Tuple of (new_overall_trust, delta_applied)
@@ -224,14 +226,14 @@ class TrustScoreService:
                 "user_id", user_id
             ).execute()
 
-            # Also update goal trust if goal_id provided
-            if goal_id:
-                goal_trust = await self.get_goal_trust(goal_id)
-                new_goal_trust = max(0, min(100, goal_trust + delta.delta))
+            # Also update pillar trust if pillar_id provided
+            if pillar_id:
+                pillar_trust = await self.get_pillar_trust(pillar_id)
+                new_pillar_trust = max(0, min(100, pillar_trust + delta.delta))
 
-                client.table("goals").update({"trust_score": new_goal_trust}).eq(
-                    "id", goal_id
-                ).execute()
+                client.table("future_self_pillars").update(
+                    {"trust_score": new_pillar_trust}
+                ).eq("id", pillar_id).execute()
 
             logger.info(f"Trust: {current} -> {new_score} ({delta.reason})")
             return new_score, delta.delta
@@ -243,22 +245,22 @@ class TrustScoreService:
     async def apply_checkin_result(
         self,
         user_id: str,
-        task_id: str,
-        goal_id: str,
+        pillar: str,
+        pillar_id: str,
         kept: bool,
         used_favorite_excuse: bool = False,
         streak_count: int = 0,
     ) -> Dict:
         """
-        Apply trust changes based on a task check-in result.
+        Apply trust changes based on a pillar check-in result.
 
         This is the main method to use after a check-in is recorded.
         It handles all the trust logic including streak bonuses.
 
         Args:
             user_id: User's ID
-            task_id: Task ID (for logging)
-            goal_id: Goal ID to update
+            pillar: Pillar name (body, mission, stack, tribe)
+            pillar_id: Pillar ID to update
             kept: Whether they kept their promise
             used_favorite_excuse: Whether they used their go-to excuse
             streak_count: Current streak count (for bonus calculation)
@@ -274,24 +276,25 @@ class TrustScoreService:
 
             # Check for streak bonuses (applied separately)
             if streak_count == 7:
-                await self.apply_delta(user_id, "streak_7", goal_id)
+                await self.apply_delta(user_id, "streak_7", pillar_id)
             elif streak_count == 14:
-                await self.apply_delta(user_id, "streak_14", goal_id)
+                await self.apply_delta(user_id, "streak_14", pillar_id)
             elif streak_count == 30:
-                await self.apply_delta(user_id, "streak_30", goal_id)
+                await self.apply_delta(user_id, "streak_30", pillar_id)
         else:
             if used_favorite_excuse:
                 delta_type = "favorite_excuse"
             else:
                 delta_type = "broke_promise"
 
-        new_trust, delta = await self.apply_delta(user_id, delta_type, goal_id)
+        new_trust, delta = await self.apply_delta(user_id, delta_type, pillar_id)
 
         return {
             "old_trust": old_trust,
             "new_trust": new_trust,
             "delta": delta,
             "reason": TRUST_DELTAS[delta_type].reason,
+            "pillar": pillar,
         }
 
     async def get_severity_level(self, user_id: str, excuse_pattern: str) -> int:
@@ -312,12 +315,12 @@ class TrustScoreService:
             return 1
 
         try:
-            # Count recent occurrences of this excuse pattern
+            # Count recent occurrences of this excuse pattern in pillar checkins
             result = (
-                client.table("task_checkins")
+                client.table("pillar_checkins")
                 .select("id")
                 .eq("user_id", user_id)
-                .eq("excuse_pattern", excuse_pattern)
+                .eq("excuse_used", excuse_pattern)
                 .gte("checked_at", "now() - interval '30 days'")
                 .execute()
             )

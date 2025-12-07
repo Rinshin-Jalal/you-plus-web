@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -9,11 +9,18 @@ import { useAuth } from '@/hooks/useAuth';
 function SignupContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const { signInWithGoogle, signInWithApple } = useAuth();
+    const { signInWithGoogle, signInWithApple, isAuthenticated, loading: authLoading } = useAuth();
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
     const next = searchParams.get('next') || '/checkout';
+
+    // Redirect to dashboard if already logged in
+    useEffect(() => {
+        if (!authLoading && isAuthenticated) {
+            router.replace('/dashboard');
+        }
+    }, [authLoading, isAuthenticated, router]);
 
     const handleSocialSignup = async (provider: 'google' | 'apple') => {
         setLoading(true);
@@ -34,6 +41,24 @@ function SignupContent() {
             setLoading(false);
         }
     };
+
+    // Show loading while checking auth state
+    if (authLoading) {
+        return (
+            <Card className="w-full max-w-md p-8 flex items-center justify-center">
+                <div className="w-8 h-8 border-2 border-black border-t-transparent animate-spin" />
+            </Card>
+        );
+    }
+
+    // Don't render if authenticated (will redirect)
+    if (isAuthenticated) {
+        return (
+            <Card className="w-full max-w-md p-8 flex items-center justify-center">
+                <div className="w-8 h-8 border-2 border-black border-t-transparent animate-spin" />
+            </Card>
+        );
+    }
 
     return (
         <Card className="w-full max-w-md p-8 space-y-6">
@@ -104,10 +129,8 @@ function SignupContent() {
 
 function SignupFallback() {
     return (
-        <Card className="w-full max-w-md p-8 space-y-6">
-            <div className="text-center">
-                <h1 className="text-3xl font-bold text-gray-900">Loading...</h1>
-            </div>
+        <Card className="w-full max-w-md p-8 flex items-center justify-center">
+            <div className="w-8 h-8 border-2 border-black border-t-transparent animate-spin" />
         </Card>
     );
 }

@@ -3,44 +3,102 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
+import { useSubscription } from '@/hooks/useSubscription';
+import { storageService } from '@/services/storage';
 import { Button } from '@/components/ui/Button';
 import { PhoneInput, isValidE164 } from '@/components/shared/PhoneInput';
 import { apiClient } from '@/services/api';
 
 /**
- * Post-Signup Setup Page
+ * Setup Page - The gateway after onboarding
  * 
- * A gentle onboarding after payment + signup:
- * 1. Welcome screen
- * 2. How calls work explanation
- * 3. Phone number collection (E.164 format)
- * 4. Redirect to dashboard
+ * Flow:
+ * 1. Check if authenticated → if not, redirect to /auth/login?next=/setup
+ * 2. Check if subscribed → if not, redirect to /checkout
+ * 3. Push onboarding data to backend
+ * 4. Collect phone number
+ * 5. Redirect to dashboard
  */
 
-type SetupStep = 'welcome' | 'how-it-works' | 'phone' | 'complete';
+type SetupStep = 'checking' | 'pushing' | 'phone' | 'complete' | 'error';
 
 export default function SetupPage() {
   const router = useRouter();
-  const { isAuthenticated, loading: authLoading } = useAuth();
-  const [step, setStep] = useState<SetupStep>('welcome');
+  const { isAuthenticated, loading: authLoading, user } = useAuth();
+  const { subscription, loading: subLoading, isActive } = useSubscription();
+  
+  const [step, setStep] = useState<SetupStep>('checking');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [pushAttempted, setPushAttempted] = useState(false);
 
-  // Redirect if not authenticated
+  // Step 1: Check authentication
   useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      router.replace('/auth/login');
+    if (authLoading) return; // Still loading auth
+    
+    if (!isAuthenticated) {
+      // Not logged in → redirect to auth with return URL
+      const returnUrl = encodeURIComponent('/setup');
+      router.replace(`/auth/login?next=${returnUrl}`);
+      return;
     }
   }, [isAuthenticated, authLoading, router]);
 
-  const handleNext = () => {
-    if (step === 'welcome') {
-      setStep('how-it-works');
-    } else if (step === 'how-it-works') {
-      setStep('phone');
+  // Step 2: Check subscription (only after auth is confirmed)
+  useEffect(() => {
+    if (authLoading || subLoading) return; // Still loading
+    if (!isAuthenticated) return; // Not authenticated, will redirect above
+    
+    if (!isActive) {
+      // Not subscribed → redirect to checkout
+      router.replace('/checkout');
+      return;
     }
-  };
+    
+    // Auth + subscription confirmed → proceed to push data
+    if (step === 'checking') {
+      setStep('pushing');
+    }
+  }, [isAuthenticated, authLoading, subLoading, isActive, step, router]);
+
+  // Step 3: Push onboarding data to backend
+  useEffect(() => {
+    if (step !== 'pushing' || pushAttempted) return;
+    
+    const pushData = async () => {
+      setPushAttempted(true);
+      
+      try {
+        // Check if there's onboarding data to push
+        if (storageService.hasOnboardingData()) {
+          console.log('[Setup] Pushing onboarding data to backend...');
+          const result = await storageService.pushOnboardingData();
+          
+          if (!result.success) {
+            console.error('[Setup] Failed to push onboarding data:', result.error);
+            setError(result.error || 'Failed to save your data. Please try again.');
+            setStep('error');
+            return;
+          }
+          
+          console.log('[Setup] Onboarding data pushed successfully');
+        } else {
+          console.log('[Setup] No onboarding data to push');
+        }
+        
+        // Move to phone collection
+        setStep('phone');
+      } catch (err) {
+        console.error('[Setup] Error pushing data:', err);
+        setError('Something went wrong. Please try again.');
+        setStep('error');
+      }
+    };
+    
+    pushData();
+  }, [step, pushAttempted]);
 
   const handlePhoneSubmit = async () => {
     // Validate phone number
@@ -81,11 +139,53 @@ export default function SetupPage() {
     router.replace('/dashboard');
   };
 
-  // Loading state
-  if (authLoading) {
+  const handleRetry = () => {
+    setError(null);
+    setPushAttempted(false);
+    setStep('pushing');
+  };
+
+  // Loading states
+  if (authLoading || subLoading || step === 'checking' || step === 'pushing') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-teal-500"></div>
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-teal-500 mb-4"></div>
+        <p className="text-gray-600 font-mono text-sm">
+          {authLoading && 'Checking authentication...'}
+          {!authLoading && subLoading && 'Checking subscription...'}
+          {step === 'pushing' && 'Saving your data...'}
+          {step === 'checking' && !authLoading && !subLoading && 'Setting up...'}
+        </p>
+      </div>
+    );
+  }
+
+  // Error state
+  if (step === 'error') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+        <div className="max-w-md w-full text-center">
+          <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <span className="text-4xl">😕</span>
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">
+            Something went wrong
+          </h1>
+          <p className="text-gray-600 mb-8">
+            {error || 'We couldn\'t save your data. Please try again.'}
+          </p>
+          <div className="space-y-3">
+            <Button onClick={handleRetry} className="w-full">
+              Try Again
+            </Button>
+            <button
+              onClick={() => router.replace('/dashboard')}
+              className="w-full py-2 text-gray-500 hover:text-gray-700 text-sm transition-colors"
+            >
+              Skip and go to dashboard
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -95,90 +195,19 @@ export default function SetupPage() {
       <div className="max-w-md w-full">
         {/* Progress Indicator */}
         <div className="flex justify-center gap-2 mb-8">
-          {['welcome', 'how-it-works', 'phone'].map((s, idx) => (
+          {['phone', 'complete'].map((s, idx) => (
             <div
               key={s}
-              className={`h-2 w-12 rounded-full transition-colors ${
+              className={`h-2 w-16 rounded-full transition-colors ${
                 step === s
                   ? 'bg-teal-500'
-                  : ['welcome', 'how-it-works', 'phone'].indexOf(step) > idx
+                  : ['phone', 'complete'].indexOf(step) > idx
                   ? 'bg-teal-300'
                   : 'bg-gray-200'
               }`}
             />
           ))}
         </div>
-
-        {/* Step: Welcome */}
-        {step === 'welcome' && (
-          <div className="text-center animate-fade-in">
-            <div className="mb-8">
-              <div className="w-20 h-20 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <span className="text-4xl">🎉</span>
-              </div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-4">
-                Welcome to YOU+
-              </h1>
-              <p className="text-lg text-gray-600 mb-2">
-                Your Future Self is ready to hold you accountable.
-              </p>
-              <p className="text-gray-500">
-                Let's get you set up for your first call.
-              </p>
-            </div>
-
-            <Button onClick={handleNext} className="w-full">
-              Let's Go
-            </Button>
-          </div>
-        )}
-
-        {/* Step: How It Works */}
-        {step === 'how-it-works' && (
-          <div className="text-center animate-fade-in">
-            <div className="mb-8">
-              <div className="w-20 h-20 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <span className="text-4xl">📞</span>
-              </div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-4">
-                How It Works
-              </h1>
-              <div className="text-left space-y-4 mb-8">
-                <div className="flex items-start gap-4 p-4 bg-gray-50 rounded-lg">
-                  <span className="text-2xl">🌙</span>
-                  <div>
-                    <p className="font-medium text-gray-900">Every evening</p>
-                    <p className="text-gray-600 text-sm">
-                      Your Future Self calls you at your scheduled time
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-4 p-4 bg-gray-50 rounded-lg">
-                  <span className="text-2xl">🎯</span>
-                  <div>
-                    <p className="font-medium text-gray-900">Quick check-in</p>
-                    <p className="text-gray-600 text-sm">
-                      Did you keep your promise? YES or NO. Simple.
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-4 p-4 bg-gray-50 rounded-lg">
-                  <span className="text-2xl">📝</span>
-                  <div>
-                    <p className="font-medium text-gray-900">Plan tomorrow</p>
-                    <p className="text-gray-600 text-sm">
-                      Set your commitments for the next day
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <Button onClick={handleNext} className="w-full">
-              Got It
-            </Button>
-          </div>
-        )}
 
         {/* Step: Phone Number */}
         {step === 'phone' && (
@@ -188,10 +217,10 @@ export default function SetupPage() {
                 <span className="text-4xl">📱</span>
               </div>
               <h1 className="text-3xl font-bold text-gray-900 mb-4">
-                Your Phone Number
+                Almost There!
               </h1>
               <p className="text-gray-600">
-                This is how your Future Self will reach you.
+                Add your phone number so your Future Self can call you.
               </p>
             </div>
 

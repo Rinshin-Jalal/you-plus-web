@@ -6,6 +6,21 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { AuthGuard } from '@/components/shared/AuthGuard';
 import { accountService, type UserProfile } from '@/services/account';
+import paymentService, { type SubscriptionStatus } from '@/services/payment';
+
+interface Plan {
+  id: string;
+  product_id: string;
+  name: string;
+  description: string;
+  price_cents: number;
+  price: number;
+  currency: string;
+  interval: string;
+  interval_count: number;
+  is_recurring: boolean;
+  features: string[];
+}
 
 function SettingsContent() {
   const router = useRouter();
@@ -16,6 +31,13 @@ function SettingsContent() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  // Subscription state
+  const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null);
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [isLoadingPlans, setIsLoadingPlans] = useState(false);
+  const [isChangingPlan, setIsChangingPlan] = useState(false);
+  const [showPlanSelector, setShowPlanSelector] = useState(false);
+
   // Form state
   const [name, setName] = useState('');
   const [timezone, setTimezone] = useState('');
@@ -25,6 +47,7 @@ function SettingsContent() {
   useEffect(() => {
     loadProfile();
     loadPreferences();
+    loadSubscription();
   }, []);
 
   const loadProfile = async () => {
@@ -42,6 +65,43 @@ function SettingsContent() {
     const prefs = accountService.getPreferences();
     setTheme(prefs.theme);
     setNotifications(prefs.notifications);
+  };
+
+  const loadSubscription = async () => {
+    const sub = await paymentService.getSubscriptionStatus();
+    setSubscription(sub);
+  };
+
+  const loadPlans = async () => {
+    setIsLoadingPlans(true);
+    const fetchedPlans = await paymentService.getPlans();
+    setPlans(fetchedPlans as Plan[]);
+    setIsLoadingPlans(false);
+  };
+
+  const handleShowPlanSelector = async () => {
+    if (plans.length === 0) {
+      await loadPlans();
+    }
+    setShowPlanSelector(true);
+  };
+
+  const handleChangePlan = async (newPlanId: string) => {
+    setIsChangingPlan(true);
+    setMessage(null);
+
+    const result = await paymentService.changePlan(newPlanId);
+
+    if (result.success) {
+      setMessage({ type: 'success', text: `Plan changed to ${result.newPlan?.name || 'new plan'} successfully!` });
+      setShowPlanSelector(false);
+      // Reload subscription to get updated info
+      await loadSubscription();
+    } else {
+      setMessage({ type: 'error', text: result.error || 'Failed to change plan' });
+    }
+
+    setIsChangingPlan(false);
   };
 
   const handleSaveProfile = async () => {
@@ -86,6 +146,28 @@ function SettingsContent() {
     setIsDeleting(false);
   };
 
+  const handleManageBilling = async () => {
+    try {
+      const portalUrl = await paymentService.getCustomerPortalUrl();
+      if (portalUrl) {
+        window.location.href = portalUrl;
+      } else {
+        setMessage({ type: 'error', text: 'Unable to open billing portal. Please try again.' });
+      }
+    } catch (error) {
+      console.error('Error opening customer portal:', error);
+      setMessage({ type: 'error', text: 'Failed to open billing portal' });
+    }
+  };
+
+  const formatPrice = (cents: number, currency: string) => {
+    const amount = cents / 100;
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: currency || 'USD',
+    }).format(amount);
+  };
+
   // Get list of common timezones
   const timezones = [
     'America/New_York',
@@ -108,9 +190,9 @@ function SettingsContent() {
   if (isLoading) {
     return (
       <div className="animate-pulse space-y-6">
-        <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/4"></div>
-        <div className="h-48 bg-gray-200 dark:bg-gray-700 rounded"></div>
-        <div className="h-48 bg-gray-200 dark:bg-gray-700 rounded"></div>
+        <div className="h-8 bg-black/10 rounded w-1/4"></div>
+        <div className="h-48 bg-black/10 rounded"></div>
+        <div className="h-48 bg-black/10 rounded"></div>
       </div>
     );
   }
@@ -119,7 +201,7 @@ function SettingsContent() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Settings</h1>
+        <h1 className="text-2xl font-bold text-black">Settings</h1>
         <Button variant="outline" onClick={() => router.push('/dashboard')}>
           Back to Dashboard
         </Button>
@@ -128,10 +210,10 @@ function SettingsContent() {
       {/* Message */}
       {message && (
         <div
-          className={`p-4 rounded-lg ${
+          className={`p-4 rounded-lg border-2 ${
             message.type === 'success'
-              ? 'bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-300'
-              : 'bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-300'
+              ? 'border-black bg-white text-black'
+              : 'border-red-600 bg-white text-red-600'
           }`}
         >
           {message.text}
@@ -140,25 +222,25 @@ function SettingsContent() {
 
       {/* Profile Section */}
       <Card className="p-6">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Profile</h2>
+        <h2 className="text-lg font-semibold text-black mb-4">Profile</h2>
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label className="block text-sm font-medium text-black mb-1">
               Email
             </label>
             <input
               type="email"
               value={profile?.email || ''}
               disabled
-              className="w-full p-3 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
+              className="w-full p-3 border-2 border-black rounded-lg bg-white text-black/50"
             />
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            <p className="text-xs text-black/50 mt-1">
               Email cannot be changed
             </p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label className="block text-sm font-medium text-black mb-1">
               Name
             </label>
             <input
@@ -166,18 +248,18 @@ function SettingsContent() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Your name"
-              className="w-full p-3 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white"
+              className="w-full p-3 border-2 border-black rounded-lg bg-white text-black focus:outline-none focus:ring-2 focus:ring-black"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label className="block text-sm font-medium text-black mb-1">
               Timezone
             </label>
             <select
               value={timezone}
               onChange={(e) => setTimezone(e.target.value)}
-              className="w-full p-3 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white"
+              className="w-full p-3 border-2 border-black rounded-lg bg-white text-black focus:outline-none focus:ring-2 focus:ring-black"
             >
               {timezones.map((tz) => (
                 <option key={tz} value={tz}>
@@ -195,16 +277,16 @@ function SettingsContent() {
 
       {/* Preferences Section */}
       <Card className="p-6">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Preferences</h2>
+        <h2 className="text-lg font-semibold text-black mb-4">Preferences</h2>
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label className="block text-sm font-medium text-black mb-1">
               Theme
             </label>
             <select
               value={theme}
               onChange={(e) => setTheme(e.target.value as 'light' | 'dark' | 'system')}
-              className="w-full p-3 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white"
+              className="w-full p-3 border-2 border-black rounded-lg bg-white text-black focus:outline-none focus:ring-2 focus:ring-black"
             >
               <option value="system">System</option>
               <option value="light">Light</option>
@@ -214,19 +296,19 @@ function SettingsContent() {
 
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-medium text-gray-900 dark:text-white text-sm">Notifications</p>
-              <p className="text-gray-500 dark:text-gray-400 text-xs">
+              <p className="font-medium text-black text-sm">Notifications</p>
+              <p className="text-black/50 text-xs">
                 Receive push notifications for reminders
               </p>
             </div>
             <button
               onClick={() => setNotifications(!notifications)}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                notifications ? 'bg-black dark:bg-white' : 'bg-gray-300 dark:bg-gray-600'
+                notifications ? 'bg-black' : 'bg-black/30'
               }`}
             >
               <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white dark:bg-black transition-transform ${
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
                   notifications ? 'translate-x-6' : 'translate-x-1'
                 }`}
               />
@@ -239,28 +321,122 @@ function SettingsContent() {
         </div>
       </Card>
 
-      {/* Quick Links */}
+      {/* Subscription & Billing Section */}
       <Card className="p-6">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Account</h2>
-        <div className="space-y-3">
-          <button
-            onClick={() => router.push('/account/subscription')}
-            className="w-full flex items-center justify-between p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-          >
-            <span className="text-gray-900 dark:text-white">Subscription</span>
-            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-          <button
-            onClick={() => router.push('/account/billing')}
-            className="w-full flex items-center justify-between p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-          >
-            <span className="text-gray-900 dark:text-white">Billing History</span>
-            <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
+        <h2 className="text-lg font-semibold text-black mb-4">Subscription & Billing</h2>
+        
+        {/* Current Subscription Info */}
+        {subscription && (
+          <div className="mb-4 p-4 border-2 border-black rounded-lg">
+            <div className="flex justify-between items-start">
+              <div>
+                <p className="font-medium text-black">
+                  {subscription.planName || 'Current Plan'}
+                </p>
+                <p className="text-sm text-black/60">
+                  Status: <span className={subscription.status === 'active' ? 'text-green-600' : 'text-red-600'}>
+                    {subscription.status}
+                  </span>
+                </p>
+                {subscription.currentPeriodEnd && (
+                  <p className="text-sm text-black/60">
+                    Renews: {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
+                  </p>
+                )}
+              </div>
+              {subscription.amountCents && (
+                <p className="text-lg font-bold text-black">
+                  {formatPrice(subscription.amountCents, subscription.currency)}/mo
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Plan Selector */}
+        {showPlanSelector && (
+          <div className="mb-4">
+            <div className="flex justify-between items-center mb-3">
+              <p className="font-medium text-black">Change Plan</p>
+              <button
+                onClick={() => setShowPlanSelector(false)}
+                className="text-black/60 hover:text-black text-sm"
+              >
+                Cancel
+              </button>
+            </div>
+            
+            {isLoadingPlans ? (
+              <div className="animate-pulse space-y-2">
+                <div className="h-16 bg-black/10 rounded"></div>
+                <div className="h-16 bg-black/10 rounded"></div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {plans.map((plan) => {
+                  const isCurrentPlan = subscription?.planId === plan.id || subscription?.planId === plan.product_id;
+                  const priceCents = plan.price_cents || plan.price || 0;
+                  
+                  return (
+                    <div
+                      key={plan.id}
+                      className={`p-4 border-2 rounded-lg ${
+                        isCurrentPlan ? 'border-black bg-black/5' : 'border-black/30 hover:border-black'
+                      }`}
+                    >
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <p className="font-medium text-black">
+                            {plan.name}
+                            {isCurrentPlan && (
+                              <span className="ml-2 text-xs bg-black text-white px-2 py-0.5 rounded">
+                                Current
+                              </span>
+                            )}
+                          </p>
+                          <p className="text-sm text-black/60">{plan.description}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-black">
+                            {formatPrice(priceCents, plan.currency)}
+                            <span className="text-sm font-normal text-black/60">
+                              /{plan.interval || 'month'}
+                            </span>
+                          </p>
+                          {!isCurrentPlan && subscription?.hasActiveSubscription && (
+                            <Button
+                              variant="outline"
+                              onClick={() => handleChangePlan(plan.product_id || plan.id)}
+                              disabled={isChangingPlan}
+                              className="mt-2 text-sm"
+                            >
+                              {isChangingPlan ? 'Changing...' : 'Switch'}
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Action Buttons */}
+        <div className="space-y-2">
+          {subscription?.hasActiveSubscription && !showPlanSelector && (
+            <Button
+              variant="outline"
+              onClick={handleShowPlanSelector}
+              className="w-full"
+            >
+              Change Plan
+            </Button>
+          )}
+          <Button variant="outline" onClick={handleManageBilling} className="w-full">
+            Manage Billing & Payment Methods
+          </Button>
         </div>
       </Card>
 
@@ -272,15 +448,15 @@ function SettingsContent() {
       </Card>
 
       {/* Danger Zone */}
-      <Card className="p-6 border-red-200 dark:border-red-800">
-        <h2 className="text-lg font-semibold text-red-600 dark:text-red-400 mb-4">Danger Zone</h2>
-        <p className="text-gray-600 dark:text-gray-400 text-sm mb-4">
+      <Card className="p-6 border-red-600">
+        <h2 className="text-lg font-semibold text-red-600 mb-4">Danger Zone</h2>
+        <p className="text-black/60 text-sm mb-4">
           Once you delete your account, there is no going back. Please be certain.
         </p>
 
         {showDeleteConfirm ? (
           <div className="space-y-3">
-            <p className="text-red-600 dark:text-red-400 text-sm font-medium">
+            <p className="text-red-600 text-sm font-medium">
               Are you absolutely sure you want to delete your account?
             </p>
             <div className="flex gap-3">
@@ -317,7 +493,7 @@ function SettingsContent() {
 export default function SettingsPage() {
   return (
     <AuthGuard>
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 px-4">
+      <div className="min-h-screen bg-white py-8 px-4">
         <div className="max-w-2xl mx-auto">
           <SettingsContent />
         </div>

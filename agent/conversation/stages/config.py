@@ -3,7 +3,7 @@ Stage Configuration - Prompts and mood modifiers
 =================================================
 """
 
-from conversation.stages.models import CallStage, MoodModifiers, StageConfig
+from .models import CallStage, MoodModifiers, StageConfig
 
 
 # Mood-specific modifiers for each stage

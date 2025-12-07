@@ -79,7 +79,7 @@ Key pillars:
 - Scheduled cron handler runs:
   - Scheduler engine to process users-in-window
   - Retry processor to handle timeouts/escalations
-  - Nightly Pattern Profile updater at ~02:00 UTC (see `embedding-services/behavioral.ts`) that computes and persists `identity_status.pattern_profile` JSON
+  - Nightly Pattern Profile updater at ~02:00 UTC (see `embedding-services/behavioral.ts`) that computes and persists `status.pattern_profile` JSON
 
 #### Complete Route Index (as registered in `src/index.ts`)
 
@@ -214,7 +214,7 @@ Key pillars:
 ### `src/routes/identity.ts`
 
 - Aggregates and serves identity data: name/summary, created/updated, days active, relevant voice clips, and call stats (answered vs total).
-- Updates identity core fields and `identity_status` (trust %, streak, next call timestamp).
+- Updates identity core fields and `status` (trust %, streak, next call timestamp).
 - Final oath save endpoint; voice clips list endpoint; identity stats summary endpoint.
 - Powers mirror and identity-centric UI flows.
 
@@ -333,7 +333,7 @@ Key pillars:
   - `dominantEmotion`
   - `summary`: `topExcuses`, `topBreakthroughs`, `topPatterns`
   - `emergingPatterns`: detected via growth of recent 7d vs baseline 21d using `metadata.text_hash`
-- Persists to `identity_status.pattern_profile` (JSONB)
+- Persists to `status.pattern_profile` (JSONB)
 
 #### `src/services/embedding-service.ts`
 

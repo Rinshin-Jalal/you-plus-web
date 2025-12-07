@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { paymentService } from '@/services/payment';
+import React, { Suspense, useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { paymentService, type SubscriptionStatus } from '@/services/payment';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -52,14 +52,34 @@ const DEFAULT_PLANS: Plan[] = [
 ];
 
 export default function CheckoutPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-white">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-black"></div>
+        </div>
+      }
+    >
+      <CheckoutContent />
+    </Suspense>
+  );
+}
+
+function CheckoutContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, isAuthenticated, loading: authLoading } = useAuth();
   const [plans, setPlans] = useState<Plan[]>(DEFAULT_PLANS);
   const [loading, setLoading] = useState(false);
+  const [subLoading, setSubLoading] = useState(true); // Start true - assume we need to check
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasOnboardingData, setHasOnboardingData] = useState(false);
+  const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null);
+  const [isChangingPlan, setIsChangingPlan] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [billingInterval, setBillingInterval] = useState<'month' | 'year'>('year'); // Default to yearly
 
   // Check if user has onboarding data (only on client to avoid hydration mismatch)
   useEffect(() => {
@@ -76,18 +96,21 @@ export default function CheckoutPage() {
         console.log('[Checkout] API response:', apiPlans);
         
         if (apiPlans.length > 0) {
-          const mappedPlans = apiPlans.map((p: any) => ({
-            id: p.product_id || p.id,
-            name: p.name,
-            description: p.description || '',
-            price: p.price_cents ?? p.price ?? 0,
-            currency: p.currency || 'INR',
-            interval: p.interval || 'month',
-            // Use API features if available, otherwise keep defaults based on product ID
-            features: (p.features && p.features.length > 0) 
-              ? p.features 
-              : DEFAULT_PLANS.find(d => d.id === (p.product_id || p.id))?.features || [],
-          }));
+          const mappedPlans = apiPlans.map((p: any) => {
+            const defaultPlan = DEFAULT_PLANS.find(d => d.id === (p.product_id || p.id));
+            return {
+              id: p.product_id || p.id,
+              name: p.name || defaultPlan?.name || 'Plan',
+              description: p.description || defaultPlan?.description || '',
+              price: p.price_cents ?? p.price ?? defaultPlan?.price ?? 0,
+              currency: p.currency || defaultPlan?.currency || 'INR',
+              interval: p.interval || defaultPlan?.interval || 'month',
+              // Use API features if available, otherwise use defaults
+              features: (p.features && p.features.length > 0) 
+                ? p.features 
+                : defaultPlan?.features || [],
+            };
+          });
           console.log('[Checkout] Mapped plans:', mappedPlans);
           setPlans(mappedPlans);
         } else {
@@ -103,6 +126,52 @@ export default function CheckoutPage() {
 
     fetchPlans();
   }, []);
+
+  // Fetch current subscription if authenticated
+  useEffect(() => {
+    const fetchSubscription = async () => {
+      if (isAuthenticated) {
+        setSubLoading(true);
+        try {
+          console.log('[Checkout] Fetching subscription status...');
+          const sub = await paymentService.getSubscriptionStatus();
+          console.log('[Checkout] Subscription response:', JSON.stringify(sub, null, 2));
+          setSubscription(sub);
+        } catch (err) {
+          console.error('[Checkout] Error fetching subscription:', err);
+        } finally {
+          setSubLoading(false);
+        }
+      } else {
+        // Not authenticated - no subscription to check
+        setSubLoading(false);
+      }
+    };
+
+    if (!authLoading) {
+      fetchSubscription();
+    }
+  }, [isAuthenticated, authLoading]);
+
+  // Debug logging for subscription state
+  useEffect(() => {
+    // Wait for auth and subscription loading to complete
+    if (authLoading || subLoading) return;
+
+    console.log("=== CHECKOUT DEBUG ===")
+    console.log("authLoading:", authLoading, "subLoading:", subLoading)
+    console.log("isAuthenticated:", isAuthenticated, "user:", user?.email)
+    console.log("subscription object:", JSON.stringify(subscription, null, 2));
+    console.log("plans array:", JSON.stringify(plans.map(p => ({ id: p.id, name: p.name })), null, 2));
+    console.log("subscription.planId:", subscription?.planId);
+    console.log("subscription.hasActiveSubscription:", subscription?.hasActiveSubscription);
+    plans.forEach(p => {
+      console.log(`Plan "${p.name}" id="${p.id}" matches subscription.planId? ${subscription?.planId === p.id}`);
+    });
+    console.log("=== END DEBUG ===")
+    
+    // No redirect - allow subscribed users to view/manage plans
+  }, [authLoading, subLoading, isAuthenticated, subscription, plans, user]);
 
   const handleCheckout = async (planId: string) => {
     console.log('[Checkout] handleCheckout called', { planId, isAuthenticated, user: user?.email });
@@ -128,72 +197,249 @@ export default function CheckoutPage() {
     }
   };
 
+  const handleChangePlan = async (planId: string) => {
+    setSelectedPlan(planId);
+    setIsChangingPlan(true);
+    setMessage(null);
+
+    try {
+      const result = await paymentService.changePlan(planId);
+      
+      if (result.success) {
+        setMessage({ type: 'success', text: `Successfully switched to ${result.newPlan?.name || 'new plan'}!` });
+        // Reload subscription
+        const sub = await paymentService.getSubscriptionStatus();
+        setSubscription(sub);
+      } else {
+        setMessage({ type: 'error', text: result.error || 'Failed to change plan' });
+      }
+    } catch (err) {
+      console.error('Change plan error:', err);
+      setMessage({ type: 'error', text: 'Failed to change plan. Please try again.' });
+    } finally {
+      setIsChangingPlan(false);
+      setSelectedPlan(null);
+    }
+  };
+
   const formatPrice = (cents: number, currency: string) => {
     const symbol = currency === 'INR' ? '₹' : '$';
     const amount = (cents / 100).toFixed(0);
     return `${symbol}${amount}`;
   };
 
-  // Only show loading for plan fetching, not auth loading
-  // This page should be accessible without authentication
-  if (loading) {
+  const formatMonthlyPrice = (plan: Plan) => {
+    const symbol = plan.currency === 'INR' ? '₹' : '$';
+    if (plan.interval === 'year') {
+      // Show yearly price divided by 12
+      const monthlyAmount = Math.round(plan.price / 12 / 100);
+      return `${symbol}${monthlyAmount}`;
+    }
+    return `${symbol}${Math.round(plan.price / 100)}`;
+  };
+
+  const getSelectedPlan = () => {
+    return plans.find(p => p.interval === billingInterval) || plans[0];
+  };
+
+  const getYearlySavings = () => {
+    const monthlyPlan = plans.find(p => p.interval === 'month');
+    const yearlyPlan = plans.find(p => p.interval === 'year');
+    if (monthlyPlan && yearlyPlan) {
+      const yearlyIfMonthly = monthlyPlan.price * 12;
+      const savings = yearlyIfMonthly - yearlyPlan.price;
+      return savings > 0 ? Math.round(savings / 100) : 0;
+    }
+    return 0;
+  };
+
+  const isCurrentPlan = (planId: string) => {
+    return subscription?.hasActiveSubscription && subscription?.planId === planId;
+  };
+
+  const getButtonText = (plan: Plan) => {
+    if (!isAuthenticated) {
+      return 'Login to Subscribe';
+    }
+    
+    if (isCurrentPlan(plan.id)) {
+      return 'Current Plan';
+    }
+    
+    if (subscription?.hasActiveSubscription) {
+      // Compare prices to determine upgrade/downgrade
+      const currentPlan = plans.find(p => p.id === subscription.planId);
+      if (currentPlan) {
+        return plan.price > currentPlan.price ? 'Upgrade' : 'Downgrade';
+      }
+      return 'Switch Plan';
+    }
+    
+    return 'Get Started';
+  };
+
+  const handlePlanAction = (plan: Plan) => {
+    if (isCurrentPlan(plan.id)) {
+      return; // Do nothing for current plan
+    }
+    
+    if (subscription?.hasActiveSubscription) {
+      handleChangePlan(plan.id);
+    } else {
+      handleCheckout(plan.id);
+    }
+  };
+
+  const handleManageSubscription = async () => {
+    try {
+      const portalUrl = await paymentService.getCustomerPortalUrl();
+      if (portalUrl) {
+        window.location.href = portalUrl;
+      } else {
+        setError('Unable to open subscription management. Please try again.');
+      }
+    } catch (err) {
+      console.error('Error opening customer portal:', err);
+      setError('Failed to open subscription management.');
+    }
+  };
+
+  // Show loading while checking auth or subscription status
+  // This prevents flash of checkout UI before redirect for subscribed users
+  if (authLoading || subLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-teal-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-black"></div>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-white py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            Choose Your Plan
+      <div className="max-w-2xl mx-auto">
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-black mb-4">
+            {subscription?.hasActiveSubscription ? 'Manage Your Plan' : 'Choose Your Plan'}
           </h1>
-          <p className="text-lg text-gray-600">
-            Get unlimited access to AI-powered coaching
+          <p className="text-lg text-black/60">
+            {subscription?.hasActiveSubscription 
+              ? 'Upgrade or downgrade your subscription anytime' 
+              : 'Get unlimited access to AI-powered coaching'}
           </p>
         </div>
 
-        {error && (
-          <div className="max-w-2xl mx-auto mb-8 bg-red-50 border border-red-200 rounded-lg p-4">
-            <p className="text-red-800">{error}</p>
+        {/* Messages */}
+        {message && (
+          <div className={`mb-8 p-4 rounded-lg border-2 ${
+            message.type === 'success' ? 'border-black bg-white' : 'border-red-600 bg-white'
+          }`}>
+            <p className={message.type === 'success' ? 'text-black' : 'text-red-600'}>
+              {message.text}
+            </p>
           </div>
         )}
 
-        <div className="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
-          {plans.map((plan) => (
-            <Card key={plan.id} className="relative overflow-hidden bg-white">
-              {plan.interval === 'year' && (
-                <div className="absolute top-0 right-0 bg-teal-500 text-white px-4 py-1 text-sm font-medium rounded-bl-lg">
-                  Best Value
+        {error && (
+          <div className="mb-8 bg-white border-2 border-red-600 rounded-lg p-4">
+            <p className="text-red-600">{error}</p>
+          </div>
+        )}
+
+        {/* Billing Toggle */}
+        <div className="flex justify-center mb-8">
+          <div className="inline-flex items-center p-1 bg-gray-100 rounded-full border-2 border-black">
+            <button
+              onClick={() => setBillingInterval('month')}
+              className={`px-6 py-2 rounded-full text-sm font-medium transition-all ${
+                billingInterval === 'month'
+                  ? 'bg-black text-white'
+                  : 'text-black hover:bg-gray-200'
+              }`}
+            >
+              Monthly
+            </button>
+            <button
+              onClick={() => setBillingInterval('year')}
+              className={`px-6 py-2 rounded-full text-sm font-medium transition-all ${
+                billingInterval === 'year'
+                  ? 'bg-black text-white'
+                  : 'text-black hover:bg-gray-200'
+              }`}
+            >
+              Yearly
+              {getYearlySavings() > 0 && (
+                <span className="ml-2 text-xs bg-green-500 text-white px-2 py-0.5 rounded-full">
+                  Save {formatPrice(getYearlySavings() * 100, plans[0]?.currency || 'USD')}
+                </span>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Single Plan Card */}
+        {(() => {
+          const plan = getSelectedPlan();
+          if (!plan) return null;
+          
+          const isCurrent = isCurrentPlan(plan.id);
+          const buttonText = getButtonText(plan);
+          const isProcessing = (checkoutLoading || isChangingPlan) && selectedPlan === plan.id;
+          
+          return (
+            <Card 
+              className={`relative overflow-hidden transition-all duration-200 ${
+                isCurrent 
+                  ? 'bg-black text-white' 
+                  : 'bg-white'
+              }`}
+            >
+              {/* Current Plan Badge */}
+              {isCurrent && (
+                <div className="absolute top-4 right-4 bg-white text-black px-3 py-1 text-sm font-medium rounded-full">
+                  Your Plan
                 </div>
               )}
 
               <div className="p-8">
-                <h3 className="text-2xl font-bold text-gray-900 mb-2">
-                  {plan.name}
+                <h3 className={`text-2xl font-bold mb-2 ${isCurrent ? 'text-white' : 'text-black'}`}>
+                  You+ Pro
                 </h3>
 
-                <p className="text-gray-600 mb-6">
-                  {plan.description}
+                <p className={`mb-6 ${isCurrent ? 'text-white/70' : 'text-black/60'}`}>
+                  {plan.interval === 'year' ? 'Best value - billed annually' : 'Flexible monthly billing'}
                 </p>
 
-                <div className="mb-6">
-                  <span className="text-4xl font-bold text-gray-900">
-                    {formatPrice(plan.price, plan.currency)}
+                <div className="mb-2">
+                  <span className={`text-5xl font-bold ${isCurrent ? 'text-white' : 'text-black'}`}>
+                    {formatMonthlyPrice(plan)}
                   </span>
-                  <span className="text-gray-600 ml-2">
-                    /{plan.interval}
+                  <span className={`ml-2 text-lg ${isCurrent ? 'text-white/70' : 'text-black/60'}`}>
+                    /month
                   </span>
                 </div>
+                
+                {plan.interval === 'year' && (
+                  <p className={`text-sm mb-6 ${isCurrent ? 'text-white/60' : 'text-black/50'}`}>
+                    {formatPrice(plan.price, plan.currency)} billed annually
+                  </p>
+                )}
+                {plan.interval === 'month' && (
+                  <p className={`text-sm mb-6 ${isCurrent ? 'text-white/60' : 'text-black/50'}`}>
+                    Billed monthly
+                  </p>
+                )}
 
                 <ul className="space-y-3 mb-8">
-                  {plan.features.map((feature, index) => (
+                  {(plan.features.length > 0 ? plan.features : [
+                    'Daily AI coaching calls',
+                    'Personalized guidance',
+                    'Progress tracking',
+                    'Priority support',
+                    'Unlimited access',
+                  ]).map((feature, index) => (
                     <li key={index} className="flex items-start">
                       <svg
-                        className="h-5 w-5 text-teal-500 mr-3 flex-shrink-0 mt-0.5"
+                        className={`h-5 w-5 mr-3 flex-shrink-0 mt-0.5 ${isCurrent ? 'text-white' : 'text-black'}`}
                         xmlns="http://www.w3.org/2000/svg"
                         viewBox="0 0 20 20"
                         fill="currentColor"
@@ -204,18 +450,18 @@ export default function CheckoutPage() {
                           clipRule="evenodd"
                         />
                       </svg>
-                      <span className="text-gray-700">{feature}</span>
+                      <span className={isCurrent ? 'text-white/90' : 'text-black/80'}>{feature}</span>
                     </li>
                   ))}
                 </ul>
 
                 <Button
-                  onClick={() => handleCheckout(plan.id)}
-                  disabled={(checkoutLoading && selectedPlan === plan.id) || authLoading}
-                  className="w-full"
-                  variant={plan.interval === 'year' ? 'primary' : 'secondary'}
+                  onClick={() => isCurrent ? handleManageSubscription() : handlePlanAction(plan)}
+                  disabled={isProcessing || authLoading}
+                  className={`w-full ${isCurrent ? 'bg-white text-black hover:bg-white/90' : ''}`}
+                  variant={isCurrent ? 'outline' : 'primary'}
                 >
-                  {checkoutLoading && selectedPlan === plan.id ? (
+                  {isProcessing ? (
                     <span className="flex items-center justify-center">
                       <svg className="animate-spin -ml-1 mr-3 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -223,26 +469,22 @@ export default function CheckoutPage() {
                       </svg>
                       Processing...
                     </span>
-                  ) : !isAuthenticated ? (
-                    'Login to Subscribe'
-                  ) : (
-                    'Get Started'
-                  )}
+                  ) : isCurrent ? 'Manage Subscription' : buttonText}
                 </Button>
               </div>
             </Card>
-          ))}
-        </div>
+          );
+        })()}
 
         <div className="text-center mt-12">
-          <p className="text-sm text-gray-500 mb-2">
+          <p className="text-sm text-black/50 mb-2">
             Secure payment powered by DodoPayments
           </p>
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-black/40">
             By subscribing, you agree to our{' '}
-            <a href="/legal/terms" className="underline hover:text-gray-600">Terms of Service</a>
+            <a href="/legal/terms" className="underline hover:text-black/60">Terms of Service</a>
             {' '}and{' '}
-            <a href="/legal/privacy" className="underline hover:text-gray-600">Privacy Policy</a>
+            <a href="/legal/privacy" className="underline hover:text-black/60">Privacy Policy</a>
           </p>
         </div>
       </div>

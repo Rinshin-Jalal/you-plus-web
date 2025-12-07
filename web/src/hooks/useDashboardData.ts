@@ -41,12 +41,15 @@ export const useDashboardData = () => {
     refresh,
     // Convenience accessors
     user: data?.user ?? null,
-    identity: data?.identity ?? null,
     status: data?.status ?? null,
     stats: data?.stats ?? DEFAULT_STATS,
     nextCallTime: data?.nextCallTime ?? null,
     recentCalls: data?.recentCalls ?? [],
     subscription: data?.subscription ?? null,
+    // 5 Pillars
+    futureSelf: data?.futureSelf ?? null,
+    pillars: data?.pillars ?? [],
+    pillarAlignment: data?.pillarAlignment ?? null,
   };
 };
 
@@ -66,9 +69,9 @@ export const useStats = () => {
 };
 
 /**
- * Hook to get identity status label based on trust score
+ * Hook to get trust status label based on trust score
  */
-export const useIdentityStatus = () => {
+export const useTrustStatus = () => {
   const { stats, loading } = useStats();
 
   const getStatusLabel = (trustScore: number): string => {

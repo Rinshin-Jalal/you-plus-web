@@ -21,21 +21,21 @@ Stages:
 """
 
 # Models
-from conversation.stages.models import (
+from .models import (
     CallStage,
     MoodModifiers,
     StageConfig,
 )
 
 # Config
-from conversation.stages.config import (
+from .config import (
     MOOD_STAGE_MODIFIERS,
     STAGE_PROMPTS,
     TRANSITION_DETECTOR_PROMPT,
 )
 
 # Transitions & helpers
-from conversation.stages.transitions import (
+from .transitions import (
     get_stage_prompt,
     get_stage_config,
     get_next_stage,

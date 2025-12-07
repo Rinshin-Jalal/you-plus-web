@@ -88,17 +88,34 @@ export interface OnboardingContext {
   [key: string]: any;
 }
 
-export interface Identity {
+// Pillar types for 5 Pillars system
+export type PillarType = 'body' | 'mission' | 'stack' | 'tribe' | 'why';
+
+export interface FutureSelf {
   id: string;
   user_id: string;
   created_at: string;
   updated_at: string;
-  name: string;
-  daily_commitment: string;
-  call_time: string;
-  cartesia_voice_id?: string;
-  supermemory_container_id?: string;
-  onboarding_context: OnboardingContext;
+  future_self_statement: string;
+  favorite_excuse: string | null;
+  onboarding_context: OnboardingContext | null;
+  supermemory_container_id: string | null;
+}
+
+export interface FutureSelfPillar {
+  id: string;
+  user_id: string;
+  pillar_type: PillarType;
+  created_at: string;
+  updated_at: string;
+  current_state: string;
+  future_state: string;
+  next_action: string | null;
+  commitment_time: string | null;
+  trust_score: number;
+  promises_kept: number;
+  promises_broken: number;
+  last_checkin_at: string | null;
 }
 
 export interface Status {
@@ -215,7 +232,8 @@ export interface Onboarding {
 
 export interface UserContext {
   user: User;
-  identity: Identity | null;
+  futureSelf: FutureSelf | null;
+  pillars: FutureSelfPillar[];
   status: Status | null;
   callMemory: CallMemory | null;
   recentCallAnalytics: CallAnalytics[];
@@ -244,10 +262,15 @@ export interface Database {
         Insert: Omit<User, "id" | "created_at" | "updated_at">;
         Update: Partial<Omit<User, "id" | "created_at">>;
       };
-      identity: {
-        Row: Identity;
-        Insert: Omit<Identity, "id" | "created_at" | "updated_at">;
-        Update: Partial<Omit<Identity, "id" | "created_at">>;
+      future_self: {
+        Row: FutureSelf;
+        Insert: Omit<FutureSelf, "id" | "created_at" | "updated_at">;
+        Update: Partial<Omit<FutureSelf, "id" | "created_at">>;
+      };
+      future_self_pillars: {
+        Row: FutureSelfPillar;
+        Insert: Omit<FutureSelfPillar, "id" | "created_at" | "updated_at">;
+        Update: Partial<Omit<FutureSelfPillar, "id" | "created_at">>;
       };
       status: {
         Row: Status;
@@ -320,14 +343,26 @@ export function isDevelopmentMode(): boolean {
 export function createSupabaseServiceClient(env: Env) {
   return createClient<Database>(
     env.SUPABASE_URL,
-    env.SUPABASE_SERVICE_ROLE_KEY
+    env.SUPABASE_SERVICE_ROLE_KEY,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    }
   );
 }
 
 export function createSupabaseClient(env: Env) {
   return createClient<Database>(
     env.SUPABASE_URL,
-    env.SUPABASE_SERVICE_ROLE_KEY
+    env.SUPABASE_SERVICE_ROLE_KEY,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    }
   );
 }
 
@@ -697,13 +732,15 @@ export async function getUserContext(
 
     const [
       { data: user, error: userError },
-      { data: identity, error: identityError },
+      { data: futureSelf, error: futureSelfError },
+      { data: pillars, error: pillarsError },
       { data: status, error: statusError },
       { data: callMemory, error: callMemoryError },
       { data: recentCalls, error: recentCallsError },
     ] = await Promise.all([
       supabase.from("users").select("*").eq("id", userId).maybeSingle(),
-      supabase.from("identity").select("*").eq("user_id", userId).maybeSingle(),
+      supabase.from("future_self").select("*").eq("user_id", userId).maybeSingle(),
+      supabase.from("future_self_pillars").select("*").eq("user_id", userId),
       supabase.from("status").select("*").eq("user_id", userId).maybeSingle(),
       supabase.from("call_memory").select("*").eq("user_id", userId).maybeSingle(),
       supabase
@@ -719,8 +756,11 @@ export async function getUserContext(
       return buildFallbackUserContext(userId);
     }
 
-    if (identityError && identityError.code !== "PGRST116") {
-      console.warn("getUserContext: identity fetch issue:", identityError.message);
+    if (futureSelfError && futureSelfError.code !== "PGRST116") {
+      console.warn("getUserContext: future_self fetch issue:", futureSelfError.message);
+    }
+    if (pillarsError) {
+      console.warn("getUserContext: future_self_pillars fetch issue:", pillarsError.message);
     }
     if (statusError && statusError.code !== "PGRST116") {
       console.warn("getUserContext: status fetch issue:", statusError.message);
@@ -743,7 +783,8 @@ export async function getUserContext(
 
     return {
       user: user as User,
-      identity: identity ?? null,
+      futureSelf: futureSelf ?? null,
+      pillars: pillars || [],
       status: status ?? null,
       callMemory: callMemory ?? null,
       recentCallAnalytics: recentCalls || [],
@@ -778,7 +819,8 @@ function buildFallbackUserContext(userId: string): UserContext {
       timezone: "UTC",
       onboarding_completed: false,
     },
-    identity: null,
+    futureSelf: null,
+    pillars: [],
     status: null,
     callMemory: null,
     recentCallAnalytics: [],

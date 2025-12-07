@@ -180,7 +180,7 @@ class PatternAnalyzerNode(Node):
 
     def _get_streak(self) -> int:
         """Get current streak."""
-        status = self.user_context.get("identity_status", {})
+        status = self.user_context.get("status", {})
         return status.get("current_streak_days", 0)
 
     async def process_context(

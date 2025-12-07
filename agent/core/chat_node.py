@@ -352,7 +352,7 @@ class FutureYouNode(ReasoningNode):
             )
 
     def _handle_quote_insight(self, insight: MemorableQuoteDetected) -> None:
-        streak = self.user_context.get("identity_status", {}).get(
+        streak = self.user_context.get("status", {}).get(
             "current_streak_days", 0
         )
         self._quotes_this_call.append(
@@ -514,7 +514,7 @@ class FutureYouNode(ReasoningNode):
             updated.get("emotional_peaks", []) + self._peaks_this_call
         )[-10:]
 
-        streak = self.user_context.get("identity_status", {}).get(
+        streak = self.user_context.get("status", {}).get(
             "current_streak_days", 0
         )
         if streak >= 60:

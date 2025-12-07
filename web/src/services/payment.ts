@@ -10,10 +10,12 @@ export interface SubscriptionStatus {
   cancelledAt: string | null;
   amountCents: number | null;
   currency: string;
-  isTrial: boolean;
-  entitlement: string | null;
-  willRenew: boolean;
-  productId: string | null;
+  subscriptionId: string | null;
+  // Additional properties used in useSubscription hook
+  isTrial?: boolean;
+  entitlement?: string | null;
+  willRenew?: boolean;
+  productId?: string | null;
 }
 
 export interface BillingHistoryItem {
@@ -74,6 +76,8 @@ class PaymentService {
   async getSubscriptionStatus(): Promise<SubscriptionStatus> {
     try {
       const response = await apiClient.get<{ subscription: SubscriptionStatus }>('/api/billing/subscription');
+
+      console.log('Subscription status response:', response);
       return response.subscription;
     } catch (error) {
       console.error('Error fetching subscription status:', error);
@@ -87,11 +91,8 @@ class PaymentService {
         currentPeriodEnd: null,
         cancelledAt: null,
         amountCents: null,
-        currency: 'INR',
-        isTrial: false,
-        entitlement: null,
-        willRenew: false,
-        productId: null,
+        currency: 'USD',
+        subscriptionId: null,
       };
     }
   }
@@ -277,6 +278,33 @@ class PaymentService {
     } catch (error) {
       console.error('Error getting customer portal URL:', error);
       return null;
+    }
+  }
+
+  /**
+   * Change the current subscription plan (upgrade/downgrade)
+   * Uses full_immediately mode - charges full new price, no refunds
+   */
+  async changePlan(newPlanId: string): Promise<{ success: boolean; error?: string; newPlan?: { id: string; name: string; price_cents: number; currency: string } }> {
+    if (this.platform !== 'web') {
+      console.warn('Plan changes are only for web platform');
+      return { success: false, error: 'Not available on mobile' };
+    }
+
+    try {
+      const response = await apiClient.post<{
+        success: boolean;
+        message: string;
+        newPlan: { id: string; name: string; price_cents: number; currency: string };
+      }>('/api/billing/change-plan', { newPlanId });
+
+      return { success: response.success, newPlan: response.newPlan };
+    } catch (error) {
+      console.error('Error changing plan:', error);
+      if (error instanceof ApiClientError) {
+        return { success: false, error: error.response?.error || 'Failed to change plan' };
+      }
+      return { success: false, error: 'An unexpected error occurred' };
     }
   }
 

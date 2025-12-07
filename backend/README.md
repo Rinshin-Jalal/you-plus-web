@@ -169,7 +169,7 @@ This system maps directly to your database schema:
 - `promises` - Daily promise tracking
 - `call_recordings` - Generated audio storage
 - `memory_embeddings` - Long-term pattern learning
-- `identity_status` - User accountability tracking
+- `status` - User accountability tracking
 - `identity` - Unified identity data with all psychological profiles
 
 ### Key Relationships

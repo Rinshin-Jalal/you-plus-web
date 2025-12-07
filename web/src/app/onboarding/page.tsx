@@ -13,9 +13,12 @@ export default function OnboardingPage() {
     }, []);
 
     const completeOnboarding = () => {
-        // Require auth before checkout; send through login with return target
-        const next = encodeURIComponent('/checkout');
-        router.push(`/auth/login?next=${next}`);
+        // After onboarding, go to /setup which handles:
+        // - Auth check (redirects to login if needed)
+        // - Subscription check (redirects to checkout if needed)  
+        // - Push onboarding data to backend
+        // - Redirect to dashboard
+        router.push('/setup');
     };
 
     return <OnboardingFlow onFinish={completeOnboarding} />;

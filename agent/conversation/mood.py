@@ -162,11 +162,11 @@ def select_mood(
     Returns:
         Selected Mood
     """
-    identity_status = user_context.get("identity_status", {})
+    status = user_context.get("status", {})
     identity = user_context.get("identity", {})
     onboarding = identity.get("onboarding_context", {})
 
-    current_streak = identity_status.get("current_streak_days", 0)
+    current_streak = status.get("current_streak_days", 0)
     quit_pattern = onboarding.get("quit_pattern", "")
 
     # Get last mood to avoid repetition in random selection

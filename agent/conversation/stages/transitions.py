@@ -5,8 +5,8 @@ Stage Transitions - Helper functions for stage flow
 
 from typing import Optional
 
-from conversation.stages.models import CallStage, StageConfig
-from conversation.stages.config import (
+from .models import CallStage, StageConfig
+from .config import (
     STAGE_PROMPTS,
     MOOD_STAGE_MODIFIERS,
     TRANSITION_DETECTOR_PROMPT,

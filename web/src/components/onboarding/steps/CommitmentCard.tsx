@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Check, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { PILLAR_PRESETS, getPillarById } from '@/data/pillarPresets';
 
 export const CommitmentCard = ({ data, onAccept }: { data: any, onAccept: () => void }) => {
   const [agreed, setAgreed] = useState(false);
@@ -13,6 +14,22 @@ export const CommitmentCard = ({ data, onAccept }: { data: any, onAccept: () => 
     "I will not negotiate with my weaker self.",
     "I will hold myself to a higher standard."
   ];
+
+  // Get pillar labels for display
+  const getPillarLabel = (pillarId: string): { icon: string; label: string } => {
+    const preset = getPillarById(pillarId);
+    if (preset) {
+      return { icon: preset.icon, label: preset.label };
+    }
+    // Handle custom pillars
+    if (pillarId.startsWith('custom_')) {
+      const label = pillarId.replace('custom_', '').replace(/_/g, ' ');
+      return { icon: '✨', label: label.charAt(0).toUpperCase() + label.slice(1) };
+    }
+    return { icon: '🎯', label: pillarId };
+  };
+
+  const selectedPillars = data.selected_pillars || [];
 
   return (
       <div className="w-full max-w-lg animate-in fade-in slide-in-from-bottom-4 duration-700">
@@ -30,18 +47,43 @@ export const CommitmentCard = ({ data, onAccept }: { data: any, onAccept: () => 
           </div>
 
           {/* User Info Summary */}
-          <div className="bg-gray-50 border border-black/10 rounded-lg p-6 mb-8">
-              <div className="grid grid-cols-2 gap-4">
+          <div className="bg-gray-50 border border-black/10 rounded-lg p-6 mb-6">
+              <div className="grid grid-cols-2 gap-4 mb-4">
                   <div>
                       <p className="font-mono text-black/40 text-xs mb-1">Name</p>
-                      <p className="font-mono text-black font-medium">{data[4] || 'Not provided'}</p>
+                      <p className="font-mono text-black font-medium">{data.name || 'Not provided'}</p>
                   </div>
                   <div>
-                      <p className="font-mono text-black/40 text-xs mb-1">Mission</p>
-                      <p className="font-mono text-black font-medium truncate">{data[5] || 'Not provided'}</p>
+                      <p className="font-mono text-black/40 text-xs mb-1">Call Time</p>
+                      <p className="font-mono text-black font-medium">{data.call_time || '21:00'}</p>
                   </div>
               </div>
+              <div>
+                  <p className="font-mono text-black/40 text-xs mb-1">Identity</p>
+                  <p className="font-mono text-black font-medium">{data.core_identity || 'Not provided'}</p>
+              </div>
           </div>
+
+          {/* Selected Pillars */}
+          {selectedPillars.length > 0 && (
+            <div className="mb-6">
+              <p className="font-mono text-black/40 text-xs mb-3">Your Focus Areas</p>
+              <div className="flex flex-wrap gap-2">
+                {selectedPillars.map((pillarId: string) => {
+                  const { icon, label } = getPillarLabel(pillarId);
+                  return (
+                    <span 
+                      key={pillarId}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-black text-white rounded-full font-mono text-sm"
+                    >
+                      <span>{icon}</span>
+                      <span>{label}</span>
+                    </span>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Commitments List */}
           <div className="space-y-3 mb-8">

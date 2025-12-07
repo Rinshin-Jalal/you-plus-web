@@ -6,11 +6,15 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 
 interface UserHistory {
   name: string;
-  previousGoal: string | null;
-  previousDeadline: string | null;
-  dailyCommitment: number | null;
+  coreIdentity: string | null;
+  primaryPillar: string | null;
+  theWhy: string | null;
+  pillars: Array<{
+    pillar: string;
+    identityStatement: string;
+    nonNegotiable: string;
+  }>;
   callTime: string | null;
-  onboardingContext: Record<string, unknown> | null;
   lastActiveAt: string | null;
   subscriptionEndedAt: string | null;
 }
@@ -27,19 +31,25 @@ export const getReturningUserOnboarding = async (c: Context) => {
   const supabase = createSupabaseClient(env);
 
   try {
-    // Fetch user's previous data
-    // NOTE: last_login_at removed from users table (migration 003)
+    // Fetch user's previous data from new tables
     const { data: user } = await supabase
       .from("users")
-      .select("name, email, created_at, updated_at")
+      .select("name, email, call_time, created_at, updated_at")
       .eq("id", userId)
       .single();
 
-    const { data: identity } = await supabase
-      .from("identity")
+    // Fetch future_self (replaces identity)
+    const { data: futureSelf } = await supabase
+      .from("future_self")
       .select("*")
       .eq("user_id", userId)
       .single();
+
+    // Fetch pillars
+    const { data: pillars } = await supabase
+      .from("future_self_pillars")
+      .select("pillar, identity_statement, non_negotiable")
+      .eq("user_id", userId);
 
     const { data: subscription } = await supabase
       .from("subscriptions")
@@ -58,15 +68,18 @@ export const getReturningUserOnboarding = async (c: Context) => {
       .limit(1)
       .single();
 
-    // Build history object
-    // NOTE: strike_limit removed from identity table (migration 003)
+    // Build history object from new 5 Pillars system
     const history: UserHistory = {
-      name: user?.name || identity?.name || "there",
-      previousGoal: identity?.onboarding_context?.goal as string || null,
-      previousDeadline: identity?.onboarding_context?.goal_deadline as string || null,
-      dailyCommitment: identity?.daily_commitment ? parseInt(identity.daily_commitment) : null,
-      callTime: identity?.call_time || null,
-      onboardingContext: identity?.onboarding_context || null,
+      name: user?.name || "there",
+      coreIdentity: futureSelf?.core_identity || null,
+      primaryPillar: futureSelf?.primary_pillar || null,
+      theWhy: futureSelf?.the_why || null,
+      pillars: (pillars || []).map(p => ({
+        pillar: p.pillar,
+        identityStatement: p.identity_statement,
+        nonNegotiable: p.non_negotiable,
+      })),
+      callTime: user?.call_time || null,
       lastActiveAt: lastCall?.created_at || user?.updated_at || null,
       subscriptionEndedAt: subscription?.cancelled_at || subscription?.current_period_end || null,
     };
@@ -112,7 +125,9 @@ export const getReturningUserOnboarding = async (c: Context) => {
       isReturningUser: true,
       history: {
         name: history.name,
-        previousGoal: history.previousGoal,
+        coreIdentity: history.coreIdentity,
+        primaryPillar: history.primaryPillar,
+        pillarsCount: history.pillars.length,
         daysSinceActive: history.lastActiveAt 
           ? Math.floor((Date.now() - new Date(history.lastActiveAt).getTime()) / (1000 * 60 * 60 * 24))
           : null,
@@ -129,36 +144,42 @@ export const getReturningUserOnboarding = async (c: Context) => {
 };
 
 function buildPrompt(history: UserHistory): string {
+  const pillarSummary = history.pillars.map(p => 
+    `- ${p.pillar}: "${p.identityStatement}" (daily: ${p.nonNegotiable})`
+  ).join('\n');
+
   return `You are helping a user return to an accountability app after they stopped using it.
+This app uses a "Future Self" system with 5 life pillars: Body, Mission, Stack, Tribe, and Why.
 
 USER HISTORY:
 - Name: ${history.name}
-- Previous Goal: ${history.previousGoal || "Not set"}
-- Previous Daily Commitment: ${history.dailyCommitment ? `${history.dailyCommitment} minutes` : "Not set"}
+- Core Identity: ${history.coreIdentity || "Not set"}
+- Primary Pillar: ${history.primaryPillar || "Not set"}
+- The Why: ${history.theWhy || "Not set"}
+- Pillars:
+${pillarSummary || "  No pillars defined"}
 - Previous Call Time: ${history.callTime || "Not set"}
 - Last Active: ${history.lastActiveAt || "Unknown"}
-${history.onboardingContext ? `- Additional Context: ${JSON.stringify(history.onboardingContext)}` : ""}
 
 Generate a SHORT, PERSONAL welcome-back experience. Be warm but direct. Acknowledge they're trying again.
+Reference their identity statements and primary pillar if available.
 
 Respond in this exact JSON format:
 {
-  "welcomeMessage": "A short 1-2 sentence welcome back message that acknowledges their previous goal and that they're ready to try again",
-  "summaryOfPast": "A brief 1 sentence summary of what they were working on before",
+  "welcomeMessage": "A short 1-2 sentence welcome back message that acknowledges their identity and that they're ready to reconnect with their future self",
+  "summaryOfPast": "A brief 1 sentence summary of their identity/pillars from before",
   "questions": [
     {
-      "id": "goal",
-      "question": "A personalized question about their goal for this time (reference their previous goal if available)",
-      "type": "text",
-      "placeholder": "suggested placeholder text"
+      "id": "identity_check",
+      "question": "A personalized question asking if their core identity is still accurate or if they want to update it",
+      "type": "choice",
+      "options": ["Yes, that's still me", "I want to update my identity"]
     },
     {
-      "id": "commitment",
-      "question": "A question about their daily commitment",
-      "type": "slider",
-      "min": 15,
-      "max": 120,
-      "default": ${history.dailyCommitment || 30}
+      "id": "primary_pillar",
+      "question": "A question about which pillar they want to focus on first",
+      "type": "choice",
+      "options": ["💪 Body", "🎯 Mission", "💰 Stack", "👥 Tribe"]
     },
     {
       "id": "callTime",
@@ -167,7 +188,7 @@ Respond in this exact JSON format:
       "default": "${history.callTime || "21:00"}"
     }
   ],
-  "encouragement": "A short encouraging closing message"
+  "encouragement": "A short encouraging closing message about reconnecting with their future self"
 }
 
 Keep it SHORT. 3 questions max. Be human, not corporate.`;
@@ -176,24 +197,24 @@ Keep it SHORT. 3 questions max. Be human, not corporate.`;
 function getDefaultQuestions(history: UserHistory) {
   return [
     {
-      id: "goal",
-      question: history.previousGoal 
-        ? `Last time you were working on "${history.previousGoal}". What's your focus this time?`
-        : "What do you want to accomplish this time?",
-      type: "text",
-      placeholder: "e.g., Get fit, finish my project, build a habit",
+      id: "identity_check",
+      question: history.coreIdentity 
+        ? `You defined yourself as: "${history.coreIdentity}". Is this still who you're becoming?`
+        : "Let's define who your future self is. Who are you becoming?",
+      type: history.coreIdentity ? "choice" : "text",
+      options: history.coreIdentity ? ["Yes, that's still me", "I want to update my identity"] : undefined,
+      placeholder: history.coreIdentity ? undefined : "I am a person who...",
     },
     {
-      id: "commitment",
-      question: "How many minutes per day can you commit?",
-      type: "slider",
-      min: 15,
-      max: 120,
-      default: history.dailyCommitment || 30,
+      id: "primary_pillar",
+      question: "Which pillar do you want to focus on first?",
+      type: "choice",
+      options: ["💪 Body", "🎯 Mission", "💰 Stack", "👥 Tribe"],
+      default: history.primaryPillar,
     },
     {
       id: "callTime",
-      question: "When should we call you for your daily check-in?",
+      question: "When should your future self call you?",
       type: "time",
       default: history.callTime || "21:00",
     },
@@ -201,12 +222,19 @@ function getDefaultQuestions(history: UserHistory) {
 }
 
 function getDefaultContent(history: UserHistory) {
+  const primaryPillarEmoji = {
+    body: "💪",
+    mission: "🎯", 
+    stack: "💰",
+    tribe: "👥",
+  }[history.primaryPillar || "body"] || "🎯";
+
   return {
-    welcomeMessage: `Welcome back${history.name !== "there" ? `, ${history.name}` : ""}! Ready to get back on track?`,
-    summaryOfPast: history.previousGoal 
-      ? `You were working on: ${history.previousGoal}`
+    welcomeMessage: `Welcome back${history.name !== "there" ? `, ${history.name}` : ""}! Your future self has been waiting.`,
+    summaryOfPast: history.coreIdentity 
+      ? `You were becoming: "${history.coreIdentity}"`
       : null,
     questions: getDefaultQuestions(history),
-    encouragement: "Every restart is a new opportunity. Let's make this one count.",
+    encouragement: `${primaryPillarEmoji} Let's reconnect with who you're becoming. Your future self is ready.`,
   };
 }

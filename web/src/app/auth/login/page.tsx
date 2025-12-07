@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
@@ -11,17 +11,38 @@ import { LegalFooter } from '@/components/shared/LegalFooter';
 /**
  * Login Page - For EXISTING users only
  * 
+ * Supports ?next= URL parameter for redirect after login.
+ * 
  * After login:
- * - Has subscription → Dashboard
+ * - Has subscription → Dashboard (or ?next destination)
  * - No subscription → Onboarding → Checkout
  * 
  * The auth callback handles the redirect logic
  */
-export default function LoginPage() {
+function LoginContent() {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
-    const { signInWithGoogle, signInWithApple } = useAuth();
+    const { signInWithGoogle, signInWithApple, isAuthenticated, loading: authLoading } = useAuth();
     const router = useRouter();
+    const searchParams = useSearchParams();
+    
+    // Get redirect destination from URL param, default to /dashboard
+    const nextUrl = useMemo(() => {
+        const next = searchParams.get('next');
+        // Only allow relative paths for security
+        if (next && next.startsWith('/')) {
+            return next;
+        }
+        return '/dashboard';
+    }, [searchParams]);
+
+    // Redirect if already logged in - respect the next param
+    useEffect(() => {
+        if (!authLoading && isAuthenticated) {
+            console.log('[LOGIN] Already authenticated, redirecting to:', nextUrl);
+            router.replace(nextUrl);
+        }
+    }, [authLoading, isAuthenticated, router, nextUrl]);
 
     const handleSocialLogin = async (provider: 'google' | 'apple') => {
         setLoading(true);
@@ -30,7 +51,8 @@ export default function LoginPage() {
             console.log(`[LOGIN] Starting ${provider} sign-in...`);
             
             // Callback will check subscription status and redirect accordingly
-            const callbackUrl = `${window.location.origin}/auth/callback?next=/dashboard`;
+            // Pass through the next param so callback knows where to go
+            const callbackUrl = `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextUrl)}`;
             
             const result = provider === 'google'
                 ? await signInWithGoogle(callbackUrl)
@@ -51,6 +73,24 @@ export default function LoginPage() {
             setLoading(false);
         }
     };
+
+    // Show loading while checking auth state
+    if (authLoading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-white">
+                <div className="w-8 h-8 border-2 border-black border-t-transparent animate-spin" />
+            </div>
+        );
+    }
+
+    // Don't render if authenticated (will redirect)
+    if (isAuthenticated) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-white">
+                <div className="w-8 h-8 border-2 border-black border-t-transparent animate-spin" />
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen flex flex-col bg-white">
@@ -125,5 +165,19 @@ export default function LoginPage() {
             </div>
             <LegalFooter />
         </div>
+    );
+}
+
+export default function LoginPage() {
+    return (
+        <Suspense
+            fallback={
+                <div className="min-h-screen flex items-center justify-center bg-white">
+                    <div className="w-8 h-8 border-2 border-black border-t-transparent animate-spin" />
+                </div>
+            }
+        >
+            <LoginContent />
+        </Suspense>
     );
 }

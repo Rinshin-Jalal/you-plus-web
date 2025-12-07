@@ -10,13 +10,14 @@
 -- ============================================================================
 
 -- ============================================================================
--- 1. USERS - Core user table (auth + billing)
+-- 1. USERS - Core user table (auth + billing + scheduling)
 -- ============================================================================
 CREATE TABLE public.users (
   id uuid NOT NULL,
   email text NOT NULL UNIQUE,
   name text NOT NULL DEFAULT 'User',
   timezone text DEFAULT 'UTC',
+  call_time time DEFAULT '21:00:00',  -- User's preferred call time
   subscription_status text DEFAULT 'trialing' 
     CHECK (subscription_status IN ('active', 'trialing', 'cancelled', 'past_due')),
   payment_provider varchar DEFAULT 'dodopayments' 
@@ -32,14 +33,13 @@ CREATE TABLE public.users (
 );
 
 -- ============================================================================
--- 2. IDENTITY - Scheduling + voice cloning
+-- 2. IDENTITY - Voice cloning + daily commitment
 -- ============================================================================
 CREATE TABLE public.identity (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   user_id uuid NOT NULL UNIQUE,
   name text NOT NULL,
   daily_commitment text NOT NULL,
-  call_time time NOT NULL,
   cartesia_voice_id text,
   supermemory_container_id text,
   onboarding_context jsonb,  -- Legacy fallback, profile now in Supermemory

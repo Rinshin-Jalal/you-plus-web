@@ -53,7 +53,7 @@ async def handle_call_request(call_request: CallRequest):
     # Fetch user's context from database
     user_context = await fetch_user_context(user_id)
     identity = user_context.get("identity", {})
-    identity_status = user_context.get("identity_status", {})
+    status = user_context.get("status", {})
 
     # Reject if user doesn't exist
     if not identity:
@@ -61,13 +61,13 @@ async def handle_call_request(call_request: CallRequest):
         return None
 
     # Reject if subscription expired
-    subscription_status = identity_status.get("subscription_status")
+    subscription_status = status.get("subscription_status")
     if subscription_status == "expired":
         logger.warning(f"Rejecting call: user {user_id} subscription expired")
         return None
 
     # Reject if user paused calls
-    if identity_status.get("calls_paused"):
+    if status.get("calls_paused"):
         logger.warning(f"Rejecting call: user {user_id} has paused calls")
         return None
 
@@ -82,7 +82,7 @@ async def handle_call_request(call_request: CallRequest):
     yesterday_promise_kept = get_yesterday_promise_status(call_history)
 
     # === SELECT CALL TYPE ===
-    current_streak = identity_status.get("current_streak_days", 0)
+    current_streak = status.get("current_streak_days", 0)
     call_type = select_call_type(
         user_context=user_context,
         call_memory=call_memory,

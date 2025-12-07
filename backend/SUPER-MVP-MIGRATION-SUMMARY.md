@@ -63,7 +63,7 @@ onboarding_context          JSONB
 
 ### Other Tables
 
-**identity_status** (7 columns):
+**status** (7 columns):
 - current_streak_days
 - total_calls_completed
 - last_call_at
@@ -98,7 +98,7 @@ onboarding_context          JSONB
 1. Upload 3 voice recordings → R2
 2. Build `onboarding_context` JSONB object
 3. Insert directly into `identity` table (12 columns)
-4. Trigger auto-creates `identity_status` record
+4. Trigger auto-creates `status` record
 5. Update users.onboarding_completed = true
 
 **Response Changes**:
@@ -158,7 +158,7 @@ The iOS app already sends all the required data. The backend now organizes it di
    -- Should show 4 tables
    SELECT table_name FROM information_schema.tables
    WHERE table_schema = 'public'
-   AND table_name IN ('identity', 'identity_status', 'promises', 'users');
+   AND table_name IN ('identity', 'status', 'promises', 'users');
 
    -- Check identity structure
    SELECT column_name, data_type FROM information_schema.columns
@@ -176,7 +176,7 @@ The iOS app already sends all the required data. The backend now organizes it di
    - Pay via RevenueCat
    - Sign up via Supabase
    - ProcessingView uploads data
-   - Verify identity + identity_status created
+   - Verify identity + status created
    - Check onboarding_context JSONB populated
 
 ## 📋 Post-Migration Cleanup
@@ -203,9 +203,9 @@ SELECT onboarding_context FROM identity WHERE user_id = ?;
 - [ ] Migration runs without errors
 - [ ] 4 bloat tables dropped
 - [ ] Identity table has 12 columns
-- [ ] Identity_status table exists with 7 columns
+- [ ] status table exists with 7 columns
 - [ ] Backend endpoint creates identity record
-- [ ] Trigger auto-creates identity_status
+- [ ] Trigger auto-creates status
 - [ ] JSONB context properly populated
 - [ ] Voice URLs stored correctly
 - [ ] User marked as onboarding_completed

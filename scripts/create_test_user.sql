@@ -4,7 +4,7 @@
 -- ============================================
 -- 
 -- For EXISTING users: Just paste their user_id below
--- Creates: users (update), identity, identity_status
+-- Creates: users (update), identity, status
 --
 -- ============================================
 
@@ -47,7 +47,7 @@ BEGIN
 
     -- ============================================
     -- 2. INSERT OR UPDATE IDENTITY
-    -- (This should auto-trigger identity_status creation)
+    -- (This should auto-trigger status creation)
     -- ============================================
     INSERT INTO identity (
         user_id,
@@ -104,9 +104,9 @@ BEGIN
     RAISE NOTICE 'Identity created/updated!';
 
     -- ============================================
-    -- 3. UPDATE IDENTITY_STATUS (auto-created by trigger)
+    -- 3. UPDATE status (auto-created by trigger)
     -- ============================================
-    UPDATE identity_status 
+    UPDATE status 
     SET 
         current_streak_days = 7,
         total_calls_completed = 12,

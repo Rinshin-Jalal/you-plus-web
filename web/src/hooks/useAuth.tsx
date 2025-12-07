@@ -27,7 +27,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const initAuth = async () => {
       try {
         // Get auth state from cookies (via browser client)
+        console.log('[useAuth] Initializing auth state...');
         const authState = await authService.getAuthState();
+        console.log('[useAuth] Auth state received:', { 
+          hasUser: !!authState.user, 
+          userEmail: authState.user?.email,
+          hasSession: !!authState.session 
+        });
         
         if (mounted) {
           setUser(authState.user);
@@ -51,9 +57,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(newSession);
         setLoading(false);
 
-        if (newUser && !user) {
-          authService.updateLastLogin(newUser.id).catch(console.error);
-        }
+        // Note: updateLastLogin removed - column doesn't exist in users table
+        // If needed, add last_login_at column to users table first
       }
     });
 

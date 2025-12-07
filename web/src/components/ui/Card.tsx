@@ -11,8 +11,12 @@ export const Card: React.FC<CardProps> = ({
   borderColor = 'border-black', 
   className = '' 
 }) => {
+  // Check if className contains a bg- class to allow override
+  const hasBgOverride = className.includes('bg-');
+  const bgClass = hasBgOverride ? '' : 'bg-white';
+  
   return (
-    <div className={`bg-white border-2 ${borderColor} p-0 flex flex-col h-full hover:-translate-y-1 transition-transform duration-300 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] ${className}`}>
+    <div className={`${bgClass} border-2 ${borderColor} p-0 flex flex-col h-full hover:-translate-y-1 transition-transform duration-300 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] ${className}`}>
       {title && (
         <div className={`border-b-2 ${borderColor} p-4 bg-gray-50`}>
           <h3 className="text-lg font-display font-bold uppercase tracking-tight text-black">{title}</h3>

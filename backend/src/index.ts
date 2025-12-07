@@ -5,6 +5,7 @@ import { combinedRouter } from "@/features";
 
 // Import individual route handlers from features
 import { getHealth, getStats } from "@/features/core/handlers/health";
+import { handleScheduled } from "@/features/core/handlers/scheduled";
 import { corsMiddleware, securityHeaders } from "@/middleware/security";
 
 import { Env, validateEnv } from "@/types/environment";
@@ -68,7 +69,8 @@ app.notFound((c) => {
 // Feature-level routers - All routes handled by combinedRouter
 app.route("/", combinedRouter);
 
-// Export worker (no scheduled handler - calls handled by agent)
+// Export worker with scheduled handler for cron-based calls
 export default {
   fetch: app.fetch,
+  scheduled: handleScheduled,
 };

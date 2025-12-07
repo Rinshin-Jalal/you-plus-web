@@ -11,14 +11,17 @@ SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
 
 
 async def fetch_user_context(user_id: str) -> dict:
-    """Fetch user's COMPLETE context from Supabase - identity, status, AND history."""
+    """Fetch user's COMPLETE context from Supabase - future_self, pillars, status, AND history."""
 
     if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
         print("⚠️ Supabase not configured, using default context")
         return {
             "identity": {"name": ""},
-            "identity_status": {},
+            "future_self": {},
+            "pillars": [],
+            "status": {},
             "call_history": [],
+            "users": {},
         }
 
     try:
@@ -28,26 +31,43 @@ async def fetch_user_context(user_id: str) -> dict:
                 "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
             }
 
-            # Fetch identity (includes onboarding_context JSONB)
+            # Fetch users table for name and call_time
             async with session.get(
-                f"{SUPABASE_URL}/rest/v1/identity",
+                f"{SUPABASE_URL}/rest/v1/users",
+                params={"id": f"eq.{user_id}", "select": "id,name,timezone,call_time"},
+                headers=headers,
+            ) as resp:
+                users_data = await resp.json()
+                users = users_data[0] if users_data else {}
+
+            # Fetch future_self (replaces identity table)
+            async with session.get(
+                f"{SUPABASE_URL}/rest/v1/future_self",
                 params={"user_id": f"eq.{user_id}", "select": "*"},
                 headers=headers,
             ) as resp:
-                identity_data = await resp.json()
-                identity = identity_data[0] if identity_data else {}
+                future_self_data = await resp.json()
+                future_self = future_self_data[0] if future_self_data else {}
 
-            # Fetch status (streak, total calls) - renamed from identity_status
+            # Fetch future_self_pillars
+            async with session.get(
+                f"{SUPABASE_URL}/rest/v1/future_self_pillars",
+                params={"user_id": f"eq.{user_id}", "select": "*"},
+                headers=headers,
+            ) as resp:
+                pillars_data = await resp.json()
+                pillars = pillars_data if isinstance(pillars_data, list) else []
+
+            # Fetch status (streak, total calls)
             async with session.get(
                 f"{SUPABASE_URL}/rest/v1/status",
                 params={"user_id": f"eq.{user_id}", "select": "*"},
                 headers=headers,
             ) as resp:
                 status_data = await resp.json()
-                identity_status = status_data[0] if status_data else {}
+                status = status_data[0] if status_data else {}
 
             # Fetch recent call analytics (last 14 days) for pattern recognition
-            # (replaces old 'calls' table)
             async with session.get(
                 f"{SUPABASE_URL}/rest/v1/call_analytics",
                 params={
@@ -60,22 +80,71 @@ async def fetch_user_context(user_id: str) -> dict:
             ) as resp:
                 call_history = await resp.json() if resp.status == 200 else []
 
+            # Build backwards-compatible identity object from future_self data
+            # This maintains compatibility with code that uses user_context.get("identity")
+            identity = _build_legacy_identity(future_self, pillars, users, status)
+
             print(
-                f"📊 Loaded context for {user_id}: identity={bool(identity)}, streak={identity_status.get('current_streak_days', 0)}, history={len(call_history)} calls"
+                f"📊 Loaded context for {user_id}: future_self={bool(future_self)}, pillars={len(pillars)}, streak={status.get('current_streak_days', 0)}, history={len(call_history)} calls"
             )
 
             return {
-                "identity": identity,
-                "identity_status": identity_status,
+                "identity": identity,  # Backwards compatible
+                "future_self": future_self,  # New system
+                "pillars": pillars,  # New system
+                "status": status,
                 "call_history": call_history if isinstance(call_history, list) else [],
+                "users": users,
             }
     except Exception as e:
         print(f"❌ Failed to fetch user context: {e}")
         return {
             "identity": {"name": ""},
-            "identity_status": {},
+            "future_self": {},
+            "pillars": [],
+            "status": {},
             "call_history": [],
+            "users": {},
         }
+
+
+def _build_legacy_identity(
+    future_self: dict, pillars: list, users: dict, status: dict
+) -> dict:
+    """
+    Build a backwards-compatible identity object from future_self data.
+    This allows existing code that reads from identity to continue working.
+    """
+    # Find primary pillar for daily_commitment
+    primary_pillar_name = future_self.get("primary_pillar", "body")
+    primary_pillar = next(
+        (p for p in pillars if p.get("pillar") == primary_pillar_name),
+        pillars[0] if pillars else {},
+    )
+
+    daily_commitment = primary_pillar.get(
+        "non_negotiable", future_self.get("core_identity", "")
+    )
+
+    # Build onboarding_context from future_self fields
+    onboarding_context = {
+        "core_identity": future_self.get("core_identity", ""),
+        "primary_pillar": future_self.get("primary_pillar", ""),
+        "the_why": future_self.get("the_why", ""),
+        "dark_future": future_self.get("dark_future", ""),
+        "quit_pattern": future_self.get("quit_pattern", ""),
+        "favorite_excuse": future_self.get("favorite_excuse", ""),
+        "who_disappointed": future_self.get("who_disappointed", []),
+        "fears": future_self.get("fears", []),
+    }
+
+    return {
+        "name": users.get("name", ""),
+        "daily_commitment": daily_commitment,
+        "call_time": users.get("call_time", "09:00:00"),
+        "onboarding_context": onboarding_context,
+        "supermemory_container_id": future_self.get("supermemory_container_id", ""),
+    }
 
 
 async def fetch_call_memory(user_id: str) -> dict:

@@ -1,118 +1,182 @@
-export const STEPS = [
-    // 1. The Hook - Grab attention immediately
-    { id: 1, type: 'commentary', lines: [
-        "Hey.",
-        "It's me.",
-        "You.",
-        "From the future."
-    ]},
+// ============================================================================
+// FUTURE-SELF ONBOARDING - 7 ACTS (~15 minutes)
+// ============================================================================
+// Less text, more choices. Keep it moving. Language for 16-30 year olds.
+// Dynamic pillars - user picks what matters to THEM.
+// ============================================================================
+
+export type StepType = 'act_header' | 'commentary' | 'input' | 'voice' | 'choice' | 'multiselect' | 'slider' | 'stepper' | 'time' | 'date' | 'card' | 'finalLoader' | 'pillar_selection' | 'pillar_questions';
+
+export interface Step {
+    id: number;
+    type: StepType;
+    act?: number;
+    actTitle?: string;
+    actSubtitle?: string;
+    lines?: string[];
+    label?: string;
+    placeholder?: string;
+    field?: string;
+    subtext?: string;
+    choices?: string[];
+    min?: number;
+    max?: number;
+    // For dynamic pillar questions
+    pillarId?: string;
+    pillarIndex?: number;
+}
+
+export const STEPS: Step[] = [
+    // ========================================================================
+    // ACT 1: HOOK
+    // ========================================================================
+    { id: 1, type: 'act_header', act: 1, actTitle: "Wake Up", actSubtitle: "Time to stop the cycle" },
+    
     { id: 2, type: 'commentary', lines: [
-        "Remember that thing you started?",
-        "The one you were so excited about?",
-        "Yeah. That one."
+        "Yo. It's me.",
+        "You. From the future."
     ]},
-    { id: 3, type: 'commentary', lines: [
-        "You quit.",
-        "Again.",
-        "But this time, we're going to fix that."
-    ]},
-    
-    // 2. Identity - Get to know them
-    { id: 4, type: 'input', label: "First things first. What's your name?", placeholder: "Your name" },
-    { id: 5, type: 'commentary', lines: [
-        "Good to meet you.",
-        "Now let's get serious."
-    ]},
-    { id: 6, type: 'input', label: "What's the one thing you keep starting but never finish?", placeholder: "Be specific" },
-    { id: 7, type: 'date', label: "When do you need this done by?" },
-    { id: 8, type: 'slider', label: "On a scale of 1-10, how much does this actually matter to you?", min: 1, max: 10 },
-    { id: 9, type: 'commentary', lines: [
-        "Interesting.",
-        "Now I need to hear it from you.",
-        "Out loud."
-    ]},
-    { id: 10, type: 'voice', label: "Tell me why this matters.", subtext: "Speak from the heart. I'm listening." },
-    
-    // 3. Pattern Recognition - Understand their failure patterns
-    { id: 11, type: 'commentary', lines: [
-        "Let's talk about the elephant in the room.",
-        "The pattern.",
-        "The one you pretend doesn't exist."
-    ]},
-    { id: 12, type: 'choice', label: "When you failed before, who did you really let down?", choices: ["Myself", "My family", "My partner", "Everyone who believed in me"] },
-    { id: 13, type: 'choice', label: "Be honest. What actually stopped you?", choices: ["I ran out of time", "I got scared", "I got lazy", "I didn't know what to do next"] },
-    { id: 14, type: 'slider', label: "How many times have you tried this before?", min: 0, max: 20 },
-    { id: 15, type: 'choice', label: "How does it usually end?", choices: ["I slowly drift away", "I crash and burn", "I just... stop one day"] },
-    { id: 16, type: 'choice', label: "What's your go-to excuse?", choices: ["I'll start tomorrow", "I'm too tired today", "I'm not ready yet", "Something came up"] },
-    { id: 17, type: 'choice', label: "When do you usually give up?", choices: ["Day 1-3", "First week", "First month", "Right before the finish line"] },
-    { id: 18, type: 'commentary', lines: [
-        "I see the pattern now.",
-        "It's not pretty.",
-        "But I've seen worse.",
-        "You can break this."
-    ]},
-    
-    // 4. Quick Demographics
-    { id: 19, type: 'slider', label: "How old are you?", min: 13, max: 99 },
-    { id: 20, type: 'choice', label: "How should I address you?", choices: ["He/Him", "She/Her", "They/Them", "Just use my name"] },
-    { id: 21, type: 'input', label: "Where in the world are you?", placeholder: "City or country" },
-    
-    // 5. Stakes - Make it real
-    { id: 22, type: 'commentary', lines: [
-        "Now let's talk about what's at stake.",
-        "This is the part most people skip.",
-        "Don't skip it."
-    ]},
-    { id: 23, type: 'input', label: "Paint me a picture. What does victory look like?", placeholder: "Be vivid. Be specific." },
-    { id: 24, type: 'voice', label: "What part of you dies if you quit again?", subtext: "Say it out loud. Make it real." },
-    { id: 25, type: 'choice', label: "If nothing changes, where will you be in 6 months?", choices: ["Better than now", "Worse than now", "Exactly the same (that's the scary one)"] },
-    { id: 26, type: 'choice', label: "What have you already wasted by quitting?", choices: ["Time I'll never get back", "Money I can't recover", "Potential I'll never know"] },
-    { id: 27, type: 'choice', label: "What scares you more?", choices: ["Failing publicly", "Actually succeeding", "Dying with regret"] },
-    { id: 28, type: 'commentary', lines: [
-        "Heavy, right?",
-        "Good.",
-        "That weight is your fuel.",
-        "Let's use it."
-    ]},
+    { id: 3, type: 'input', label: "What's your name?", placeholder: "Your name", field: "name" },
+    { id: 4, type: 'stepper', label: "How many times have you tried to change?", field: "times_tried", min: 0, max: 50 },
 
-    // 6. System Setup
-    { id: 29, type: 'commentary', lines: [
-        "Your system is ready.",
-        "I'll be checking in on you.",
-        "Every. Single. Day."
-    ]},
-
-    // 7. Belief Check
-    { id: 30, type: 'slider', label: "Right now, how much do you believe you can actually do this?", min: 1, max: 10 },
-    { id: 31, type: 'commentary', lines: [
-        "That's honest.",
-        "Belief grows with action.",
-        "Let's build some."
-    ]},
-
-    // 8. Commitment Setup
-    { id: 32, type: 'commentary', lines: [
-        "Time to set the rules.",
-        "These are non-negotiable.",
-        "You set them. You follow them."
-    ]},
-    { id: 33, type: 'choice', label: "Can I interrupt your day to check on you?", choices: ["Yes, hold me accountable", "No, I'll check in myself"] },
-    { id: 34, type: 'choice', label: "Will you let me hear your voice?", choices: ["Yes, I'll speak my truth", "No, text only"] },
-    { id: 35, type: 'input', label: "What's one thing you'll do every single day toward your goal?", placeholder: "I will..." },
-    { id: 36, type: 'time', label: "What time should I check in with you?" },
-    { id: 37, type: 'slider', label: "How many strikes before I get ruthless?", min: 1, max: 5 },
+    // ========================================================================
+    // ACT 2: IDENTITY
+    // ========================================================================
+    { id: 5, type: 'act_header', act: 2, actTitle: "Future You", actSubtitle: "Who do you want to be?" },
     
-    // 9. Final Commitment
-    { id: 38, type: 'commentary', lines: [
-        "This is it.",
-        "The moment of commitment.",
-        "No turning back after this."
+    { id: 6, type: 'commentary', lines: [
+        "2 years from now.",
+        "You made it. Who ARE you?"
     ]},
-    { id: 39, type: 'voice', label: "Make your pledge.", subtext: "Promise yourself. Out loud. I'm recording this." },
+    { id: 7, type: 'input', label: "Describe the future you in one line.", placeholder: "I'm the type of person who...", field: "core_identity" },
+    { id: 8, type: 'voice', label: "Now say it out loud.", subtext: "Speak clearly - we'll use this to create your future self's voice.", field: "future_self_intro_recording" },
 
-    // 10. Seal the Deal
-    { id: 40, type: 'card', label: "Your Commitment" },
+    // ========================================================================
+    // ACT 3: PICK YOUR PILLARS (Dynamic!)
+    // ========================================================================
+    { id: 9, type: 'act_header', act: 3, actTitle: "Your Focus", actSubtitle: "What matters to YOU?" },
+
+    { id: 10, type: 'commentary', lines: [
+        "Everyone's different.",
+        "Pick what YOU want to change."
+    ]},
     
-    // 11. Final Loader - then auto redirect to checkout
-    { id: 41, type: 'finalLoader' }
+    // This step shows the pillar selection grid
+    { id: 11, type: 'pillar_selection', field: 'selected_pillars' },
+    
+    // This is a placeholder - actual pillar questions are generated dynamically
+    // based on what user selected in the previous step
+    // Note: No field here - PillarQuestions saves data directly via onUpdate
+    { id: 12, type: 'pillar_questions' },
+
+    // ========================================================================
+    // ACT 4: THE WHY
+    // ========================================================================
+    { id: 30, type: 'act_header', act: 4, actTitle: "Your Why", actSubtitle: "What's driving you?" },
+    
+    { id: 31, type: 'input', label: "Why do you actually want to change?", placeholder: "Because...", field: "the_why" },
+    { id: 32, type: 'voice', label: "Tell me your why.", subtext: "Speak clearly - I'll play this back when you're slipping.", field: "why_recording" },
+
+    // ========================================================================
+    // ACT 5: PRIORITY
+    // ========================================================================
+    { id: 33, type: 'act_header', act: 5, actTitle: "Main Focus", actSubtitle: "If you could only fix one" },
+    
+    // This will be dynamically updated based on selected pillars
+    { id: 34, type: 'choice', label: "Which one would change everything else?", field: "primary_pillar", choices: [] },
+
+    // ========================================================================
+    // ACT 6: PATTERNS
+    // ========================================================================
+    { id: 35, type: 'act_header', act: 6, actTitle: "Your Patterns", actSubtitle: "Know your enemy" },
+    
+    { id: 36, type: 'choice', label: "When do you usually give up?", field: "quit_pattern", choices: [
+        "Day 1-3 - never really start",
+        "First week - excitement wears off",
+        "First month - life gets busy",
+        "Right before I actually make it"
+    ]},
+    { id: 37, type: 'choice', label: "What excuse do you always use?", field: "favorite_excuse", choices: [
+        "I'm too tired",
+        "I don't have time",
+        "I'll start tomorrow",
+        "Something came up",
+        "I'm not ready yet"
+    ]},
+    { id: 38, type: 'multiselect', label: "Who have you let down by quitting?", field: "who_disappointed", choices: [
+        "Myself",
+        "My family",
+        "My partner",
+        "My friends",
+        "Everyone who believed in me"
+    ]},
+    { id: 39, type: 'input', label: "If you don't change, where will you be in 5 years?", placeholder: "Be real with yourself...", field: "dark_future" },
+
+    // ========================================================================
+    // ACT 7: COMMITMENT
+    // ========================================================================
+    { id: 40, type: 'act_header', act: 7, actTitle: "Lock It In", actSubtitle: "No going back" },
+    
+    { id: 41, type: 'commentary', lines: [
+        "I'm gonna call you every day.",
+        "Not to nag. To remind you who you're becoming."
+    ]},
+    { id: 42, type: 'time', label: "What time works best?", subtext: "When are you most real with yourself?", field: "call_time" },
+    { id: 43, type: 'voice', label: "Make your promise.", subtext: "Speak clearly - this is what you'll hear when you want to quit.", field: "pledge_recording" },
+
+    // ========================================================================
+    // FINAL
+    // ========================================================================
+    { id: 44, type: 'commentary', lines: [
+        "Got everything I need.",
+        "Let's do this."
+    ]},
+    { id: 45, type: 'card', label: "Your Commitment" },
+    { id: 46, type: 'finalLoader' }
+];
+
+// ============================================================================
+// FIELD MAPPING - Maps onboarding fields to database columns
+// ============================================================================
+export const FIELD_MAPPING = {
+    // User
+    name: 'users.name',
+    
+    // Future Self core
+    times_tried: 'NOT_STORED', // Collected but not saved to DB
+    core_identity: 'future_self.core_identity',
+    primary_pillar: 'future_self.primary_pillar',
+    the_why: 'future_self.the_why',
+    dark_future: 'future_self.dark_future',
+    quit_pattern: 'future_self.quit_pattern',
+    favorite_excuse: 'future_self.favorite_excuse',
+    who_disappointed: 'future_self.who_disappointed',
+    
+    // Voice recordings
+    future_self_intro_recording: 'future_self.future_self_intro_url',
+    why_recording: 'future_self.why_recording_url',
+    pledge_recording: 'future_self.pledge_recording_url',
+    
+    // Call settings
+    call_time: 'users.call_time',
+    
+    // Dynamic pillars - stored as array of pillar IDs
+    selected_pillars: 'future_self.selected_pillars',
+    
+    // Pillar data is stored dynamically based on selected pillars
+    // Each pillar gets: {pillar_id}_current, {pillar_id}_goal, {pillar_id}_future, {pillar_id}_identity
+    // These map to: future_self_pillars.{pillar}.current_state, non_negotiable, future_state, identity_statement
+};
+
+// ============================================================================
+// ACTS - For progress indicator
+// ============================================================================
+export const ACTS = [
+    { id: 1, title: "Wake Up" },
+    { id: 2, title: "Future You" },
+    { id: 3, title: "Your Focus" },
+    { id: 4, title: "Your Why" },
+    { id: 5, title: "Main Focus" },
+    { id: 6, title: "Patterns" },
+    { id: 7, title: "Lock It In" },
 ];

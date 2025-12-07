@@ -81,8 +81,8 @@ async def handle_new_call(system: VoiceAgentSystem, call_request: CallRequest):
     call_type = CALL_TYPES.get(call_type_name, CALL_TYPES["audit"])
     mood = MOODS.get(mood_name, MOODS["warm_direct"])
 
-    identity_status = user_context.get("identity_status", {})
-    current_streak = identity_status.get("current_streak_days", 0)
+    status = user_context.get("status", {})
+    current_streak = status.get("current_streak_days", 0)
 
     logger.info(f"Incoming call for user: {user_id}")
     logger.info(f"📞 Call type: {call_type.name} | 🎭 Mood: {mood.name}")

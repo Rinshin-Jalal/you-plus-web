@@ -1,5 +1,6 @@
 import { Context, Next } from "hono";
 import { createSupabaseClient } from "@/features/core/utils/database";
+import { createDodoPaymentsService } from "@/features/billing/dodopayments-service";
 import { Env } from "@/index";
 
 export const requireAuth = async (
@@ -37,7 +38,7 @@ export const requireAuth = async (
 
 /**
  * Middleware to require an active subscription via DodoPayments
- * Checks the subscriptions table for active status
+ * Checks DodoPayments API directly for active subscription status
  */
 export const requireActiveSubscription = async (
   c: Context,
@@ -74,17 +75,15 @@ export const requireActiveSubscription = async (
       );
     }
 
-    // Check subscription status in database
-    const { data: subscription, error: subError } = await supabase
-      .from("subscriptions")
-      .select("status, current_period_end")
-      .eq("user_id", user.id)
+    // Get user's DodoPayments customer ID from database
+    const { data: userData } = await supabase
+      .from("users")
+      .select("dodo_customer_id")
+      .eq("id", user.id)
       .single();
 
-    const isActive = subscription?.status === "active" &&
-      (!subscription.current_period_end || new Date(subscription.current_period_end) > new Date());
-
-    if (!isActive) {
+    if (!userData?.dodo_customer_id) {
+      console.log("[requireActiveSubscription] No dodo_customer_id for user:", user.id);
       return c.json(
         {
           error: "Active subscription required",
@@ -93,6 +92,30 @@ export const requireActiveSubscription = async (
         403
       );
     }
+
+    // Check DodoPayments directly for active subscription
+    const dodo = createDodoPaymentsService(env);
+    const subscriptions = await dodo.getCustomerSubscriptions(userData.dodo_customer_id);
+    
+    console.log("[requireActiveSubscription] Found subscriptions:", subscriptions.length);
+    
+    const activeSubscription = subscriptions.find(sub => 
+      sub.status === "active" && 
+      (!sub.current_period_end || new Date(sub.current_period_end) > new Date())
+    );
+
+    if (!activeSubscription) {
+      console.log("[requireActiveSubscription] No active subscription found for customer:", userData.dodo_customer_id);
+      return c.json(
+        {
+          error: "Active subscription required",
+          requiresSubscription: true,
+        },
+        403
+      );
+    }
+
+    console.log("[requireActiveSubscription] Active subscription found:", activeSubscription.subscription_id);
 
     c.set("userId", user.id);
     c.set("userEmail", user.email);

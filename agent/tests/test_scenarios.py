@@ -750,7 +750,7 @@ async def run_scenario(
     try:
         # Apply overrides
         if scenario.streak_override is not None:
-            user_context["identity_status"]["current_streak_days"] = (
+            user_context["status"]["current_streak_days"] = (
                 scenario.streak_override
             )
 
@@ -761,7 +761,7 @@ async def run_scenario(
             call_type = select_call_type(
                 user_context=user_context,
                 call_memory={},
-                current_streak=user_context.get("identity_status", {}).get(
+                current_streak=user_context.get("status", {}).get(
                     "current_streak_days", 0
                 ),
             )

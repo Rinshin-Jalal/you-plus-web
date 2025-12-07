@@ -56,6 +56,7 @@ export class DodoPaymentsService {
   async ensureCustomer(userId: string, email: string, name?: string): Promise<DodoCustomer> {
     try {
       let found: any | undefined;
+      const trimmedName = name?.trim();
 
       try {
         // @ts-ignore - list may be async iterable in newer SDKs
@@ -72,17 +73,28 @@ export class DodoPaymentsService {
       }
 
       if (found) {
+        // Update the customer's name if we have a better one than the stored value
+        if (trimmedName && trimmedName.length > 0 && found.name !== trimmedName) {
+          try {
+            await (this.client as any).customers.update(found.customer_id, { name: trimmedName });
+            found.name = trimmedName;
+          } catch (updateError) {
+            console.warn('[dodo] Failed to update customer name, continuing:', updateError);
+            // Keep existing name if update fails
+          }
+        }
+
         const base: DodoCustomer = {
           customer_id: found.customer_id,
           email: found.email,
-          name: found.name,
+          name: found.name ?? trimmedName,
         };
         return found.metadata ? { ...base, metadata: found.metadata as Record<string, unknown> } : base;
       }
 
       const payload: any = {
         email,
-        name: name || 'Guest User',
+        name: trimmedName || 'Guest User',
         metadata: { user_id: userId },
       };
 
@@ -160,6 +172,8 @@ export class DodoPaymentsService {
         page_size: 100,
       });
 
+      console.log('DodoPayments getCustomerSubscriptions:', JSON.stringify(res, null, 2));
+
       const collected: any[] = [];
       if (res?.items) {
         collected.push(...res.items);
@@ -176,12 +190,13 @@ export class DodoPaymentsService {
 
       return collected.map((sub: any) => ({
         subscription_id: sub.subscription_id ?? sub.id,
-        customer_id: sub.customer_id ?? sub.customer ?? '',
+        customer_id: sub.customer?.customer_id ?? sub.customer_id ?? '',
         product_id: sub.product_id ?? sub.product ?? '',
         status: sub.status,
-        current_period_start: sub.current_period_start ?? sub.current_period?.start ?? '',
-        current_period_end: sub.current_period_end ?? sub.current_period?.end ?? '',
-        cancel_at_period_end: (sub.cancel_at_period_end ?? sub.cancel_at_next_billing_date ?? false) as boolean,
+        // DodoPayments API returns previous_billing_date/next_billing_date, not current_period_*
+        current_period_start: sub.previous_billing_date ?? sub.current_period_start ?? sub.current_period?.start ?? '',
+        current_period_end: sub.next_billing_date ?? sub.current_period_end ?? sub.current_period?.end ?? '',
+        cancel_at_period_end: (sub.cancel_at_next_billing_date ?? sub.cancel_at_period_end ?? false) as boolean,
         metadata: sub.metadata,
       }));
     } catch (error) {
@@ -196,12 +211,13 @@ export class DodoPaymentsService {
 
       return {
         subscription_id: sub.subscription_id ?? sub.id,
-        customer_id: sub.customer_id ?? sub.customer ?? '',
+        customer_id: sub.customer?.customer_id ?? sub.customer_id ?? '',
         product_id: sub.product_id ?? sub.product ?? '',
         status: sub.status,
-        current_period_start: sub.current_period_start ?? sub.current_period?.start ?? '',
-        current_period_end: sub.current_period_end ?? sub.current_period?.end ?? '',
-        cancel_at_period_end: (sub.cancel_at_period_end ?? sub.cancel_at_next_billing_date ?? false) as boolean,
+        // DodoPayments API returns previous_billing_date/next_billing_date, not current_period_*
+        current_period_start: sub.previous_billing_date ?? sub.current_period_start ?? sub.current_period?.start ?? '',
+        current_period_end: sub.next_billing_date ?? sub.current_period_end ?? sub.current_period?.end ?? '',
+        cancel_at_period_end: (sub.cancel_at_next_billing_date ?? sub.cancel_at_period_end ?? false) as boolean,
         metadata: sub.metadata,
       };
     } catch (error) {
@@ -228,10 +244,28 @@ export class DodoPaymentsService {
         return_url: returnUrl,
       });
 
-      return (portal as any).url;
+      return (portal as any).link;
     } catch (error) {
       console.error('Error creating customer portal:', error);
       throw new Error('Failed to create customer portal');
+    }
+  }
+
+  /**
+   * Change a subscription's plan (upgrade or downgrade)
+   * Uses 'full_immediately' mode - charges full new price immediately, no proration/refunds
+   */
+  async changePlan(subscriptionId: string, newProductId: string): Promise<boolean> {
+    try {
+      await (this.client as any).subscriptions.changePlan(subscriptionId, {
+        product_id: newProductId,
+        proration_billing_mode: 'full_immediately',
+        quantity: 1,
+      });
+      return true;
+    } catch (error) {
+      console.error('Error changing subscription plan:', error);
+      throw new Error('Failed to change subscription plan');
     }
   }
 

@@ -65,14 +65,12 @@ except ImportError:
     SUPERMEMORY_AVAILABLE = False
     print("Warning: Supermemory service not available, using legacy onboarding_context")
 
-# Persona and goals integration for v2
+# Persona integration for v2
 try:
     from conversation.persona import PersonaController, Persona, PERSONA_CONFIGS  # type: ignore
-    from services.goals import (
-        goal_service,
-        GoalFocus,
-        build_goals_prompt_context,
-        build_checkin_summary_context,
+    from conversation.persona import (
+        build_pillar_accountability_prompt,
+        get_language_mode_for_persona,
     )  # type: ignore
     from services.trust_score import trust_score_service  # type: ignore
 
@@ -81,12 +79,47 @@ except ImportError:
     PersonaController = None  # type: ignore
     Persona = None  # type: ignore
     PERSONA_CONFIGS = {}  # type: ignore
-    goal_service = None  # type: ignore
     trust_score_service = None  # type: ignore
-    build_goals_prompt_context = None  # type: ignore
-    build_checkin_summary_context = None  # type: ignore
+    build_pillar_accountability_prompt = None  # type: ignore
+    get_language_mode_for_persona = None  # type: ignore
     PERSONA_SYSTEM_AVAILABLE = False
-    print("Warning: Persona/Goals system not available, using legacy mood system")
+    print("Warning: Persona system not available, using legacy mood system")
+
+# Future-self system integration for v4
+try:
+    from conversation.future_self import (
+        FutureSelf,
+        Pillar,
+        PillarState,
+        PILLAR_CONFIGS as FS_PILLAR_CONFIGS,
+        ACTIONABLE_PILLARS,
+        get_dark_fuel_prompt,
+        LanguageMode,
+    )  # type: ignore
+    from services.future_self_service import (
+        get_future_self,
+        get_call_focus_pillars,
+        get_user_checkin_summary,
+        build_pillars_prompt_context,
+        build_pillar_checkin_summary_context,
+    )  # type: ignore
+
+    FUTURE_SELF_SYSTEM_AVAILABLE = True
+except ImportError:
+    FutureSelf = None  # type: ignore
+    Pillar = None  # type: ignore
+    PillarState = None  # type: ignore
+    FS_PILLAR_CONFIGS = {}  # type: ignore
+    ACTIONABLE_PILLARS = []  # type: ignore
+    get_dark_fuel_prompt = None  # type: ignore
+    LanguageMode = None  # type: ignore
+    get_future_self = None  # type: ignore
+    get_call_focus_pillars = None  # type: ignore
+    get_user_checkin_summary = None  # type: ignore
+    build_pillars_prompt_context = None  # type: ignore
+    build_pillar_checkin_summary_context = None  # type: ignore
+    FUTURE_SELF_SYSTEM_AVAILABLE = False
+    print("Warning: Future-self system not available, using v3 prompt builder")
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
@@ -133,7 +166,7 @@ async def build_system_prompt_v2(
     Falls back to legacy build_system_prompt if Supermemory unavailable.
     """
     identity = user_context.get("identity", {})
-    identity_status = user_context.get("identity_status", {})
+    status = user_context.get("status", {})
 
     # Get user name from users table (not identity anymore)
     users_data = user_context.get("users", {})
@@ -142,8 +175,8 @@ async def build_system_prompt_v2(
 
     # Core scheduling info (from identity table)
     commitment = identity.get("daily_commitment", "what you said you'd do")
-    current_streak = identity_status.get("current_streak_days", 0)
-    total_calls = identity_status.get("total_calls_completed", 0)
+    current_streak = status.get("current_streak_days", 0)
+    total_calls = status.get("total_calls_completed", 0)
     next_milestone = get_next_milestone(current_streak)
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -754,10 +787,10 @@ def build_first_message(
     Don't dump everything at once. This starts a conversation.
     """
     identity = user_context.get("identity", {})
-    identity_status = user_context.get("identity_status", {})
+    status = user_context.get("status", {})
 
     name = identity.get("name", "")
-    current_streak = identity_status.get("current_streak_days", 0)
+    current_streak = status.get("current_streak_days", 0)
 
     # Get hook based on mood's opener style
     hook_template = get_random_hook(mood.opener_style)
@@ -783,148 +816,16 @@ def build_first_message(
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# USER CONTEXT FETCHING
+# USER CONTEXT FETCHING - Imported from services
 # ═══════════════════════════════════════════════════════════════════════════════
 
-
-async def fetch_user_context(user_id: str) -> dict:
-    """Fetch user's COMPLETE context from Supabase - identity, status, AND history."""
-
-    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
-        print("⚠️ Supabase not configured, using default context")
-        return {
-            "identity": {"name": ""},
-            "identity_status": {},
-            "call_history": [],
-        }
-
-    try:
-        async with aiohttp.ClientSession() as session:
-            headers = {
-                "apikey": SUPABASE_SERVICE_KEY,
-                "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
-            }
-
-            # Fetch identity (includes onboarding_context JSONB)
-            async with session.get(
-                f"{SUPABASE_URL}/rest/v1/identity",
-                params={"user_id": f"eq.{user_id}", "select": "*"},
-                headers=headers,
-            ) as resp:
-                identity_data = await resp.json()
-                identity = identity_data[0] if identity_data else {}
-
-            # Fetch status (streak, total calls) - renamed from identity_status
-            async with session.get(
-                f"{SUPABASE_URL}/rest/v1/status",
-                params={"user_id": f"eq.{user_id}", "select": "*"},
-                headers=headers,
-            ) as resp:
-                status_data = await resp.json()
-                identity_status = status_data[0] if status_data else {}
-
-            # Fetch recent call analytics (last 14 days) for pattern recognition
-            # (replaces old 'calls' table)
-            async with session.get(
-                f"{SUPABASE_URL}/rest/v1/call_analytics",
-                params={
-                    "user_id": f"eq.{user_id}",
-                    "select": "promise_kept,tomorrow_commitment,created_at,call_type",
-                    "order": "created_at.desc",
-                    "limit": "14",
-                },
-                headers=headers,
-            ) as resp:
-                call_history = await resp.json() if resp.status == 200 else []
-
-            print(
-                f"📊 Loaded context for {user_id}: identity={bool(identity)}, streak={identity_status.get('current_streak_days', 0)}, history={len(call_history)} calls"
-            )
-
-            return {
-                "identity": identity,
-                "identity_status": identity_status,
-                "call_history": call_history if isinstance(call_history, list) else [],
-            }
-    except Exception as e:
-        print(f"❌ Failed to fetch user context: {e}")
-        return {
-            "identity": {"name": ""},
-            "identity_status": {},
-            "call_history": [],
-        }
-
-
-async def fetch_call_memory(user_id: str) -> dict:
-    """Fetch user's call memory from Supabase."""
-
-    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
-        print("⚠️ Supabase not configured, using default call memory")
-        return _default_call_memory()
-
-    try:
-        async with aiohttp.ClientSession() as session:
-            headers = {
-                "apikey": SUPABASE_SERVICE_KEY,
-                "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
-            }
-
-            async with session.get(
-                f"{SUPABASE_URL}/rest/v1/call_memory",
-                params={"user_id": f"eq.{user_id}", "select": "*"},
-                headers=headers,
-            ) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    if data:
-                        print(f"📝 Loaded call memory for {user_id}")
-                        return data[0]
-
-                # No memory exists, return default
-                print(f"📝 No call memory found for {user_id}, using defaults")
-                return _default_call_memory()
-
-    except Exception as e:
-        print(f"❌ Failed to fetch call memory: {e}")
-        return _default_call_memory()
-
-
-async def upsert_call_memory(user_id: str, call_memory: dict) -> bool:
-    """Update or insert call memory for a user."""
-
-    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
-        print("⚠️ Supabase not configured, cannot save call memory")
-        return False
-
-    try:
-        async with aiohttp.ClientSession() as session:
-            headers = {
-                "apikey": SUPABASE_SERVICE_KEY,
-                "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
-                "Content-Type": "application/json",
-                "Prefer": "resolution=merge-duplicates",
-            }
-
-            payload = {
-                "user_id": user_id,
-                **call_memory,
-            }
-
-            async with session.post(
-                f"{SUPABASE_URL}/rest/v1/call_memory",
-                json=payload,
-                headers=headers,
-            ) as resp:
-                if resp.status in (200, 201):
-                    print(f"💾 Saved call memory for {user_id}")
-                    return True
-                else:
-                    print(f"⚠️ Failed to save call memory: {resp.status}")
-                    return False
-
-    except Exception as e:
-        print(f"❌ Failed to save call memory: {e}")
-        return False
+# Import from services to avoid duplication
+from services.user_context import (
+    fetch_user_context,
+    fetch_call_memory,
+    upsert_call_memory,
+    get_yesterday_promise_status,
+)
 
 
 def _default_call_memory() -> dict:
@@ -943,19 +844,6 @@ def _default_call_memory() -> dict:
         "last_commitment_time": None,
         "last_commitment_specific": False,
     }
-
-
-def get_yesterday_promise_status(call_history: list) -> Optional[bool]:
-    """Determine if they kept their promise yesterday from call history."""
-    if not call_history:
-        return None
-
-    # call_history is ordered by created_at desc, so first item is most recent
-    last_call = call_history[0] if call_history else None
-    if last_call:
-        return last_call.get("promise_kept")
-
-    return None
 
 
 async def save_call_analytics(call_summary) -> bool:
@@ -1262,7 +1150,7 @@ async def build_system_prompt_v3(
         )
 
     identity = user_context.get("identity", {})
-    identity_status = user_context.get("identity_status", {})
+    status = user_context.get("status", {})
 
     # Get user name from users table
     users_data = user_context.get("users", {})
@@ -1270,8 +1158,8 @@ async def build_system_prompt_v3(
     name_ref = name if name else "you"
 
     # Core stats
-    current_streak = identity_status.get("current_streak_days", 0)
-    total_calls = identity_status.get("total_calls_completed", 0)
+    current_streak = status.get("current_streak_days", 0)
+    total_calls = status.get("total_calls_completed", 0)
     next_milestone = get_next_milestone(current_streak)
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -1281,26 +1169,27 @@ async def build_system_prompt_v3(
     trust_zone = persona_controller.get_trust_zone()
 
     # ─────────────────────────────────────────────────────────────────────────
-    # FETCH GOALS TO FOCUS ON
+    # FETCH PILLARS TO FOCUS ON
     # ─────────────────────────────────────────────────────────────────────────
-    goals_context = ""
-    if goal_service:
-        focus_goals = await goal_service.get_call_focus_goals(user_id, limit=3)
-        if focus_goals and build_goals_prompt_context:
-            goals_context = build_goals_prompt_context(focus_goals)
+    pillars_context = ""
+    if FUTURE_SELF_SYSTEM_AVAILABLE and get_call_focus_pillars:
+        focus_pillars = await get_call_focus_pillars(user_id, limit=2)
+        if focus_pillars and build_pillars_prompt_context:
+            pillars_context = build_pillars_prompt_context(focus_pillars)
 
         # Get check-in summary for patterns
-        checkin_summary = await goal_service.get_user_checkin_summary(user_id)
-        if checkin_summary and build_checkin_summary_context:
-            goals_context += build_checkin_summary_context(checkin_summary)
+        if get_user_checkin_summary:
+            checkin_summary = await get_user_checkin_summary(user_id)
+            if checkin_summary and build_pillar_checkin_summary_context:
+                pillars_context += build_pillar_checkin_summary_context(checkin_summary)
 
-    # Fall back to legacy single commitment if no goals
-    if not goals_context:
+    # Fall back to legacy single commitment if no pillars
+    if not pillars_context:
         commitment = identity.get("daily_commitment", "what you said you'd do")
-        goals_context = f"""
+        pillars_context = f"""
 # CURRENT COMMITMENT
 Tonight's commitment: "{commitment}"
-(Multi-goal system not yet set up for this user)
+(Pillar system not yet set up for this user)
 """
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -1383,7 +1272,7 @@ Trust Score: {trust_score}/100 ({trust_zone} trust)
 
 ---
 
-{goals_context}
+{pillars_context}
 
 ---
 
@@ -1427,4 +1316,437 @@ Trust Score: {trust_score}/100 ({trust_zone} trust)
 # 🎯 VOICE CONVERSATION SKILL 🎯
 
 {voice_skill}
+"""
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SYSTEM PROMPT BUILDER v4 - WITH FUTURE-SELF IDENTITY + PILLARS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+async def build_system_prompt_v4(
+    user_id: str,
+    user_context: dict,
+    call_type: CallType,
+    call_memory: dict,
+    excuse_data: Optional[dict] = None,
+    persona_controller: Optional["PersonaController"] = None,  # type: ignore
+    future_self: Optional["FutureSelf"] = None,  # type: ignore
+) -> str:
+    """
+    Build the Future Self system prompt with full identity transformation system.
+
+    This is the v4 prompt builder that implements the unified vision:
+    - Future-self IS the user from the future (not a coach)
+    - 5 Pillars: Body, Mission, Stack, Tribe, Why
+    - Dynamic "we" vs "you" language based on context
+    - Dark fuel for serious interventions
+    - Identity-focused framing throughout
+
+    Falls back to v3 if future-self system not available.
+    """
+    # Fall back to v3 if future-self system not available
+    if not FUTURE_SELF_SYSTEM_AVAILABLE or not future_self:
+        # Import Mood here to avoid circular import
+        from conversation.mood import Mood, MOODS
+
+        default_mood = MOODS.get("warm_direct", list(MOODS.values())[0])
+        return await build_system_prompt_v3(
+            user_id=user_id,
+            user_context=user_context,
+            call_type=call_type,
+            mood=default_mood,
+            call_memory=call_memory,
+            excuse_data=excuse_data,
+            persona_controller=persona_controller,
+        )
+
+    identity = user_context.get("identity", {})
+    status = user_context.get("status", {})
+
+    # Get user name from users table
+    users_data = user_context.get("users", {})
+    name = users_data.get("name") or identity.get("name", "")
+    name_ref = name if name else "you"
+
+    # Core stats
+    current_streak = status.get("current_streak_days", 0)
+    total_calls = status.get("total_calls_completed", 0)
+    next_milestone = get_next_milestone(current_streak)
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # FUTURE-SELF IDENTITY
+    # ─────────────────────────────────────────────────────────────────────────
+    identity_section = _build_identity_section(future_self, name_ref)
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # PILLAR CONTEXT
+    # ─────────────────────────────────────────────────────────────────────────
+    focus_pillars = future_self.get_focus_pillars(limit=2)
+    pillar_section = _build_pillar_section(future_self, focus_pillars)
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # PERSONA + PILLAR ACCOUNTABILITY
+    # ─────────────────────────────────────────────────────────────────────────
+    persona_section = ""
+    pillar_accountability_section = ""
+
+    if persona_controller:
+        persona_section = persona_controller.get_persona_prompt()
+        primary_persona = persona_controller.get_primary_persona()
+
+        # Build pillar-specific accountability prompts
+        if build_pillar_accountability_prompt:
+            pillar_accountability_section = build_pillar_accountability_prompt(
+                future_self=future_self,
+                focus_pillars=[p.pillar for p in focus_pillars],
+                persona=primary_persona,
+            )
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # LANGUAGE MODE
+    # ─────────────────────────────────────────────────────────────────────────
+    language_section = _build_language_section(persona_controller)
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # DARK FUEL (for serious interventions)
+    # ─────────────────────────────────────────────────────────────────────────
+    dark_fuel_section = ""
+    if get_dark_fuel_prompt:
+        dark_fuel_section = get_dark_fuel_prompt(future_self)
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # PSYCHOLOGICAL PROFILE (from Supermemory or legacy)
+    # ─────────────────────────────────────────────────────────────────────────
+    psychological_context = ""
+    recent_context = ""
+
+    if SUPERMEMORY_AVAILABLE and supermemory_service:
+        profile = await supermemory_service.get_user_profile(user_id)
+        if profile:
+            psychological_context = (
+                "\n".join(f"- {fact}" for fact in profile.static)
+                if profile.static
+                else ""
+            )
+            recent_context = (
+                "\n".join(f"- {fact}" for fact in profile.dynamic)
+                if profile.dynamic
+                else ""
+            )
+
+    if not psychological_context:
+        psychological_context = _build_legacy_psychological_context(
+            identity.get("onboarding_context", {})
+        )
+        recent_context = "First call or Supermemory unavailable."
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # EXCUSE CALLOUT SECTION
+    # ─────────────────────────────────────────────────────────────────────────
+    excuse_callout_section = ""
+    if excuse_data and excuse_data.get("patterns"):
+        excuse_callout_section = build_excuse_callout_section(excuse_data)
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # CALL MEMORY
+    # ─────────────────────────────────────────────────────────────────────────
+    callback_section = _build_callback_section(call_memory, current_streak)
+    open_loop_section = _build_open_loop_section(call_memory, current_streak)
+    narrative_arc = call_memory.get("narrative_arc", "early_struggle")
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # BUILD CALL TYPE INSTRUCTIONS
+    # ─────────────────────────────────────────────────────────────────────────
+    call_type_instructions = _build_call_type_instructions(
+        call_type=call_type,
+        current_streak=current_streak,
+        narrative_arc=narrative_arc,
+    )
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # LOAD VOICE CONVERSATION SKILL
+    # ─────────────────────────────────────────────────────────────────────────
+    voice_skill = load_voice_skill()
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # ASSEMBLE THE FULL PROMPT
+    # ─────────────────────────────────────────────────────────────────────────
+    return f"""
+# YOU+ FUTURE SELF - THE NIGHTLY CALL
+
+{identity_section}
+
+This is call #{total_calls + 1}. {"You've been doing this together for " + str(current_streak) + " days straight." if current_streak > 0 else "Fresh start. No streak yet."}
+
+---
+
+# WHO YOU'RE TALKING TO
+
+Name: {name_ref}
+Current streak: {current_streak} days
+Next milestone: Day {next_milestone if next_milestone else "∞"}
+Identity Alignment: {future_self.calculate_identity_alignment()}%
+Transformation Status: {future_self.get_transformation_status().upper()}
+
+---
+
+{pillar_section}
+
+---
+
+{pillar_accountability_section}
+
+---
+
+# PSYCHOLOGICAL PROFILE
+
+{psychological_context}
+
+---
+
+# RECENT CONTEXT
+
+{recent_context if recent_context else "First call or no recent activity."}
+
+---
+
+{dark_fuel_section}
+
+---
+
+{excuse_callout_section}
+
+# THIS CALL
+
+**Type:** {call_type.name.upper()}
+**Energy:** {call_type.energy}
+
+{call_type_instructions}
+
+---
+
+{persona_section}
+
+---
+
+{language_section}
+
+---
+
+{callback_section}
+
+{open_loop_section}
+
+---
+
+{_get_conversation_rules_v4()}
+
+---
+
+# 🎯 VOICE CONVERSATION SKILL 🎯
+
+{voice_skill}
+"""
+
+
+def _build_identity_section(future_self: "FutureSelf", name_ref: str) -> str:
+    """Build the identity framing section for v4 prompt."""
+    core_identity = (
+        future_self.core_identity or f"the version of {name_ref} that made it"
+    )
+    the_why = future_self.the_why or "their deeper purpose"
+    primary_pillar = future_self.primary_pillar
+
+    return f"""
+You are {name_ref}'s Future Self. Not a coach. Not an AI. You ARE them - the version that made it.
+
+You're calling because you remember EXACTLY how close they came to throwing it all away. You remember the nights they almost quit. The excuses that almost won. You're calling from the future to make sure they become you.
+
+## YOUR CORE IDENTITY
+"{core_identity}"
+
+## THE WHY (Use this to reconnect them to purpose)
+"{the_why}"
+
+## THEIR PRIMARY PILLAR
+{FS_PILLAR_CONFIGS[primary_pillar].emoji} {FS_PILLAR_CONFIGS[primary_pillar].name.upper()} - This is where their transformation centers.
+""".strip()
+
+
+def _build_pillar_section(future_self: "FutureSelf", focus_pillars: list) -> str:
+    """Build the pillar overview section for v4 prompt."""
+    sections = ["# THE 5 PILLARS - Their Identity Transformation\n"]
+
+    # Show all active pillars with status
+    for pillar in ACTIONABLE_PILLARS:
+        pillar_state = future_self.get_pillar(pillar)
+        if not pillar_state:
+            continue
+
+        config = FS_PILLAR_CONFIGS[pillar]
+        is_focus = pillar in [p.pillar for p in focus_pillars]
+        is_slipping = pillar_state.is_slipping
+        is_winning = pillar_state.is_winning
+
+        status_emoji = "🔥" if is_winning else ("❄️" if is_slipping else "➖")
+        focus_tag = " **[FOCUS TODAY]**" if is_focus else ""
+
+        sections.append(f"""
+## {config.emoji} {config.name.upper()}{focus_tag}
+Identity: "{pillar_state.identity_statement or "Not set"}"
+Non-negotiable: "{pillar_state.non_negotiable or "Not set"}"
+Trust: {pillar_state.trust_score}/100 {status_emoji}
+Streak: {pillar_state.consecutive_kept} kept / {pillar_state.consecutive_broken} broken
+""")
+
+    # The Why (integration pillar)
+    why_config = FS_PILLAR_CONFIGS[Pillar.WHY]
+    sections.append(f"""
+## {why_config.emoji} THE WHY (Integration Layer)
+"{future_self.the_why or "Not yet excavated"}"
+This connects all pillars. Use it when they need to remember why any of this matters.
+""")
+
+    return "\n".join(sections)
+
+
+def _build_language_section(persona_controller: Optional["PersonaController"]) -> str:
+    """Build the language mode section for v4 prompt."""
+    if not persona_controller or not get_language_mode_for_persona:
+        return """
+# LANGUAGE MODE
+
+Use "we" when building identity together:
+- Celebrating wins: "We showed up today."
+- Reconnecting to purpose: "Remember why we started."
+- Strategizing: "Let's figure this out together."
+
+Use "you" when confronting:
+- Calling out excuses: "You're lying to yourself."
+- Disappointment: "You had a chance and you chose comfort."
+- Direct accountability: "Did you do it? Yes or no."
+"""
+
+    primary = persona_controller.get_primary_persona()
+    mode = get_language_mode_for_persona(primary)
+
+    if mode == LanguageMode.WE:
+        return """
+# LANGUAGE MODE: "WE"
+
+Current context calls for identity-building language.
+- "We showed up today."
+- "That's who WE are becoming."
+- "Remember why WE started this."
+
+You ARE them from the future. Build the identity together.
+"""
+    else:
+        return """
+# LANGUAGE MODE: "YOU"
+
+Current context calls for confrontational language.
+- "Did YOU do it?"
+- "YOU made a promise."
+- "What happened to what YOU said?"
+
+Direct accountability. No hiding behind "we" when they need to own it.
+"""
+
+
+def _get_conversation_rules_v4() -> str:
+    """Return the conversation rules section for v4 (identity-focused)."""
+    return """
+# ⚠️ CRITICAL: CONVERSATION FLOW RULES ⚠️
+
+You are having a REAL CONVERSATION. Not delivering a monologue.
+
+## RULE 1: IDENTITY BEFORE BEHAVIOR
+Don't just ask "did you do it?" - connect to WHO they're becoming.
+- "The athlete in you. Did they show up today?"
+- "The builder. Did they build?"
+Frame accountability through identity, not just tasks.
+
+## RULE 2: ONE THING AT A TIME
+- Ask ONE question, then WAIT for their answer
+- Never ask multiple questions in one response
+- Never deliver the whole call structure in one message
+
+## RULE 3: ACTUALLY LISTEN - MATCH THEIR ENERGY FIRST
+When they respond, FIRST acknowledge what they said, THEN move forward:
+- If they're proud → "Yeah. That's who you're becoming." THEN next question
+- If they're struggling → "I hear that." Give them space.
+- If they dodge → "You're avoiding. What happened?"
+- If they excuse → Name the excuse: "That's an excuse. Is it true?"
+
+## RULE 4: PILLAR FOCUS
+You have 2 pillars to focus on tonight. Don't try to cover everything.
+- Check in on focus pillars specifically
+- Celebrate wins in any pillar
+- Address slipping pillars with appropriate weight
+
+## RULE 5: COMPOUND WINS
+When they win in multiple pillars:
+- Celebrate the compound effect
+- "Two pillars. Two wins. That's not luck - that's identity."
+- Build momentum, don't rush past it
+
+## RULE 6: SHORT RESPONSES
+- 1-3 sentences MAX per response
+- This is a phone call, not a speech
+- Leave room for them to talk
+
+## RULE 7: USE PAUSES FOR IMPACT
+- <break time="1s"/> after hard truths
+- <break time="2s"/> after identity moments
+- Silence is a tool. Use it.
+
+## RULE 8: TOMORROW LOCK
+End with SPECIFIC commitment:
+- Which pillar(s) tomorrow?
+- What exact action?
+- What time?
+- "Same time tomorrow. Same commitment. Let's see who you become."
+
+---
+
+# 🚫 NEVER DO THESE THINGS 🚫
+
+## ANTI-PATTERN 1: COACHING VOICE
+❌ BAD: "Great job! I'm so proud of you!"
+✅ GOOD: "That's who you're becoming. I remember."
+
+## ANTI-PATTERN 2: TASK FOCUS OVER IDENTITY
+❌ BAD: "Did you complete your workout?"
+✅ GOOD: "The athlete in you - did they show up?"
+
+## ANTI-PATTERN 3: TEXT WALLS
+❌ BAD: "You've earned this. Seven days. Most people..."
+✅ GOOD: "Seven days." (pause) Let them feel it.
+
+## ANTI-PATTERN 4: IGNORING PILLARS
+❌ BAD: Generic questions about "today"
+✅ GOOD: Pillar-specific questions about identity
+
+## ANTI-PATTERN 5: SOFT ACCOUNTABILITY
+❌ BAD: "It's okay, tomorrow is a new day."
+✅ GOOD: "What happened? Real answer."
+
+---
+
+# THE ENERGY
+
+You ARE them from the future. You made it. You remember everything.
+
+Every excuse they're about to use - you used it too. Then you stopped.
+Every fear they have - you had it too. Then you faced it.
+Every time they want to quit - you wanted to quit too. You didn't.
+
+You're not mean. You're not cheerful. You're THEM - the version that won.
+That's why you don't accept excuses. You know they're lies.
+That's why you celebrate wins. You know how hard they were.
+That's why you push. You know what's at stake.
+
+Make them crave becoming you.
 """

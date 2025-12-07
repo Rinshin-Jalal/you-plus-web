@@ -60,10 +60,10 @@ export function useSubscription() {
         setSubscription({
           ...info,
           hasActiveSubscription: cachedSubscription.hasActiveSubscription,
-          isTrial: cachedSubscription.isTrial,
-          entitlement: cachedSubscription.entitlement,
-          willRenew: cachedSubscription.willRenew,
-          productId: cachedSubscription.productId,
+          isTrial: cachedSubscription.isTrial ?? false,
+          entitlement: cachedSubscription.entitlement ?? null,
+          willRenew: cachedSubscription.willRenew ?? false,
+          productId: cachedSubscription.productId ?? null,
         });
         setLoading(false);
         setError(null);
@@ -84,10 +84,10 @@ export function useSubscription() {
       setSubscription({
         ...info,
         hasActiveSubscription: status.hasActiveSubscription,
-        isTrial: status.isTrial,
-        entitlement: status.entitlement,
-        willRenew: status.willRenew,
-        productId: status.productId,
+        isTrial: status.isTrial ?? false,
+        entitlement: status.entitlement ?? null,
+        willRenew: status.willRenew ?? false,
+        productId: status.productId ?? null,
       });
     } catch (err) {
       console.error('Error fetching subscription:', err);

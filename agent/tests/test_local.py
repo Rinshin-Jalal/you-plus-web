@@ -231,17 +231,17 @@ async def test_agent_locally():
 
     user_context = await fetch_user_context(args.user_id)
     identity = user_context.get("identity", {})
-    identity_status = user_context.get("identity_status", {})
+    status = user_context.get("status", {})
     onboarding = identity.get("onboarding_context", {})
     call_history = user_context.get("call_history", [])
 
     # Override streak if specified
     if args.streak is not None:
-        identity_status["current_streak_days"] = args.streak
-        user_context["identity_status"] = identity_status
+        status["current_streak_days"] = args.streak
+        user_context["status"] = status
         print(f"      [Override] Streak set to: {args.streak} days")
 
-    current_streak = identity_status.get("current_streak_days", 0)
+    current_streak = status.get("current_streak_days", 0)
 
     print()
     print("-" * 70)
@@ -250,7 +250,7 @@ async def test_agent_locally():
     print(f"  Name:            {identity.get('name', 'N/A')}")
     print(f"  Commitment:      {identity.get('daily_commitment', 'N/A')}")
     print(f"  Streak:          {current_streak} days")
-    print(f"  Total calls:     {identity_status.get('total_calls_completed', 0)}")
+    print(f"  Total calls:     {status.get('total_calls_completed', 0)}")
     print()
     print("  Onboarding:")
     print(f"    Goal:          {onboarding.get('goal', 'N/A')}")
