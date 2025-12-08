@@ -1,594 +1,539 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
-import { ArrowRight, Phone, X, Mic, User, LogOut, Brain, BarChart3 } from 'lucide-react';
+import React from 'react';
+import { Check, ArrowRight, Phone, X, Clock, Mic, Calendar, TrendingUp, Volume2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
-import { useAuth } from '@/hooks/useAuth';
-import { WitnessLogo } from '@/components/ui/WitnessLogo';
 
 export default function LandingPage() {
   const router = useRouter();
-  const { user, isAuthenticated, loading: authLoading, signOut } = useAuth();
-  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
-  const profileMenuRef = useRef<HTMLDivElement | null>(null);
-  const [currentTime, setCurrentTime] = useState('9:00 PM');
-  
-  // Update time display
-  useEffect(() => {
-    const updateTime = () => {
-      const now = new Date();
-      const hours = now.getHours();
-      // Show "Tonight" time as 9 PM if before 9, or next hour if after
-      if (hours < 21) {
-        setCurrentTime('9:00 PM');
-      } else {
-        setCurrentTime('Tomorrow 9:00 PM');
-      }
-    };
-    updateTime();
-  }, []);
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (!profileMenuRef.current?.contains(event.target as Node)) {
-        setIsProfileMenuOpen(false);
-      }
-    };
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setIsProfileMenuOpen(false);
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    window.addEventListener('keydown', handleEscape);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      window.removeEventListener('keydown', handleEscape);
-    };
-  }, []);
-
-  const startOnboarding = () => router.push('/onboarding');
-
-  const handleLogout = async () => {
-    setIsProfileMenuOpen(false);
-    try {
-      await signOut();
-    } catch (error) {
-      console.error('[LANDING] Sign out error:', error);
-    }
+  const startOnboarding = () => {
+    router.push('/onboarding');
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] text-white overflow-x-hidden">
+    <div className="min-h-screen bg-white text-black font-mono">
       
-      {/* ══════════════════════════════════════════════════════════════════════
-          NAVIGATION - Minimal, asymmetric
-      ══════════════════════════════════════════════════════════════════════ */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-[#0A0A0A]/80 backdrop-blur-md border-b border-white/10">
-        <div className="max-w-[1400px] mx-auto px-6 md:px-12 h-20 flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <WitnessLogo size="sm" showWordmark />
-          </div>
-          
-          {authLoading ? (
-            <div className="w-8 h-8 rounded-md bg-white/10 animate-pulse" />
-          ) : isAuthenticated ? (
-            <div className="relative" ref={profileMenuRef}>
-              <button 
-                onClick={() => setIsProfileMenuOpen(prev => !prev)}
-                className="flex items-center gap-2 text-sm font-medium opacity-60 hover:opacity-100 transition-opacity"
-              >
-                {user?.user_metadata?.avatar_url ? (
-                  <img src={user.user_metadata.avatar_url} alt="" className="w-8 h-8 rounded-md" />
-                ) : (
-                  <div className="w-8 h-8 rounded-md bg-[#F97316] flex items-center justify-center">
-                    <User size={14} />
-                  </div>
-                )}
-                <span className="hidden sm:block">{user?.user_metadata?.name?.split(' ')[0] || 'Account'}</span>
-              </button>
+      {/* Dev buttons */}
+      <div className="fixed bottom-4 right-4 z-[999] flex flex-col gap-2">
+        <button onClick={() => router.push('/dashboard')} className="bg-black text-white text-xs px-3 py-1.5">[Dev] Dashboard</button>
+        <button onClick={() => router.push('/call')} className="bg-red-600 text-white text-xs px-3 py-1.5">[Dev] Call</button>
+      </div>
 
-              {isProfileMenuOpen && (
-                <div className="absolute right-0 mt-2 w-40 bg-[#1A1A1A] border border-white/10 rounded-lg overflow-hidden shadow-2xl">
-                  <button
-                    onClick={() => { setIsProfileMenuOpen(false); router.push('/dashboard'); }}
-                    className="w-full text-left px-4 py-3 text-sm hover:bg-white/5"
-                  >
-                    Dashboard
-                  </button>
-                  <button
-                    onClick={handleLogout}
-                    className="w-full text-left px-4 py-3 text-sm text-red-400 hover:bg-red-500/10 flex items-center justify-between border-t border-white/5"
-                  >
-                    <span>Log out</span>
-                    <LogOut size={14} />
-                  </button>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="flex items-center gap-4">
-              <button 
-                onClick={() => router.push('/auth/login')} 
-                className="text-sm font-medium opacity-60 hover:opacity-100 transition-opacity"
-              >
-                Login
-              </button>
-              <button 
-                onClick={() => router.push('/onboarding')} 
-                className="bg-[#F97316] text-black px-5 py-2.5 text-sm font-bold uppercase tracking-wide hover:bg-[#FB923C] transition-colors"
-              >
-                Get Started
-              </button>
-            </div>
-          )}
+      {/* Nav */}
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-white border-b-2 border-black">
+        <div className="max-w-5xl mx-auto px-6 h-14 flex justify-between items-center">
+          <div className="text-xl font-bold">You+</div>
+          <button onClick={() => router.push('/dashboard')} className="text-sm hover:underline underline-offset-4">Login</button>
         </div>
       </nav>
 
-      {/* ══════════════════════════════════════════════════════════════════════
-          HERO - Centered, dramatic, mascot-focused
-      ══════════════════════════════════════════════════════════════════════ */}
-      <section className="min-h-screen relative flex items-center justify-center overflow-hidden">
-        {/* Gradient background */}
-        <div className="absolute inset-0 bg-gradient-to-b from-[#0A0A0A] via-[#0A0A0A] to-[#111]" />
+      <main className="pt-14">
         
-        {/* Radial glow behind mascot */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[#F97316] rounded-full blur-[300px] opacity-[0.08]" />
-        
-        {/* Subtle grid pattern */}
-        <div className="absolute inset-0 opacity-[0.03]" style={{
-          backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`,
-          backgroundSize: '60px 60px'
-        }} />
-        
-        <div className="max-w-[1000px] mx-auto px-6 md:px-12 w-full relative z-10 pt-32 pb-20">
-          <div className="flex flex-col items-center text-center">
-            
-            {/* The Witness mascot - large and prominent */}
-            <div className="mb-8 relative">
-              {/* Pulsing ring behind mascot */}
-              <div className="absolute inset-[-20px] rounded-full border-2 border-[#F97316]/20 animate-ping" style={{ animationDuration: '3s' }} />
-              <div className="absolute inset-[-40px] rounded-full border border-[#F97316]/10 animate-ping" style={{ animationDuration: '4s', animationDelay: '0.5s' }} />
-              <WitnessLogo size="2xl" animate={true} />
-            </div>
-            
-            {/* Eyebrow */}
-            <div className="mb-6">
-              <span className="inline-block px-4 py-2 text-xs font-mono uppercase tracking-[0.2em] text-[#F97316] border border-[#F97316]/30 bg-[#F97316]/5">
-                For people done with excuses
-              </span>
-            </div>
-            
-            {/* Headline - BIG and centered */}
-            <h1 className="text-[clamp(2.5rem,8vw,5.5rem)] font-black leading-[0.95] tracking-tighter mb-6">
-              <span className="block text-white">YOUR</span>
-              <span className="block text-[#F97316]">FUTURE SELF</span>
-              <span className="block text-white">CALLS TONIGHT.</span>
-            </h1>
-            
-            {/* Subtext */}
-            <p className="text-lg md:text-xl text-white/50 max-w-xl mb-4 leading-relaxed">
-              Every night at <span className="text-[#F97316] font-semibold">{currentTime}</span>, your phone rings.
-              <br className="hidden sm:block" />
-              You have to answer for what you did today.
-            </p>
-            
-            <p className="text-base text-white/30 max-w-lg mb-10 leading-relaxed">
-              No more lying to apps. No more broken streaks. No more excuses.
-              <br className="hidden sm:block" />
-              Just you, your voice, and the truth.
-            </p>
-
-            {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row items-center gap-4 mb-12">
-              <button 
-                onClick={startOnboarding}
-                className="group relative bg-[#F97316] text-black font-black text-lg px-10 py-5 rounded-full transition-all hover:scale-105 hover:shadow-[0_0_40px_rgba(249,115,22,0.4)] active:scale-100"
-              >
-                <span className="flex items-center gap-3">
-                  ANSWER THE CALL
-                  <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
-                </span>
-              </button>
+        {/* ============ HERO - WHITE ============ */}
+        <section className="px-6 py-24 md:py-32 bg-white border-b-2 border-black">
+          <div className="max-w-5xl mx-auto">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
               
-              <button 
-                onClick={() => {
-                  document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' });
-                }}
-                className="text-white/60 hover:text-white font-medium px-6 py-4 transition-colors"
-              >
-                See how it works
-              </button>
-            </div>
-            
-            {/* Social proof */}
-            <div className="flex items-center gap-4 text-sm text-white/40">
-              <div className="flex -space-x-2">
-                {[1,2,3,4,5].map((i) => (
-                  <div key={i} className="w-8 h-8 rounded-full bg-gradient-to-br from-[#333] to-[#222] border-2 border-[#0A0A0A] flex items-center justify-center text-[10px] font-bold text-white/60">
-                    {['M', 'A', 'J', 'S', 'K'][i-1]}
+              {/* Left - Copy */}
+              <div>
+                <div className="inline-block border-2 border-black px-3 py-1 text-xs font-bold mb-8 tracking-wide">
+                  FOR PEOPLE WHO ARE DONE WITH THEIR OWN BULLSHIT
+                </div>
+                
+                <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold leading-tight mb-8">
+                  I get a call every night from my future self.
+                </h1>
+                
+                <p className="text-lg mb-4 leading-relaxed">
+                  It's the only thing that's kept me consistent.
+                </p>
+                
+                <p className="text-base text-black/60 mb-10 leading-relaxed max-w-md">
+                  I've downloaded every productivity app. Tried journaling, habit trackers, 
+                  accountability partners, "make your bed" videos. Still fell off. Every. Single. Time.
+                  So I built something different.
+                </p>
+
+                <div className="flex flex-col sm:flex-row items-start gap-6">
+                  <button 
+                    onClick={startOnboarding}
+                    className="bg-black text-white px-8 py-4 text-sm font-bold border-2 border-black shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-1.5 hover:translate-y-1.5 transition-all flex items-center gap-3"
+                  >
+                    <span>START YOUR FIRST CALL</span>
+                    <ArrowRight size={18} />
+                  </button>
+                  
+                  <div className="flex items-center gap-3 text-sm py-4">
+                    <span className="w-2 h-2 bg-[#00FF00]" />
+                    <span>2,847 started this week</span>
                   </div>
-                ))}
+                </div>
               </div>
-              <span>
-                <span className="text-white font-semibold">2,847</span> calls answered this week
-              </span>
-            </div>
-          </div>
-        </div>
-        
-        {/* Scroll indicator */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2">
-          <div className="w-6 h-10 border-2 border-white/20 rounded-full flex justify-center pt-2">
-            <div className="w-1 h-2 bg-white/40 rounded-full animate-bounce" />
-          </div>
-        </div>
-      </section>
 
-      {/* ══════════════════════════════════════════════════════════════════════
-          THE PROBLEM - Diagonal split, high contrast
-      ══════════════════════════════════════════════════════════════════════ */}
-      <section className="relative py-32 overflow-hidden bg-[#F97316]">
-        
-        <div className="max-w-[1400px] mx-auto px-6 md:px-12 relative z-10">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
-            
-            {/* Left - Dark card */}
-            <div className="bg-[#0A0A0A] p-10 md:p-12 -rotate-1 shadow-2xl">
-              <h2 className="text-3xl md:text-4xl font-black mb-8 leading-tight">
-                YOU KNOW<br />THE CYCLE.
-              </h2>
-              
-              <div className="space-y-6">
-                <div className="border-l-4 border-[#F97316] pl-6 py-2">
-                  <div className="font-bold text-lg mb-1">Sunday night motivation</div>
-                  <p className="text-sm text-white/60">&quot;This week is going to be different. I&apos;m going to wake up at 6am, hit the gym, eat clean...&quot;</p>
-                </div>
-                
-                <div className="border-l-4 border-white/20 pl-6 py-2">
-                  <div className="font-bold text-lg mb-1">Monday reality</div>
-                  <p className="text-sm text-white/60">Snoozed the alarm. Skipped the gym. Ordered takeout. Told yourself &quot;I&apos;ll start tomorrow.&quot;</p>
-                </div>
-                
-                <div className="border-l-4 border-white/30 pl-6 py-2">
-                  <div className="font-bold text-lg mb-1">The guilt spiral</div>
-                  <p className="text-sm text-white/60">You&apos;re not lazy. You just have no one to answer to except yourself. And you&apos;ve learned to lie to yourself really well.</p>
-                </div>
-              </div>
-            </div>
-            
-            {/* Right - What failed */}
-            <div className="bg-[#0A0A0A] p-10 md:p-12 rotate-1 shadow-2xl">
-              <div className="flex items-center gap-3 mb-8">
-                <div className="w-10 h-10 bg-red-500 flex items-center justify-center">
-                  <X size={24} className="text-white" />
-                </div>
-                <h2 className="text-xl font-black">WHAT YOU&apos;VE TRIED</h2>
-              </div>
-              
-              <div className="space-y-0">
-                {[
-                  { thing: "Productivity apps", why: "Abandoned after 3 days" },
-                  { thing: "Habit trackers", why: "Broke the streak, deleted it" },
-                  { thing: "Accountability partners", why: "They got busy" },
-                  { thing: "Journaling", why: "Blank pages" },
-                  { thing: '"Wake up earlier"', why: "Snoozed 47 times" },
-                  { thing: "Motivational content", why: "Changed nothing" },
-                ].map((item, i) => (
-                  <div key={i} className="flex items-start gap-4 py-4 border-b border-white/10 last:border-0">
-                    <X size={14} className="text-red-500 mt-1 flex-shrink-0" />
-                    <div>
-                      <div className="font-bold text-sm text-white/80">{item.thing}</div>
-                      <div className="text-xs text-white/40">{item.why}</div>
+              {/* Right - Phone mockup */}
+              <div className="relative">
+                <div className="border-2 border-black bg-black text-white p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.2)]">
+                  {/* Phone header */}
+                  <div className="flex items-center justify-between mb-6 pb-4 border-b border-white/20">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 border-2 border-white flex items-center justify-center">
+                        <Phone size={18} />
+                      </div>
+                      <div>
+                        <div className="text-sm font-bold">INCOMING CALL</div>
+                        <div className="text-xs text-white/50">You+ Accountability</div>
+                      </div>
+                    </div>
+                    <div className="text-xs text-white/40">9:47 PM</div>
+                  </div>
+                  
+                  {/* Call content */}
+                  <div className="space-y-3 mb-6">
+                    <div className="text-xs text-white/50 uppercase tracking-wider">Tonight's Audit</div>
+                    <div className="text-base font-bold leading-snug">
+                      "You said you'd hit the gym and finish the proposal. Did you do it?"
                     </div>
                   </div>
-                ))}
+                  
+                  {/* Voice visualization */}
+                  <div className="flex items-center justify-center gap-1 py-6">
+                    {[40, 70, 50, 80, 60, 90, 45, 75, 55, 85, 65, 40].map((h, i) => (
+                      <div key={i} className="w-1 bg-white/70" style={{ height: `${h * 0.4}px` }} />
+                    ))}
+                  </div>
+                  
+                  {/* Actions */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <button className="border-2 border-white/30 py-3 text-sm font-bold hover:bg-white hover:text-black transition-colors">
+                      I DID IT
+                    </button>
+                    <button className="border-2 border-red-500 text-red-500 py-3 text-sm font-bold hover:bg-red-500 hover:text-white transition-colors">
+                      I DIDN'T
+                    </button>
+                  </div>
+                </div>
+                
+                {/* Decorative elements */}
+                <div className="absolute -top-3 -right-3 w-6 h-6 border-2 border-black bg-white" />
+                <div className="absolute -bottom-3 -left-3 w-6 h-6 bg-black" />
               </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ══════════════════════════════════════════════════════════════════════
-          THE INSIGHT - Split layout, left/right
-      ══════════════════════════════════════════════════════════════════════ */}
-      <section className="relative bg-[#0A0A0A]">
-        <div className="max-w-[1200px] mx-auto px-6 md:px-12">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center py-24 lg:py-32">
+        {/* ============ THE PROBLEM - BLACK ============ */}
+        <section className="px-6 py-24 bg-black text-white border-b-2 border-black">
+          <div className="max-w-5xl mx-auto">
             
-            {/* Left Side - What doesn't work (just text, no card) */}
-            <div className="flex flex-col justify-center text-center lg:text-left">
-              <p className="text-xs font-mono uppercase tracking-[0.2em] text-white/30 mb-8">
-                What didn&apos;t work
-              </p>
-              <div className="space-y-5 lg:space-y-6 max-w-md mx-auto lg:mx-0">
-                <p className="text-2xl md:text-3xl lg:text-4xl font-black text-white/30 line-through decoration-white/20">
-                  • Lie to apps
-                </p>
-                <p className="text-2xl md:text-3xl lg:text-4xl font-black text-white/30 line-through decoration-white/20">
-                  • Lie to journals
-                </p>
-                <p className="text-2xl md:text-3xl lg:text-4xl font-black text-white/30 line-through decoration-white/20">
-                  • Lie to yourself
-                </p>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
+              
+              {/* Left - The cycle */}
+              <div>
+                <h2 className="text-2xl md:text-3xl font-bold mb-10 leading-tight">
+                  You know the cycle.
+                </h2>
+                
+                <div className="space-y-8">
+                  <div className="border-l-4 border-red-500 pl-6">
+                    <div className="font-bold text-lg mb-2">Sunday night motivation</div>
+                    <p className="text-sm text-white/60 leading-relaxed">"This week is going to be different. I'm going to wake up at 6am, hit the gym, eat clean, finish that project."</p>
+                  </div>
+                  
+                  <div className="border-l-4 border-red-500 pl-6">
+                    <div className="font-bold text-lg mb-2">Monday reality</div>
+                    <p className="text-sm text-white/60 leading-relaxed">Snoozed the alarm. Skipped the gym. Ordered takeout. Scrolled until 2am. Told yourself "I'll start tomorrow."</p>
+                  </div>
+                  
+                  <div className="border-l-4 border-red-500 pl-6">
+                    <div className="font-bold text-lg mb-2">The guilt spiral</div>
+                    <p className="text-sm text-white/60 leading-relaxed">You're not lazy. You're not broken. You just have no one to answer to except yourself. And you've learned to lie to yourself really well.</p>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Right - What failed */}
+              <div>
+                <h2 className="text-base font-bold mb-8 flex items-center gap-3">
+                  <X size={20} className="text-red-500" />
+                  What you've already tried
+                </h2>
+                
+                <div className="space-y-0">
+                  {[
+                    { thing: "Productivity apps", why: "Abandoned after 3 days. Too easy to ignore." },
+                    { thing: "Habit trackers", why: "Broke the streak, felt guilty, deleted it." },
+                    { thing: "Accountability partners", why: "They got busy. Stopped asking." },
+                    { thing: "Journaling", why: "Blank pages. Broken promises." },
+                    { thing: "\"Wake up earlier\"", why: "Snoozed 47 times." },
+                    { thing: "Motivational content", why: "Felt good. Changed nothing." },
+                  ].map((item, i) => (
+                    <div key={i} className="flex gap-4 py-4 border-b border-white/10">
+                      <X size={16} className="text-red-500 flex-shrink-0 mt-1" />
+                      <div>
+                        <div className="text-sm font-bold">{item.thing}</div>
+                        <div className="text-sm text-white/50">{item.why}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
+          </div>
+        </section>
+
+        {/* ============ THE INSIGHT - WHITE ============ */}
+        <section className="px-6 py-32 bg-white text-black border-b-2 border-black relative overflow-hidden">
+          {/* Large background text */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none">
+            <span className="text-[20vw] font-bold text-black/[0.03] leading-none">VOICE</span>
+          </div>
+          
+          <div className="max-w-4xl mx-auto relative z-10">
             
-            {/* Right Side - The solution (Orange card on black) */}
-            <div className="flex flex-col justify-center items-center lg:items-start">
-              <div className="relative">
-                {/* Offset shadow */}
-                <div className="absolute inset-0 bg-[#0A0A0A] translate-x-3 translate-y-3" />
-                {/* Orange card */}
-                <div className="relative bg-[#F97316] border-4 border-[#0A0A0A] p-8 md:p-10 max-w-md">
-                  <h2 className="text-2xl md:text-3xl font-black text-[#0A0A0A] leading-tight mb-4">
-                    YOU CAN&apos;T LIE TO YOUR OWN VOICE.
-                  </h2>
-                  <p className="text-base text-[#0A0A0A]/70 leading-relaxed">
-                    When you have to say it out loud — &quot;I didn&apos;t do it&quot; — something changes. You hear the truth.
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-12 md:gap-16 items-center">
+              
+              {/* Left - The lies */}
+              <div className="space-y-6">
+                <div className="text-xs uppercase tracking-widest text-black/40 mb-2">What you can lie to</div>
+                
+                <div className="space-y-4">
+                  <div className="flex items-center gap-4 p-4 bg-black/5 border-l-4 border-black/20">
+                    <X size={20} className="text-black/30" />
+                    <span className="text-base text-black/50 line-through">Apps & notifications</span>
+                  </div>
+                  <div className="flex items-center gap-4 p-4 bg-black/5 border-l-4 border-black/20">
+                    <X size={20} className="text-black/30" />
+                    <span className="text-base text-black/50 line-through">Checkboxes & streaks</span>
+                  </div>
+                  <div className="flex items-center gap-4 p-4 bg-black/5 border-l-4 border-black/20">
+                    <X size={20} className="text-black/30" />
+                    <span className="text-base text-black/50 line-through">The voice in your head</span>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Right - The truth */}
+              <div className="border-4 border-black p-8 bg-black text-white shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+                <div className="text-xs uppercase tracking-widest text-white/40 mb-6">What you can't lie to</div>
+                
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="w-14 h-14 border-2 border-[#00FF00] flex items-center justify-center">
+                    <Mic size={28} className="text-[#00FF00]" />
+                  </div>
+                  <span className="text-2xl font-bold">Your own voice</span>
+                </div>
+                
+                <p className="text-base text-white/70 leading-relaxed mb-6">
+                  When you have to say it out loud — "I didn't do it" — something changes. 
+                  You can't rationalize. You can't minimize. You hear the truth.
+                </p>
+                
+                <div className="pt-6 border-t border-white/20">
+                  <p className="text-sm text-white/50 italic">
+                    "That's why I built this. Not an app you check. A call you answer. 
+                    Your voice. Your truth. Every night."
                   </p>
                 </div>
               </div>
             </div>
+          </div>
+        </section>
+
+        {/* ============ HOW IT WORKS - WHITE ============ */}
+        <section className="px-6 py-24 bg-white text-black border-b-2 border-black">
+          <div className="max-w-5xl mx-auto">
             
-          </div>
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════════════════════════════════════════
-          HOW IT WORKS - Numbered steps, stark contrast
-      ══════════════════════════════════════════════════════════════════════ */}
-      <section id="how-it-works" className="py-32 bg-white text-[#0A0A0A] relative overflow-hidden">
-        {/* Background image with overlay */}
-        <div className="absolute inset-0">
-          <Image 
-            src="/alarm.png" 
-            alt="" 
-            fill 
-            className="object-cover object-center opacity-10"
-          />
-          {/* Dark overlay */}
-          <div className="absolute inset-0 bg-white/80" />
-        </div>
-        
-        <div className="max-w-[1400px] mx-auto px-6 md:px-12 relative z-10">
-          
-          <div className="mb-16">
-            <span className="text-xs font-mono uppercase tracking-[0.2em] text-[#F97316]">How it works</span>
-            <h2 className="text-3xl md:text-4xl font-black mt-2">THREE MOMENTS. EVERY DAY.</h2>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-0">
+            <div className="text-center mb-16">
+              <h2 className="text-2xl md:text-3xl font-bold mb-4">How it actually works</h2>
+              <p className="text-base text-black/60 max-w-lg mx-auto">No complex setup. No gamification. No streaks to protect. Just one call every night that changes everything.</p>
+            </div>
             
-            {/* Step 1 */}
-            <div className="border-b md:border-b-0 md:border-r border-[#0A0A0A]/10 p-10">
-              <div className="text-[120px] font-black leading-none text-[#0A0A0A]/5 -mb-8">01</div>
-              <h3 className="text-xl font-black mb-4">THE WEIGHT</h3>
-              <p className="text-[#0A0A0A]/60 leading-relaxed">
-                Live your day knowing the call is coming tonight. No app to check. Just the quiet knowledge that you&apos;ll have to answer for what you did.
-              </p>
-            </div>
-
-            {/* Step 2 */}
-            <div className="border-b md:border-b-0 md:border-r border-[#0A0A0A]/10 p-10">
-              <div className="text-[120px] font-black leading-none text-[#0A0A0A]/5 -mb-8">02</div>
-              <h3 className="text-xl font-black mb-4">THE AUDIT</h3>
-              <p className="text-[#0A0A0A]/60 leading-relaxed">
-                Your phone rings. The AI remembers exactly what you committed to. Now you have to say out loud whether you did it.
-              </p>
-            </div>
-
-            {/* Step 3 */}
-            <div className="p-10 bg-[#F97316]">
-              <div className="text-[120px] font-black leading-none text-[#0A0A0A]/10 -mb-8">03</div>
-              <h3 className="text-xl font-black mb-4">TOMORROW&apos;S PLAN</h3>
-              <p className="text-[#0A0A0A]/70 leading-relaxed">
-                After the audit, you set tomorrow&apos;s commitments. Say them out loud. The AI remembers. Tomorrow night, you&apos;ll answer for these too.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════════════════════════════════════════
-          FEATURES - Minimal grid
-      ══════════════════════════════════════════════════════════════════════ */}
-      <section className="py-32">
-        <div className="max-w-[1400px] mx-auto px-6 md:px-12">
-          
-          <h2 className="text-lg font-black mb-12 text-white/50">WHAT MAKES THIS DIFFERENT</h2>
-          
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-[1px] bg-white/10">
-            <div className="bg-[#0A0A0A] p-8 hover:bg-[#111] transition-colors">
-              <div className="w-12 h-12 border border-white/20 flex items-center justify-center mb-6">
-                <Mic size={20} />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-0">
+              
+              {/* Step 1 */}
+              <div className="border-2 border-black p-8 md:border-r-0">
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="w-12 h-12 bg-black text-white flex items-center justify-center text-lg font-bold">1</div>
+                  <Clock size={24} />
+                </div>
+                <h3 className="text-base font-bold mb-3">DAY: THE WEIGHT</h3>
+                <p className="text-sm text-black/60 mb-5 leading-relaxed">
+                  Live your day knowing the call is coming tonight. No app to check. No boxes to tick. 
+                  Just the quiet knowledge that you'll have to answer for what you did.
+                </p>
+                <div className="bg-black text-white p-4 text-sm">
+                  <div className="text-white/40 mb-2">The feeling:</div>
+                  You can't escape it. The audit is coming.
+                </div>
               </div>
-              <h3 className="text-sm font-black mb-2">VOICE-FIRST</h3>
-              <p className="text-sm text-white/50">No typing. You have to say it out loud.</p>
-            </div>
-            
-            <div className="bg-[#0A0A0A] p-8 hover:bg-[#111] transition-colors">
-              <div className="w-12 h-12 border border-white/20 flex items-center justify-center mb-6">
-                <Phone size={20} />
-              </div>
-              <h3 className="text-sm font-black mb-2">REAL CALLS</h3>
-              <p className="text-sm text-white/50">Not notifications. Can&apos;t swipe away.</p>
-            </div>
-            
-            <div className="bg-[#0A0A0A] p-8 hover:bg-[#111] transition-colors">
-              <div className="w-12 h-12 border border-white/20 flex items-center justify-center mb-6">
-                <Brain size={20} />
-              </div>
-              <h3 className="text-sm font-black mb-2">AI MEMORY</h3>
-              <p className="text-sm text-white/50">It remembers everything. Your patterns. Your excuses.</p>
-            </div>
-            
-            <div className="bg-[#0A0A0A] p-8 hover:bg-[#111] transition-colors">
-              <div className="w-12 h-12 border border-white/20 flex items-center justify-center mb-6">
-                <BarChart3 size={20} />
-              </div>
-              <h3 className="text-sm font-black mb-2">WEEKLY AUDITS</h3>
-              <p className="text-sm text-white/50">Face your track record. How many times did you keep your word?</p>
-            </div>
-          </div>
-        </div>
-      </section>
 
-      {/* ══════════════════════════════════════════════════════════════════════
-          PRICING - Split, dramatic
-      ══════════════════════════════════════════════════════════════════════ */}
-      <section className="relative">
-        <div className="grid grid-cols-1 lg:grid-cols-2 min-h-screen">
-          
-          {/* Left - CTA with background */}
-          <div className="relative p-12 md:p-20 flex items-center">
-            {/* Background image */}
-            <div className="absolute inset-0">
-              <Image 
-                src="/2sides.png" 
-                alt="" 
-                fill 
-                className="object-cover object-center opacity-20"
-              />
-              {/* Dark overlay */}
-              <div className="absolute inset-0 bg-[#0A0A0A]/75" />
-            </div>
-            
-            <div className="relative z-10">
-              <h2 className="text-4xl md:text-5xl font-black leading-tight mb-6">
-                THE CALL IS<br />
-                <span className="text-[#F97316]">COMING.</span>
-              </h2>
-              
-              <p className="text-xl text-white/60 mb-4">Tonight at 9pm, your phone will ring.</p>
-              <p className="text-base text-white/40 max-w-md mb-12 leading-relaxed">
-                You&apos;ll hear the question: &quot;Did you do what you said you would do?&quot;
-                And for the first time, you won&apos;t be able to lie.
-              </p>
-              
-              <button 
-                onClick={startOnboarding}
-                className="bg-[#F97316] text-black font-black text-lg px-10 py-5 hover:bg-[#FB923C] transition-colors flex items-center gap-3"
-              >
-                ANSWER THE CALL
-                <ArrowRight size={20} />
-              </button>
+              {/* Step 2 */}
+              <div className="border-2 border-black p-8 md:border-r-0">
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="w-12 h-12 bg-black text-white flex items-center justify-center text-lg font-bold">2</div>
+                  <Phone size={24} />
+                </div>
+                <h3 className="text-base font-bold mb-3">NIGHT: THE AUDIT</h3>
+                <p className="text-sm text-black/60 mb-5 leading-relaxed">
+                  Your phone rings. The AI remembers exactly what you committed to. 
+                  Now you have to say out loud whether you did it. No dodging. Just truth.
+                </p>
+                <div className="bg-black text-white p-4 text-sm">
+                  <div className="text-white/40 mb-2">The question:</div>
+                  "You said gym and side project. Did you do it?"
+                </div>
+              </div>
+
+              {/* Step 3 */}
+              <div className="border-2 border-black p-8 bg-black text-white">
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="w-12 h-12 bg-white text-black flex items-center justify-center text-lg font-bold">3</div>
+                  <ArrowRight size={24} />
+                </div>
+                <h3 className="text-base font-bold mb-3">THEN: TOMORROW'S PLAN</h3>
+                <p className="text-sm text-white/60 mb-5 leading-relaxed">
+                  After the audit, you set tomorrow's commitments. Say them out loud. 
+                  The AI remembers. Tomorrow night, you'll answer for these too.
+                </p>
+                <div className="bg-white text-black p-4 text-sm">
+                  <div className="text-black/40 mb-2">Your commitment:</div>
+                  "Tomorrow I'll wake up at 7, finish the report, and call mom."
+                </div>
+              </div>
             </div>
           </div>
-          
-          {/* Right - Pricing */}
-          <div className="bg-[#F97316] p-12 md:p-20 flex items-center justify-center text-[#0A0A0A]">
-            <div className="max-w-sm w-full">
+        </section>
+
+        {/* ============ FEATURES - WHITE continues ============ */}
+        <section className="px-6 py-24 bg-white text-black border-b-2 border-black">
+          <div className="max-w-5xl mx-auto">
+            
+            <h2 className="text-lg font-bold mb-12 text-center">What makes this different</h2>
+            
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               
-              <div className="text-xs font-mono uppercase tracking-widest mb-4 opacity-60">Simple pricing</div>
+              <div className="border-2 border-black p-6">
+                <div className="w-10 h-10 border-2 border-black flex items-center justify-center mb-4">
+                  <Mic size={20} />
+                </div>
+                <h3 className="text-sm font-bold mb-2">VOICE-FIRST</h3>
+                <p className="text-sm text-black/60 leading-relaxed">No typing. You have to say it out loud. There's power in hearing your own voice commit.</p>
+              </div>
+
+              <div className="border-2 border-black p-6">
+                <div className="w-10 h-10 border-2 border-black flex items-center justify-center mb-4">
+                  <Volume2 size={20} />
+                </div>
+                <h3 className="text-sm font-bold mb-2">REAL CALLS</h3>
+                <p className="text-sm text-black/60 leading-relaxed">Not notifications. Real calls you have to pick up. Can't swipe away.</p>
+              </div>
+
+              <div className="border-2 border-black p-6">
+                <div className="w-10 h-10 border-2 border-black flex items-center justify-center mb-4">
+                  <Calendar size={20} />
+                </div>
+                <h3 className="text-sm font-bold mb-2">AI MEMORY</h3>
+                <p className="text-sm text-black/60 leading-relaxed">It remembers everything. Your patterns. Your excuses. You can't gaslight it.</p>
+              </div>
+
+              <div className="border-2 border-black p-6 bg-black text-white">
+                <div className="w-10 h-10 border-2 border-white flex items-center justify-center mb-4">
+                  <TrendingUp size={20} />
+                </div>
+                <h3 className="text-sm font-bold mb-2">WEEKLY AUDITS</h3>
+                <p className="text-sm text-white/60 leading-relaxed">Every week, face your track record. How many times did you keep your word?</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ============ IS THIS YOU - WHITE continues ============ */}
+        <section className="px-6 py-24 bg-white border-b-2 border-black">
+          <div className="max-w-5xl mx-auto">
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
               
-              <div className="text-7xl font-black mb-2">$6.99</div>
-              <p className="text-lg opacity-60 mb-10">/week after 7-day free trial</p>
-              
-              <div className="space-y-4 mb-10">
-                {[
-                  'Nightly accountability calls',
-                  'AI that remembers everything',
-                  'Weekly performance audits',
-                  'Pattern recognition',
-                  'Cancel anytime'
-                ].map((item, i) => (
-                  <div key={i} className="flex items-center gap-3">
-                    <div className="w-5 h-5 bg-[#0A0A0A] flex items-center justify-center">
-                      <ArrowRight size={12} className="text-[#F97316]" />
+              {/* Left */}
+              <div>
+                <h2 className="text-2xl md:text-3xl font-bold mb-4">Is this you?</h2>
+                <p className="text-base text-black/60 mb-8">If any of these hit close to home, you might be exactly who this is for.</p>
+                
+                <div className="space-y-3">
+                  {[
+                    "You've said \"I'll start Monday\" more times than you can count",
+                    "You know exactly what you need to do - you just don't do it",
+                    "You've downloaded dozens of apps and abandoned them all",
+                    "You're tired of making promises to yourself and breaking them",
+                    "You've lost trust in your own word",
+                    "You're done with gentle approaches - you need something real"
+                  ].map((item, i) => (
+                    <div key={i} className="flex items-start gap-4 p-4 border-2 border-black">
+                      <Check size={18} className="flex-shrink-0 mt-0.5" />
+                      <span className="text-sm">{item}</span>
                     </div>
-                    <span className="font-medium">{item}</span>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
               
-              <button 
-                onClick={startOnboarding}
-                className="w-full bg-[#0A0A0A] text-white font-black text-lg py-5 hover:bg-[#1A1A1A] transition-colors"
-              >
-                START FREE TRIAL
-              </button>
-              
-              <p className="text-center text-sm mt-4 opacity-50">No credit card required</p>
+              {/* Right - Results mockup */}
+              <div className="border-2 border-black p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+                <div className="text-xs uppercase tracking-wider text-black/40 mb-6">Your weekly audit - Week 3</div>
+                
+                <div className="grid grid-cols-7 gap-2 mb-6">
+                  {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, i) => (
+                    <div key={i} className="text-center">
+                      <div className="text-xs text-black/40 mb-2">{day}</div>
+                      <div className={`w-full aspect-square border-2 border-black flex items-center justify-center ${i < 5 ? 'bg-black' : i === 5 ? 'bg-white' : 'bg-black/5'}`}>
+                        {i < 5 && <Check size={16} className="text-white" />}
+                        {i === 5 && <X size={16} className="text-red-500" />}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                
+                <div className="space-y-3 border-t-2 border-black pt-5 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-black/60">Commitments kept</span>
+                    <span className="font-bold">5/6 (83%)</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-black/60">Current streak</span>
+                    <span className="font-bold">12 days</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-black/60">Total audits</span>
+                    <span className="font-bold">21</span>
+                  </div>
+                </div>
+                
+                <div className="mt-5 p-4 bg-black text-white text-sm">
+                  <div className="font-bold mb-2">AI Note:</div>
+                  <p className="text-white/70 leading-relaxed">"Saturday you said the wedding threw off your schedule. Pattern: social events disrupt routine. Consider lighter goals on event days."</p>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* ══════════════════════════════════════════════════════════════════════
-          FAQ - Minimal
-      ══════════════════════════════════════════════════════════════════════ */}
-      <section className="py-32 bg-[#0A0A0A]">
-        <div className="max-w-[800px] mx-auto px-6 md:px-12">
-          
-          <h2 className="text-lg font-black mb-12 text-white/50">QUESTIONS</h2>
-          
-          <div className="divide-y divide-white/10">
-            {[
-              { q: "Is this actually a real phone call?", a: "Yes. Your phone rings. You pick up. You speak. It's not a notification you can swipe away." },
-              { q: "What if I miss a call?", a: "We'll try again. But when you know the call is coming, you don't want to miss it. That's the point." },
-              { q: "This sounds kind of intense.", a: "It is. That's why it works. You've tried gentle. It didn't work." },
-              { q: "What does the AI remember?", a: "Everything. Your commitments, results, patterns, excuses. It builds a picture of who you're trying to become." },
-              { q: "Can I cancel anytime?", a: "Yes. But most people don't. Not because they're trapped, but because it's working." },
-            ].map((item, i) => (
-              <div key={i} className="py-8">
-                <h3 className="text-base font-bold mb-3">{item.q}</h3>
-                <p className="text-sm text-white/50 leading-relaxed">{item.a}</p>
+        {/* ============ CTA + PRICING - BLACK ============ */}
+        <section className="bg-black text-white border-b-2 border-black">
+          <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2">
+            
+            {/* CTA - Left */}
+            <div className="px-6 py-24 flex items-center">
+              <div>
+                <h2 className="text-3xl md:text-4xl font-bold mb-6 leading-tight">
+                  THE CALL<br />IS COMING.
+                </h2>
+                <p className="text-lg text-white/60 mb-4">
+                  Tonight at 9pm, your phone will ring.
+                </p>
+                <p className="text-sm text-white/50 mb-10 leading-relaxed max-w-sm">
+                  You'll hear the question: "Did you do what you said you would do?"
+                  And for the first time, you won't be able to lie.
+                </p>
+                <button 
+                  onClick={startOnboarding}
+                  className="bg-white text-black px-8 py-4 text-sm font-bold border-2 border-white shadow-[6px_6px_0px_0px_rgba(255,255,255,0.3)] hover:shadow-none hover:translate-x-1.5 hover:translate-y-1.5 transition-all inline-flex items-center gap-3"
+                >
+                  <span>ANSWER THE CALL</span>
+                  <ArrowRight size={18} />
+                </button>
               </div>
-            ))}
-          </div>
-        </div>
-      </section>
+            </div>
 
-      {/* ══════════════════════════════════════════════════════════════════════
-          FINAL CTA
-      ══════════════════════════════════════════════════════════════════════ */}
-      <section className="py-40 text-center relative overflow-hidden">
-        {/* Background image with overlay */}
-        <div className="absolute inset-0">
-          <Image 
-            src="/tabe.png" 
-            alt="" 
-            fill 
-            className="object-cover object-center opacity-25"
-          />
-          {/* Dark overlay */}
-          <div className="absolute inset-0 bg-[#0A0A0A]/70" />
-        </div>
-        
-        {/* Background glow */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[#F97316] rounded-full blur-[250px] opacity-[0.1]" />
-        
-        <div className="max-w-[600px] mx-auto px-6 relative z-10">
-          <h2 className="text-3xl md:text-4xl font-black mb-4">
-            STOP LYING<br />TO YOURSELF.
-          </h2>
-          <p className="text-lg text-white/50 mb-10">The call is coming. Will you answer?</p>
-          
-          <button 
-            onClick={startOnboarding}
-            className="bg-[#F97316] text-black font-black text-lg px-12 py-6 hover:bg-[#FB923C] transition-colors inline-flex items-center gap-3"
-          >
-            START YOUR FIRST CALL
-            <ArrowRight size={20} />
-          </button>
-        </div>
-      </section>
+            {/* Pricing - Right */}
+            <div className="px-6 py-24 flex items-center justify-center border-t-2 lg:border-t-0 lg:border-l-2 border-white/20">
+              <div className="w-full max-w-sm">
+                
+                <div className="border-2 border-white p-8">
+                  
+                  <div className="text-xs uppercase tracking-wider text-white/40 mb-4">Simple pricing</div>
+                  
+                  <div className="text-5xl font-bold mb-2">$6.99</div>
+                  <p className="text-sm text-white/60 mb-8">/week after 7-day free trial</p>
 
-      {/* ══════════════════════════════════════════════════════════════════════
-          FOOTER - Minimal
-      ══════════════════════════════════════════════════════════════════════ */}
-      <footer className="py-12 border-t border-white/10">
-        <div className="max-w-[1400px] mx-auto px-6 md:px-12 flex flex-col md:flex-row justify-between items-center gap-6">
-          <div className="flex items-center gap-2">
-            <WitnessLogo size="sm" showWordmark />
+                  <div className="space-y-3 mb-8 py-6 border-y-2 border-white/20 text-sm">
+                    {[
+                      'Nightly accountability calls',
+                      'AI that remembers everything',
+                      'Weekly performance audits',
+                      'Pattern recognition',
+                      'Cancel anytime'
+                    ].map((item, i) => (
+                      <div key={i} className="flex items-center gap-3">
+                        <Check size={16} />
+                        <span>{item}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <button 
+                    onClick={startOnboarding}
+                    className="w-full bg-white text-black py-4 text-sm font-bold border-2 border-white hover:bg-black hover:text-white transition-colors"
+                  >
+                    START FREE TRIAL
+                  </button>
+                  
+                  <p className="text-center text-xs text-white/40 mt-4">No credit card required</p>
+                </div>
+              </div>
+            </div>
           </div>
-          <div className="flex gap-8 text-sm text-white/40">
-            <a href="mailto:support@youplus.app" className="hover:text-white transition-colors">Contact</a>
-            <a href="/legal/terms" className="hover:text-white transition-colors">Terms</a>
-            <a href="/legal/privacy" className="hover:text-white transition-colors">Privacy</a>
+        </section>
+
+        {/* ============ FAQ - WHITE ============ */}
+        <section className="px-6 py-24 bg-white text-black border-b-2 border-black">
+          <div className="max-w-3xl mx-auto">
+            
+            <h2 className="text-lg font-bold mb-12">Questions you might have</h2>
+            
+            <div className="space-y-0">
+              {[
+                { q: "Is this actually a real phone call?", a: "Yes. Your phone rings. You pick up. You speak. It's not a notification you can swipe away." },
+                { q: "What if I miss a call?", a: "We'll try again. But when you know the call is coming, you don't want to miss it. That's the point." },
+                { q: "This sounds kind of intense.", a: "It is. That's why it works. You've tried gentle. None of it worked because none of it had real weight." },
+                { q: "What does the AI remember?", a: "Everything. Your commitments, results, patterns, excuses. It builds a picture of who you're trying to become." },
+                { q: "Is this actually healthy?", a: "Honestly? Not sure. But it has broken cycles that people have been stuck in for years." },
+                { q: "Can I cancel anytime?", a: "Yes. But most people don't. Not because they're trapped, but because it's actually working." },
+              ].map((item, i) => (
+                <div key={i} className="py-6 border-b-2 border-black">
+                  <h3 className="text-base font-bold mb-2">{item.q}</h3>
+                  <p className="text-sm text-black/60 leading-relaxed">{item.a}</p>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      </footer>
+        </section>
+
+        {/* ============ FINAL CTA - BLACK ============ */}
+        <section className="px-6 py-24 bg-black text-white text-center">
+          <div className="max-w-xl mx-auto">
+            <h2 className="text-2xl md:text-3xl font-bold mb-4">Stop lying to yourself.</h2>
+            <p className="text-base text-white/60 mb-10">The call is coming. Will you answer?</p>
+            <button 
+              onClick={startOnboarding}
+              className="bg-white text-black px-8 py-4 text-sm font-bold border-2 border-white hover:bg-black hover:text-white transition-all inline-flex items-center gap-3"
+            >
+              <span>START YOUR FIRST CALL</span>
+              <ArrowRight size={18} />
+            </button>
+          </div>
+        </section>
+
+        {/* Footer */}
+        <footer className="px-6 py-8 bg-black text-white border-t-2 border-white/20">
+          <div className="max-w-3xl mx-auto flex justify-between items-center text-sm">
+            <span className="font-bold">You+</span>
+            <div className="flex gap-8">
+              <a href="#" className="text-white/50 hover:text-white">Contact</a>
+              <a href="#" className="text-white/40 hover:text-white">Terms</a>
+            </div>
+          </div>
+        </footer>
+
+      </main>
     </div>
   );
 }

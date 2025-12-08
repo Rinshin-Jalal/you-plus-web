@@ -18,69 +18,21 @@ export const Button: React.FC<ButtonProps> = ({
   ...props
 }) => {
   
-  // Base styles: Organic Brutalism - pill shaped, bouncy animations
-  const baseStyles = `
-    relative font-bold tracking-wide 
-    transition-all duration-300 
-    disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none
-    group overflow-hidden
-    inline-flex items-center justify-center gap-3
-  `;
+  // Base styles: Extremely brutalist, sharp edges, no smoothing.
+  const baseStyles = "relative font-display font-bold uppercase tracking-widest border-2 transition-all duration-100 disabled:opacity-50 disabled:cursor-not-allowed group overflow-hidden";
   
   const variants = {
-    // Primary: Orange solid, slightly rounded
-    primary: `
-      bg-[#F97316]
-      text-[#0D0D0D] 
-      rounded-md
-      hover:bg-[#FB923C]
-      hover:-translate-y-0.5
-      active:translate-y-0
-      disabled:bg-[#262626] 
-      disabled:text-[#525252]
-    `,
-    // Secondary: Outline, slightly rounded
-    secondary: `
-      bg-transparent 
-      text-[#F97316] 
-      border-2 border-[#F97316]
-      rounded-md
-      hover:bg-[#F97316] hover:text-[#0D0D0D]
-      hover:-translate-y-0.5
-    `,
-    // Danger: Red accent
-    danger: `
-      bg-transparent 
-      text-[#EF4444] 
-      border-2 border-[#EF4444]
-      rounded-md
-      hover:bg-[#EF4444] hover:text-white
-      hover:-translate-y-0.5
-    `,
-    // Success: Green solid
-    success: `
-      bg-[#22C55E]
-      text-[#0D0D0D]
-      rounded-md
-      hover:bg-[#4ADE80]
-      hover:-translate-y-0.5
-      active:translate-y-0
-    `,
-    // Outline/Ghost: Subtle
-    outline: `
-      bg-transparent 
-      text-[#A3A3A3] 
-      border-2 border-[#333333]
-      rounded-md
-      hover:border-[#F97316] hover:text-[#F97316]
-      hover:bg-[rgba(249,115,22,0.1)]
-    `,
+    primary: "border-black bg-black text-white hover:bg-white hover:text-black", // Inverts on hover
+    secondary: "border-black bg-white text-black hover:bg-black hover:text-white",
+    danger: "border-neon-red bg-transparent text-neon-red hover:bg-neon-red hover:text-black", 
+    success: "border-neon-teal bg-neon-teal text-black hover:bg-white",
+    outline: "border-current bg-transparent hover:bg-white/10",
   };
 
   const sizes = {
-    sm: "px-5 py-2.5 text-xs",
-    md: "px-7 py-3.5 text-sm",
-    lg: "px-10 py-5 text-base",
+    sm: "px-4 py-2 text-xs",
+    md: "px-8 py-4 text-sm",
+    lg: "px-12 py-6 text-lg",
   };
 
   return (
@@ -91,11 +43,12 @@ export const Button: React.FC<ButtonProps> = ({
     >
       <span className="relative z-10 flex items-center justify-center gap-3 w-full">
         {isLoading && (
-          <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full" />
+          <div className="animate-spin h-3 w-3 border-2 border-current border-t-transparent rounded-none" />
         )}
         {children}
       </span>
-
+      {/* Hover Glitch Line */}
+      <div className="absolute top-0 left-0 w-full h-full bg-white/10 transform -translate-x-full group-hover:translate-x-0 transition-transform duration-300 pointer-events-none" />
     </button>
   );
 };
