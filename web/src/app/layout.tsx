@@ -1,18 +1,20 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
 import { AuthProvider } from "@/hooks/useAuth";
 import "./globals.css";
 
-const geist = Geist({
+const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
-  variable: "--font-geist",
+  variable: "--font-space-grotesk",
   display: "swap",
+  weight: ["300", "400", "500", "600", "700"],
 });
 
-const geistMono = Geist_Mono({
+const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
-  variable: "--font-geist-mono",
+  variable: "--font-jetbrains-mono",
   display: "swap",
+  weight: ["400", "500"],
 });
 
 export const metadata: Metadata = {
@@ -30,8 +32,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${geist.variable} ${geistMono.variable}`} suppressHydrationWarning>
-      <body className="bg-[#0D0D0D] text-[#FAFAFA] font-sans antialiased" style={{ fontFamily: 'var(--font-geist), system-ui, sans-serif' }}>
+    <html lang="en" className={`${spaceGrotesk.variable} ${jetbrainsMono.variable}`} suppressHydrationWarning>
+      <body className="bg-[#0D0D0D] text-[#FAFAFA] antialiased" style={{ fontFamily: 'var(--font-space-grotesk), system-ui, sans-serif' }}>
         <AuthProvider>
           {children}
         </AuthProvider>

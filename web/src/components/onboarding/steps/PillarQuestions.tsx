@@ -131,9 +131,9 @@ export const PillarQuestions = ({
           return (
             <div
               key={q}
-              className={`w-3 h-3 rounded-full transition-all duration-300 ${
+              className={`w-3 h-3 rounded-sm transition-all duration-300 ${
                 isCurrent 
-                  ? 'bg-orange-500 scale-125 shadow-[0_0_8px_rgba(249,115,22,0.5)]' 
+                  ? 'bg-orange-500 scale-125' 
                   : isCompleted 
                     ? 'bg-orange-500' 
                     : 'bg-white/20'
@@ -207,9 +207,9 @@ export const PillarQuestions = ({
 
       {/* Overall progress bar */}
       <div className="mt-12 w-full max-w-xs mx-auto">
-        <div className="h-1 bg-white/10 rounded-full overflow-hidden">
+        <div className="h-1 bg-white/10 rounded overflow-hidden">
           <div 
-            className="h-full bg-gradient-to-r from-orange-500 to-amber-500 transition-all duration-500 ease-out shadow-[0_0_8px_rgba(249,115,22,0.5)]"
+            className="h-full bg-gradient-to-r from-orange-500 to-amber-500 transition-all duration-500 ease-out rounded"
             style={{ width: `${progress}%` }}
           />
         </div>

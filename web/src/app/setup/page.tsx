@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button';
 import { PhoneInput, isValidE164 } from '@/components/shared/PhoneInput';
 import { apiClient } from '@/services/api';
 import { useDashboardStore } from '@/stores/dashboardStore';
+import { Phone, X, Check } from 'lucide-react';
 
 /**
  * Setup Page - The gateway after onboarding
@@ -150,7 +151,7 @@ export default function SetupPage() {
   if (authLoading || subLoading || step === 'checking' || step === 'pushing') {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#0D0D0D] p-4">
-        <div className="animate-spin rounded-full h-12 w-12 border-2 border-white border-t-transparent mb-4"></div>
+        <div className="animate-spin rounded h-12 w-12 border-2 border-white border-t-transparent mb-4"></div>
         <p className="text-white/60 font-mono text-sm">
           {authLoading && 'Checking authentication...'}
           {!authLoading && subLoading && 'Checking subscription...'}
@@ -166,8 +167,8 @@ export default function SetupPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#0D0D0D] p-4">
         <div className="max-w-md w-full text-center">
-          <div className="w-20 h-20 bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
-            <span className="text-4xl">😕</span>
+          <div className="w-20 h-20 bg-red-900/30 rounded-md flex items-center justify-center mx-auto mb-6">
+            <X className="w-10 h-10 text-red-400" />
           </div>
           <h1 className="text-2xl font-bold text-white mb-4">
             Something went wrong
@@ -199,7 +200,7 @@ export default function SetupPage() {
           {['phone', 'complete'].map((s, idx) => (
             <div
               key={s}
-              className={`h-2 w-16 rounded-full transition-colors ${
+              className={`h-2 w-16 rounded transition-colors ${
                 step === s
                   ? 'bg-[#F97316]'
                   : ['phone', 'complete'].indexOf(step) > idx
@@ -214,8 +215,8 @@ export default function SetupPage() {
         {step === 'phone' && (
           <div className="animate-fade-in">
             <div className="text-center mb-8">
-              <div className="w-20 h-20 bg-[#F97316]/20 rounded-full flex items-center justify-center mx-auto mb-6">
-                <span className="text-4xl">📱</span>
+              <div className="w-20 h-20 bg-[#F97316]/20 rounded-md flex items-center justify-center mx-auto mb-6">
+                <Phone className="w-10 h-10 text-[#F97316]" />
               </div>
               <h1 className="text-3xl font-bold text-white mb-4">
                 Almost There!
@@ -283,7 +284,7 @@ export default function SetupPage() {
         {step === 'complete' && (
           <div className="text-center animate-fade-in">
             <div className="mb-8">
-              <div className="w-20 h-20 bg-[#F97316]/20 rounded-full flex items-center justify-center mx-auto mb-6">
+              <div className="w-20 h-20 bg-[#F97316]/20 rounded-md flex items-center justify-center mx-auto mb-6">
                 <svg
                   className="w-10 h-10 text-[#F97316]"
                   fill="none"

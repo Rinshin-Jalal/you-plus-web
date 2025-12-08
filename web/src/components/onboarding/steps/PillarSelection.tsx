@@ -54,8 +54,8 @@ export const PillarSelection = ({ selected, onSelect, onContinue }: PillarSelect
           {Array.from({ length: MAX_PILLARS }).map((_, i) => (
             <div
               key={i}
-              className={`w-3 h-3 rounded-full transition-all duration-300 ${
-                i < selected.length ? 'bg-orange-500 scale-110 shadow-[0_0_8px_rgba(249,115,22,0.5)]' : 'bg-white/20'
+              className={`w-3 h-3 rounded-sm transition-all duration-300 ${
+                i < selected.length ? 'bg-orange-500 scale-110' : 'bg-white/20'
               }`}
             />
           ))}
@@ -73,9 +73,9 @@ export const PillarSelection = ({ selected, onSelect, onContinue }: PillarSelect
               key={pillar.id}
               onClick={() => togglePillar(pillar.id)}
               disabled={isDisabled}
-              className={`relative p-4 rounded-xl border-2 transition-all duration-200 text-left
+              className={`relative p-4 rounded-md border-2 transition-all duration-200 text-left
                 ${isSelected 
-                  ? 'border-orange-500 bg-orange-500/20 text-white shadow-[0_0_20px_rgba(249,115,22,0.2)]' 
+                  ? 'border-orange-500 bg-orange-500/20 text-white' 
                   : isDisabled
                     ? 'border-white/5 bg-white/5 opacity-50 cursor-not-allowed'
                     : 'border-white/10 bg-white/5 hover:border-orange-500/50 cursor-pointer'
@@ -111,7 +111,7 @@ export const PillarSelection = ({ selected, onSelect, onContinue }: PillarSelect
           <button
             onClick={() => setShowCustomInput(true)}
             disabled={selected.length >= MAX_PILLARS}
-            className={`p-4 rounded-xl border-2 border-dashed transition-all duration-200 text-left
+            className={`p-4 rounded-md border-2 border-dashed transition-all duration-200 text-left
               ${selected.length >= MAX_PILLARS
                 ? 'border-white/5 bg-white/5 opacity-50 cursor-not-allowed'
                 : 'border-white/20 bg-white/5 hover:border-orange-500/50 cursor-pointer'
@@ -128,7 +128,7 @@ export const PillarSelection = ({ selected, onSelect, onContinue }: PillarSelect
             </div>
           </button>
         ) : (
-          <div className="p-4 rounded-xl border-2 border-orange-500 bg-white/5">
+          <div className="p-4 rounded-md border-2 border-orange-500 bg-white/5">
             <input
               type="text"
               value={customPillar}
@@ -173,7 +173,7 @@ export const PillarSelection = ({ selected, onSelect, onContinue }: PillarSelect
               <button
                 key={pillarId}
                 onClick={() => togglePillar(pillarId)}
-                className="flex items-center gap-1 px-3 py-1.5 bg-orange-500/20 text-orange-400 border border-orange-500/30 rounded-full font-mono text-sm hover:bg-orange-500/30 transition-colors"
+                className="flex items-center gap-1 px-3 py-1.5 bg-orange-500/20 text-orange-400 border border-orange-500/30 rounded font-mono text-sm hover:bg-orange-500/30 transition-colors"
               >
                 <span>{icon}</span>
                 <span>{label}</span>
@@ -186,12 +186,12 @@ export const PillarSelection = ({ selected, onSelect, onContinue }: PillarSelect
 
       {/* Continue Button */}
       <div className="flex justify-center">
-        <button
+          <button
           onClick={onContinue}
           disabled={!canContinue}
-          className={`px-8 py-4 rounded-xl font-mono font-bold text-lg transition-all duration-300
+          className={`px-8 py-4 rounded-md font-mono font-bold text-lg transition-all duration-300
             ${canContinue
-              ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white hover:scale-105 cursor-pointer shadow-[0_0_30px_rgba(249,115,22,0.3)]'
+              ? 'bg-[#F97316] text-black hover:bg-[#FB923C] cursor-pointer'
               : 'bg-white/10 text-white/40 cursor-not-allowed'
             }`}
         >

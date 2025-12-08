@@ -58,7 +58,7 @@ export default function BillingSuccessPage() {
         </div>
         <h1 className="text-2xl font-bold">Payment Successful!</h1>
         {processing && (
-          <div className="animate-spin rounded-full h-8 w-8 border-2 border-white border-t-transparent mx-auto" />
+          <div className="animate-spin rounded h-8 w-8 border-2 border-white border-t-transparent mx-auto" />
         )}
       </div>
     </div>

@@ -19,91 +19,67 @@ export const Card: React.FC<CardProps> = ({
   noPadding = false,
   noHover = false,
 }) => {
+  // Organic Brutalism: Minimal rounded corners, subtle shadows, no hard edges
+  const baseStyles = `
+    rounded-lg
+    transition-all duration-300
+    flex flex-col h-full
+  `;
+
   const variants = {
     default: `
-      bg-[var(--gradient-card)] 
-      border-2 border-[var(--border-accent)]
-      shadow-[6px_6px_0px_0px_var(--accent-primary)]
+      bg-gradient-to-br from-[#1A1A1A] to-[#141414]
+      border border-[#333333]
+      shadow-lg
     `,
     elevated: `
-      bg-[var(--gradient-card-elevated)]
-      border-2 border-[var(--border-default)]
-      shadow-[4px_4px_0px_0px_rgba(249,115,22,0.3)]
+      bg-gradient-to-br from-[#262626] to-[#1A1A1A]
+      border border-[#404040]
+      shadow-xl
     `,
     accent: `
-      bg-[var(--gradient-card-accent)]
-      border-2 border-[var(--accent-primary)]
-      shadow-[6px_6px_0px_0px_var(--accent-primary)]
+      bg-gradient-to-br from-[rgba(249,115,22,0.12)] to-[rgba(249,115,22,0.04)]
+      border-2 border-[#F97316]
+      shadow-[0_4px_20px_rgba(249,115,22,0.2)]
     `,
     glass: `
-      bg-[var(--gradient-card-glass)]
+      bg-[rgba(255,255,255,0.03)]
       border border-white/10
-      backdrop-blur-md
+      backdrop-blur-xl
     `,
   };
 
   const hoverStyles = noHover 
     ? '' 
-    : 'hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[8px_8px_0px_0px_var(--accent-primary)] transition-all duration-200';
+    : `
+      hover:-translate-y-1 
+      hover:shadow-xl
+      cursor-pointer
+    `;
 
-  // Use inline styles for gradients since Tailwind can't process CSS variables in bg-[]
-  const getBackgroundStyle = () => {
+  const getHoverShadow = () => {
+    if (noHover) return {};
     switch (variant) {
-      case 'default':
-        return { background: 'linear-gradient(135deg, rgba(26, 26, 26, 1) 0%, rgba(20, 20, 20, 1) 100%)' };
-      case 'elevated':
-        return { background: 'linear-gradient(145deg, rgba(38, 38, 38, 1) 0%, rgba(26, 26, 26, 1) 100%)' };
       case 'accent':
-        return { background: 'linear-gradient(135deg, rgba(249, 115, 22, 0.15) 0%, rgba(249, 115, 22, 0.05) 100%)' };
-      case 'glass':
-        return { background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%)' };
+        return { '--hover-shadow': '0 8px 40px rgba(249, 115, 22, 0.3)' };
       default:
         return {};
-    }
-  };
-
-  const getBorderClass = () => {
-    switch (variant) {
-      case 'default':
-      case 'accent':
-        return 'border-2 border-[#F97316]';
-      case 'elevated':
-        return 'border-2 border-[#333333]';
-      case 'glass':
-        return 'border border-white/10';
-      default:
-        return 'border-2 border-[#F97316]';
-    }
-  };
-
-  const getShadowClass = () => {
-    switch (variant) {
-      case 'default':
-      case 'accent':
-        return 'shadow-[6px_6px_0px_0px_#F97316]';
-      case 'elevated':
-        return 'shadow-[4px_4px_0px_0px_rgba(249,115,22,0.3)]';
-      case 'glass':
-        return '';
-      default:
-        return 'shadow-[6px_6px_0px_0px_#F97316]';
     }
   };
   
   return (
     <div 
       className={`
-        ${getBorderClass()}
-        ${getShadowClass()}
+        ${baseStyles}
+        ${variants[variant]}
         ${hoverStyles}
-        flex flex-col h-full
         ${className}
       `}
-      style={getBackgroundStyle()}
+      style={getHoverShadow() as React.CSSProperties}
     >
       {title && (
-        <div className="border-b-2 border-[#333333] p-4 bg-[#1A1A1A]">
-          <h3 className="text-lg font-mono font-bold uppercase tracking-tight text-[#FAFAFA]">
+        <div className="border-b border-[#333333] px-6 py-4 rounded-t-lg">
+          <h3 className="text-lg font-bold tracking-tight text-[#FAFAFA]">
             {title}
           </h3>
         </div>

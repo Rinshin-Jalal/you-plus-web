@@ -157,9 +157,9 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
       <div className="relative z-10 px-8 py-6 flex justify-between items-center border-b border-white/5">
         <div className="flex items-center gap-4">
             {/* Progress bar */}
-            <div className="w-32 h-1 bg-white/10 rounded-full overflow-hidden">
+            <div className="w-32 h-1 bg-white/10 rounded overflow-hidden">
                 <div 
-                    className="h-full bg-gradient-to-r from-orange-500 to-amber-500 transition-all duration-500 ease-out rounded-full shadow-[0_0_8px_rgba(249,115,22,0.5)]"
+                    className="h-full bg-gradient-to-r from-orange-500 to-amber-500 transition-all duration-500 ease-out rounded"
                     style={{ width: `${progress}%` }}
                 />
             </div>
@@ -268,7 +268,7 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
                                     setData({ ...data, [step.field!]: updated });
                                 }}
                                 disabled={isTransitioning}
-                                className={`w-full p-4 border-2 font-mono text-left transition-all rounded-lg ${
+                                className={`w-full p-4 border-2 font-mono text-left transition-all rounded-md ${
                                     selected 
                                         ? 'border-orange-500 bg-orange-500/20 text-white' 
                                         : 'border-white/10 bg-white/5 text-white hover:border-orange-500/50'
@@ -442,9 +442,9 @@ function FinalLoader({ onComplete }: { onComplete: () => void }) {
             </h2>
             
             {/* Progress bar */}
-            <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
+            <div className="w-full h-2 bg-white/10 rounded overflow-hidden">
                 <div 
-                    className="h-full bg-gradient-to-r from-orange-500 to-amber-500 rounded-full transition-all duration-100 ease-out shadow-[0_0_12px_rgba(249,115,22,0.5)]"
+                    className="h-full bg-gradient-to-r from-orange-500 to-amber-500 transition-all duration-100 ease-out rounded"
                     style={{ width: `${progress}%` }}
                 />
             </div>
@@ -456,9 +456,9 @@ function FinalLoader({ onComplete }: { onComplete: () => void }) {
             
             {/* Loading dots */}
             <div className="flex gap-2">
-                <div className="w-3 h-3 rounded-full bg-orange-500 animate-bounce" style={{ animationDelay: '0ms' }} />
-                <div className="w-3 h-3 rounded-full bg-orange-500 animate-bounce" style={{ animationDelay: '150ms' }} />
-                <div className="w-3 h-3 rounded-full bg-orange-500 animate-bounce" style={{ animationDelay: '300ms' }} />
+                <div className="w-3 h-3 rounded-sm bg-orange-500 animate-bounce" style={{ animationDelay: '0ms' }} />
+                <div className="w-3 h-3 rounded-sm bg-orange-500 animate-bounce" style={{ animationDelay: '150ms' }} />
+                <div className="w-3 h-3 rounded-sm bg-orange-500 animate-bounce" style={{ animationDelay: '300ms' }} />
             </div>
         </div>
     );

@@ -4,9 +4,10 @@ import React, { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { paymentService, type SubscriptionStatus } from '@/services/payment';
 import { useAuth } from '@/hooks/useAuth';
-import { Button } from '@/components/ui/Button';
-import { Card } from '@/components/ui/Card';
 import { storageService } from '@/services/storage';
+import { ArrowRight, Check, Loader2 } from 'lucide-react';
+import Link from 'next/link';
+import { WitnessLogo } from '@/components/ui/WitnessLogo';
 
 interface Plan {
   id: string;
@@ -55,8 +56,8 @@ export default function CheckoutPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center bg-[#0D0D0D]">
-          <div className="animate-spin rounded-full h-12 w-12 border-2 border-white border-t-transparent"></div>
+        <div className="min-h-screen flex items-center justify-center bg-[#0A0A0A]">
+          <Loader2 className="w-8 h-8 text-white animate-spin" />
         </div>
       }
     >
@@ -71,7 +72,7 @@ function CheckoutContent() {
   const { user, isAuthenticated, loading: authLoading } = useAuth();
   const [plans, setPlans] = useState<Plan[]>(DEFAULT_PLANS);
   const [loading, setLoading] = useState(false);
-  const [subLoading, setSubLoading] = useState(true); // Start true - assume we need to check
+  const [subLoading, setSubLoading] = useState(true);
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -79,22 +80,17 @@ function CheckoutContent() {
   const [subscription, setSubscription] = useState<SubscriptionStatus | null>(null);
   const [isChangingPlan, setIsChangingPlan] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [billingInterval, setBillingInterval] = useState<'month' | 'year'>('year'); // Default to yearly
+  const [billingInterval, setBillingInterval] = useState<'month' | 'year'>('year');
 
-  // Check if user has onboarding data (only on client to avoid hydration mismatch)
   useEffect(() => {
     setHasOnboardingData(storageService.hasOnboardingData());
   }, []);
 
   useEffect(() => {
-    // Fetch plans from API for all users (authenticated or not)
     const fetchPlans = async () => {
       setLoading(true);
       try {
-        console.log('[Checkout] Fetching plans from API...');
         const apiPlans = await paymentService.getPlans();
-        console.log('[Checkout] API response:', apiPlans);
-        
         if (apiPlans.length > 0) {
           const mappedPlans = apiPlans.map((p: any) => {
             const defaultPlan = DEFAULT_PLANS.find(d => d.id === (p.product_id || p.id));
@@ -105,20 +101,15 @@ function CheckoutContent() {
               price: p.price_cents ?? p.price ?? defaultPlan?.price ?? 0,
               currency: p.currency || defaultPlan?.currency || 'INR',
               interval: p.interval || defaultPlan?.interval || 'month',
-              // Use API features if available, otherwise use defaults
               features: (p.features && p.features.length > 0) 
                 ? p.features 
                 : defaultPlan?.features || [],
             };
           });
-          console.log('[Checkout] Mapped plans:', mappedPlans);
           setPlans(mappedPlans);
-        } else {
-          console.log('[Checkout] No plans returned from API, using defaults');
         }
       } catch (err) {
         console.error('[Checkout] Error fetching plans:', err);
-        // Keep DEFAULT_PLANS on error
       } finally {
         setLoading(false);
       }
@@ -127,15 +118,12 @@ function CheckoutContent() {
     fetchPlans();
   }, []);
 
-  // Fetch current subscription if authenticated
   useEffect(() => {
     const fetchSubscription = async () => {
       if (isAuthenticated) {
         setSubLoading(true);
         try {
-          console.log('[Checkout] Fetching subscription status...');
           const sub = await paymentService.getSubscriptionStatus();
-          console.log('[Checkout] Subscription response:', JSON.stringify(sub, null, 2));
           setSubscription(sub);
         } catch (err) {
           console.error('[Checkout] Error fetching subscription:', err);
@@ -143,7 +131,6 @@ function CheckoutContent() {
           setSubLoading(false);
         }
       } else {
-        // Not authenticated - no subscription to check
         setSubLoading(false);
       }
     };
@@ -153,28 +140,7 @@ function CheckoutContent() {
     }
   }, [isAuthenticated, authLoading]);
 
-  // Debug logging for subscription state
-  useEffect(() => {
-    // Wait for auth and subscription loading to complete
-    if (authLoading || subLoading) return;
-
-    console.log("=== CHECKOUT DEBUG ===")
-    console.log("authLoading:", authLoading, "subLoading:", subLoading)
-    console.log("isAuthenticated:", isAuthenticated, "user:", user?.email)
-    console.log("subscription object:", JSON.stringify(subscription, null, 2));
-    console.log("plans array:", JSON.stringify(plans.map(p => ({ id: p.id, name: p.name })), null, 2));
-    console.log("subscription.planId:", subscription?.planId);
-    console.log("subscription.hasActiveSubscription:", subscription?.hasActiveSubscription);
-    plans.forEach(p => {
-      console.log(`Plan "${p.name}" id="${p.id}" matches subscription.planId? ${subscription?.planId === p.id}`);
-    });
-    console.log("=== END DEBUG ===")
-    
-    // No redirect - allow subscribed users to view/manage plans
-  }, [authLoading, subLoading, isAuthenticated, subscription, plans, user]);
-
   const handleCheckout = async (planId: string) => {
-    console.log('[Checkout] handleCheckout called', { planId, isAuthenticated, user: user?.email });
     setSelectedPlan(planId);
     setError(null);
     setCheckoutLoading(true);
@@ -186,8 +152,6 @@ function CheckoutContent() {
         return;
       }
 
-      // Authenticated checkout only
-      console.log('[Checkout] User authenticated, using authenticated checkout');
       await paymentService.redirectToCheckout(planId);
     } catch (err) {
       console.error('Checkout error:', err);
@@ -207,7 +171,6 @@ function CheckoutContent() {
       
       if (result.success) {
         setMessage({ type: 'success', text: `Successfully switched to ${result.newPlan?.name || 'new plan'}!` });
-        // Reload subscription
         const sub = await paymentService.getSubscriptionStatus();
         setSubscription(sub);
       } else {
@@ -231,7 +194,6 @@ function CheckoutContent() {
   const formatMonthlyPrice = (plan: Plan) => {
     const symbol = plan.currency === 'INR' ? '₹' : '$';
     if (plan.interval === 'year') {
-      // Show yearly price divided by 12
       const monthlyAmount = Math.round(plan.price / 12 / 100);
       return `${symbol}${monthlyAmount}`;
     }
@@ -259,28 +221,27 @@ function CheckoutContent() {
 
   const getButtonText = (plan: Plan) => {
     if (!isAuthenticated) {
-      return 'Login to Subscribe';
+      return 'LOGIN TO SUBSCRIBE';
     }
     
     if (isCurrentPlan(plan.id)) {
-      return 'Current Plan';
+      return 'CURRENT PLAN';
     }
     
     if (subscription?.hasActiveSubscription) {
-      // Compare prices to determine upgrade/downgrade
       const currentPlan = plans.find(p => p.id === subscription.planId);
       if (currentPlan) {
-        return plan.price > currentPlan.price ? 'Upgrade' : 'Downgrade';
+        return plan.price > currentPlan.price ? 'UPGRADE' : 'DOWNGRADE';
       }
-      return 'Switch Plan';
+      return 'SWITCH PLAN';
     }
     
-    return 'Get Started';
+    return 'GET STARTED';
   };
 
   const handlePlanAction = (plan: Plan) => {
     if (isCurrentPlan(plan.id)) {
-      return; // Do nothing for current plan
+      return;
     }
     
     if (subscription?.hasActiveSubscription) {
@@ -304,34 +265,70 @@ function CheckoutContent() {
     }
   };
 
-  // Show loading while checking auth or subscription status
-  // This prevents flash of checkout UI before redirect for subscribed users
   if (authLoading || subLoading || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0D0D0D]">
-        <div className="animate-spin rounded-full h-12 w-12 border-2 border-white border-t-transparent"></div>
+      <div className="min-h-screen flex items-center justify-center bg-[#0A0A0A]">
+        <Loader2 className="w-8 h-8 text-white animate-spin" />
       </div>
     );
   }
 
+  const plan = getSelectedPlan();
+  const isCurrent = plan ? isCurrentPlan(plan.id) : false;
+  const buttonText = plan ? getButtonText(plan) : '';
+  const isProcessing = plan && (checkoutLoading || isChangingPlan) && selectedPlan === plan.id;
+
   return (
-    <div className="min-h-screen bg-[#0D0D0D] py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-2xl mx-auto">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-white mb-4">
-            {subscription?.hasActiveSubscription ? 'Manage Your Plan' : 'Choose Your Plan'}
+    <div className="min-h-screen bg-[#0A0A0A] text-white">
+      {/* Navigation */}
+      <nav className="border-b border-white/10">
+        <div className="max-w-[1200px] mx-auto px-6 h-16 flex justify-between items-center">
+          <Link href="/" className="flex items-center gap-2">
+            <WitnessLogo size="sm" showWordmark />
+          </Link>
+          {isAuthenticated ? (
+            <Link href="/dashboard" className="text-sm text-white/60 hover:text-white transition-colors">
+              Dashboard
+            </Link>
+          ) : (
+            <div className="flex items-center gap-4">
+              <Link href="/auth/login" className="text-sm text-white/60 hover:text-white transition-colors">
+                Login
+              </Link>
+              <Link 
+                href="/onboarding" 
+                className="bg-[#F97316] text-black px-5 py-2.5 text-sm font-bold uppercase tracking-wide hover:bg-[#FB923C] transition-colors"
+              >
+                Get Started
+              </Link>
+            </div>
+          )}
+        </div>
+      </nav>
+
+      <div className="max-w-[1200px] mx-auto px-6 py-16">
+        
+        {/* Header */}
+        <div className="text-center mb-12">
+          <span className="text-xs font-mono uppercase tracking-[0.2em] text-[#F97316]">
+            {subscription?.hasActiveSubscription ? 'Manage subscription' : 'Choose your plan'}
+          </span>
+          <h1 className="text-4xl md:text-5xl font-black mt-4 mb-4">
+            {subscription?.hasActiveSubscription ? 'YOUR PLAN' : 'SIMPLE PRICING'}
           </h1>
-          <p className="text-lg text-white/60">
+          <p className="text-lg text-white/50 max-w-md mx-auto">
             {subscription?.hasActiveSubscription 
-              ? 'Upgrade or downgrade your subscription anytime' 
-              : 'Get unlimited access to AI-powered coaching'}
+              ? 'Upgrade or downgrade anytime' 
+              : 'Get unlimited access to AI-powered accountability'}
           </p>
         </div>
 
         {/* Messages */}
         {message && (
-          <div className={`mb-8 p-4 rounded-lg border ${
-            message.type === 'success' ? 'border-white/20 bg-white/5' : 'border-red-600/50 bg-red-900/20'
+          <div className={`max-w-lg mx-auto mb-8 p-4 border ${
+            message.type === 'success' 
+              ? 'border-[#F97316]/50 bg-[#F97316]/10' 
+              : 'border-red-500/50 bg-red-500/10'
           }`}>
             <p className={message.type === 'success' ? 'text-white' : 'text-red-400'}>
               {message.text}
@@ -340,96 +337,122 @@ function CheckoutContent() {
         )}
 
         {error && (
-          <div className="mb-8 bg-red-900/20 border border-red-600/50 rounded-lg p-4">
+          <div className="max-w-lg mx-auto mb-8 p-4 border border-red-500/50 bg-red-500/10">
             <p className="text-red-400">{error}</p>
           </div>
         )}
 
         {/* Billing Toggle */}
-        <div className="flex justify-center mb-8">
-          <div className="inline-flex items-center p-1 bg-white/5 rounded-full border border-white/20">
+        <div className="flex justify-center mb-12">
+          <div className="inline-flex border border-white/20">
             <button
               onClick={() => setBillingInterval('month')}
-              className={`px-6 py-2 rounded-full text-sm font-medium transition-all ${
+              className={`px-8 py-3 text-sm font-bold uppercase tracking-wide transition-colors ${
                 billingInterval === 'month'
                   ? 'bg-white text-black'
-                  : 'text-white/70 hover:text-white hover:bg-white/10'
+                  : 'bg-transparent text-white/60 hover:text-white'
               }`}
             >
               Monthly
             </button>
             <button
               onClick={() => setBillingInterval('year')}
-              className={`px-6 py-2 rounded-full text-sm font-medium transition-all ${
+              className={`px-8 py-3 text-sm font-bold uppercase tracking-wide transition-colors flex items-center gap-2 ${
                 billingInterval === 'year'
                   ? 'bg-white text-black'
-                  : 'text-white/70 hover:text-white hover:bg-white/10'
+                  : 'bg-transparent text-white/60 hover:text-white'
               }`}
             >
               Yearly
               {getYearlySavings() > 0 && (
-                <span className="ml-2 text-xs bg-[#F97316] text-white px-2 py-0.5 rounded-full">
-                  Save {formatPrice(getYearlySavings() * 100, plans[0]?.currency || 'USD')}
+                <span className={`text-xs px-2 py-0.5 ${
+                  billingInterval === 'year' 
+                    ? 'bg-[#F97316] text-white' 
+                    : 'bg-[#F97316] text-white'
+                }`}>
+                  SAVE {formatPrice(getYearlySavings() * 100, plans[0]?.currency || 'USD')}
                 </span>
               )}
             </button>
           </div>
         </div>
 
-        {/* Single Plan Card */}
-        {(() => {
-          const plan = getSelectedPlan();
-          if (!plan) return null;
-          
-          const isCurrent = isCurrentPlan(plan.id);
-          const buttonText = getButtonText(plan);
-          const isProcessing = (checkoutLoading || isChangingPlan) && selectedPlan === plan.id;
-          
-          return (
-            <Card 
-              className={`relative overflow-hidden transition-all duration-200 ${
-                isCurrent 
-                  ? 'bg-[#F97316] text-white border-[#F97316]' 
-                  : 'bg-[#111] border-white/20'
-              }`}
-            >
-              {/* Current Plan Badge */}
+        {/* Plan Card - Brutalist Style */}
+        {plan && (
+          <div className="max-w-lg mx-auto">
+            {/* Orange card for yearly (bigger plan), dark card for monthly */}
+            <div className={`relative ${plan.interval === 'year' ? 'bg-[#F97316]' : 'bg-[#0A0A0A] border border-white/20'}`}>
+              
+              {/* Current Plan Badge - flush to edge */}
               {isCurrent && (
-                <div className="absolute top-4 right-4 bg-white text-[#F97316] px-3 py-1 text-sm font-medium rounded-full">
+                <div className={`absolute top-0 right-0 px-4 py-2 text-xs font-bold uppercase tracking-wide ${
+                  plan.interval === 'year' ? 'bg-[#0A0A0A] text-white' : 'bg-[#F97316] text-black'
+                }`}>
                   Your Plan
                 </div>
               )}
 
-              <div className="p-8">
-                <h3 className={`text-2xl font-bold mb-2 ${isCurrent ? 'text-white' : 'text-white'}`}>
+              <div className="p-10 md:p-12">
+                
+                {/* Plan Name */}
+                <h2 className={`text-2xl font-black uppercase tracking-tight mb-2 ${
+                  plan.interval === 'year' ? 'text-[#0A0A0A]' : 'text-white'
+                }`}>
                   You+ Pro
-                </h3>
+                </h2>
 
-                <p className={`mb-6 ${isCurrent ? 'text-white/80' : 'text-white/60'}`}>
+                <p className={`text-sm mb-8 ${plan.interval === 'year' ? 'text-[#0A0A0A]/70' : 'text-white/50'}`}>
                   {plan.interval === 'year' ? 'Best value - billed annually' : 'Flexible monthly billing'}
                 </p>
 
-                <div className="mb-2">
-                  <span className={`text-5xl font-bold ${isCurrent ? 'text-white' : 'text-white'}`}>
-                    {formatMonthlyPrice(plan)}
-                  </span>
-                  <span className={`ml-2 text-lg ${isCurrent ? 'text-white/80' : 'text-white/60'}`}>
-                    /month
-                  </span>
-                </div>
+                {/* Price */}
+                {plan.interval === 'year' ? (
+                  <div className="relative mb-6 inline-block">
+                    {/* Offset shadow layer */}
+                    <div className="absolute inset-0 bg-[#0A0A0A] translate-x-2 translate-y-2" />
+                    {/* Main price block */}
+                    <div className="relative bg-white px-5 py-4 border-4 border-[#0A0A0A]">
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-5xl md:text-6xl font-black text-[#0A0A0A] tracking-tighter">
+                          {formatMonthlyPrice(plan)}
+                        </span>
+                        <span className="text-lg font-bold text-[#0A0A0A]/60">
+                          /mo
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="relative mb-6 inline-block">
+                    {/* Offset shadow layer */}
+                    <div className="absolute inset-0 bg-[#F97316] translate-x-2 translate-y-2" />
+                    {/* Main price block */}
+                    <div className="relative bg-[#0A0A0A] px-5 py-4 border-4 border-[#F97316]">
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-5xl md:text-6xl font-black text-[#F97316] tracking-tighter">
+                          {formatMonthlyPrice(plan)}
+                        </span>
+                        <span className="text-lg font-bold text-[#F97316]/60">
+                          /mo
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 
                 {plan.interval === 'year' && (
-                  <p className={`text-sm mb-6 ${isCurrent ? 'text-white/70' : 'text-white/50'}`}>
+                  <p className="text-sm mb-8 text-[#0A0A0A]/60">
                     {formatPrice(plan.price, plan.currency)} billed annually
                   </p>
                 )}
                 {plan.interval === 'month' && (
-                  <p className={`text-sm mb-6 ${isCurrent ? 'text-white/70' : 'text-white/50'}`}>
+                  <p className="text-sm mb-8 text-white/40">
                     Billed monthly
                   </p>
                 )}
 
-                <ul className="space-y-3 mb-8">
+                {/* Features */}
+                <div className="space-y-4 mb-10">
                   {(plan.features.length > 0 ? plan.features : [
                     'Daily AI coaching calls',
                     'Personalized guidance',
@@ -437,54 +460,56 @@ function CheckoutContent() {
                     'Priority support',
                     'Unlimited access',
                   ]).map((feature, index) => (
-                    <li key={index} className="flex items-start">
-                      <svg
-                        className={`h-5 w-5 mr-3 flex-shrink-0 mt-0.5 ${isCurrent ? 'text-white' : 'text-[#F97316]'}`}
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                      <span className={isCurrent ? 'text-white/90' : 'text-white/80'}>{feature}</span>
-                    </li>
+                    <div key={index} className="flex items-center gap-4">
+                      <div className={`w-5 h-5 flex items-center justify-center ${
+                        plan.interval === 'year' ? 'bg-[#0A0A0A]' : 'bg-[#F97316]'
+                      }`}>
+                        <Check size={12} className={plan.interval === 'year' ? 'text-[#F97316]' : 'text-black'} />
+                      </div>
+                      <span className={plan.interval === 'year' ? 'text-[#0A0A0A]' : 'text-white/80'}>
+                        {feature}
+                      </span>
+                    </div>
                   ))}
-                </ul>
+                </div>
 
-                <Button
+                {/* CTA Button */}
+                <button
                   onClick={() => isCurrent ? handleManageSubscription() : handlePlanAction(plan)}
                   disabled={isProcessing || authLoading}
-                  className={`w-full ${isCurrent ? 'bg-white text-[#F97316] hover:bg-white/90' : 'bg-[#F97316] text-white hover:bg-[#EA580C]'}`}
-                  variant={isCurrent ? 'outline' : 'primary'}
+                  className={`w-full py-5 font-black text-lg uppercase tracking-wide transition-colors flex items-center justify-center gap-3 disabled:opacity-50 ${
+                    plan.interval === 'year'
+                      ? 'bg-[#0A0A0A] text-white hover:bg-[#1A1A1A]' 
+                      : 'bg-[#F97316] text-black hover:bg-[#FB923C]'
+                  }`}
                 >
                   {isProcessing ? (
-                    <span className="flex items-center justify-center">
-                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
                       Processing...
-                    </span>
-                  ) : isCurrent ? 'Manage Subscription' : buttonText}
-                </Button>
+                    </>
+                  ) : (
+                    <>
+                      {isCurrent ? 'MANAGE SUBSCRIPTION' : buttonText}
+                      {!isCurrent && <ArrowRight size={18} />}
+                    </>
+                  )}
+                </button>
               </div>
-            </Card>
-          );
-        })()}
+            </div>
+          </div>
+        )}
 
-        <div className="text-center mt-12">
-          <p className="text-sm text-white/50 mb-2">
+        {/* Footer */}
+        <div className="text-center mt-16">
+          <p className="text-sm text-white/60 mb-2">
             Secure payment powered by DodoPayments
           </p>
-          <p className="text-xs text-white/40">
+          <p className="text-xs text-white/50">
             By subscribing, you agree to our{' '}
-            <a href="/legal/terms" className="underline hover:text-white/60">Terms of Service</a>
+            <Link href="/legal/terms" className="underline hover:text-white">Terms of Service</Link>
             {' '}and{' '}
-            <a href="/legal/privacy" className="underline hover:text-white/60">Privacy Policy</a>
+            <Link href="/legal/privacy" className="underline hover:text-white">Privacy Policy</Link>
           </p>
         </div>
       </div>

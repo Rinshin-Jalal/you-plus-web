@@ -231,7 +231,7 @@ export const VoiceVisualizer = ({
                 
                 {isRecording && (
                     <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
-                        <div className={`w-3 h-3 rounded-full animate-pulse ${canStop ? 'bg-green-500' : 'bg-orange-500'}`} />
+                        <div className={`w-3 h-3 rounded-sm animate-pulse ${canStop ? 'bg-green-500' : 'bg-orange-500'}`} />
                         <span className={`font-mono text-sm font-bold tracking-wider ${canStop ? 'text-green-400' : 'text-orange-400'}`}>
                             {canStop ? 'READY' : `${timeRemaining}s`}
                         </span>
@@ -242,7 +242,7 @@ export const VoiceVisualizer = ({
             <button 
                 onClick={onToggle}
                 disabled={isRecording && !canStop}
-                className={`group relative flex items-center justify-center w-24 h-24 rounded-full border-4 transition-all duration-300 
+                className={`group relative flex items-center justify-center w-24 h-24 rounded-lg border-4 transition-all duration-300 
                     ${isRecording 
                         ? canStop 
                             ? 'border-green-500 bg-green-500 text-white scale-110 shadow-[0_10px_20px_rgba(34,197,94,0.3)] cursor-pointer' 

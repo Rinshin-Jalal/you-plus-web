@@ -49,7 +49,7 @@ export function ActHeader({ act, title, subtitle, onNext }: ActHeaderProps) {
             )}
             
             {/* Decorative line - orange gradient */}
-            <div className="mt-8 w-24 h-1 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 shadow-[0_0_12px_rgba(249,115,22,0.5)]" />
+            <div className="mt-8 w-24 h-1 rounded bg-gradient-to-r from-orange-500 to-amber-500" />
         </div>
     );
 }
