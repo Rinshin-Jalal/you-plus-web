@@ -2,7 +2,7 @@
 
 import React from 'react';
 
-type LogoSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl';
+type LogoSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl';
 
 interface WitnessLogoProps {
   size?: LogoSize;
@@ -18,6 +18,8 @@ const sizeMap: Record<LogoSize, number> = {
   lg: 56,
   xl: 72,
   '2xl': 96,
+  '3xl': 140,
+  '4xl': 180,
 };
 
 const wordmarkSizeMap: Record<LogoSize, string> = {
@@ -27,6 +29,8 @@ const wordmarkSizeMap: Record<LogoSize, string> = {
   lg: 'text-2xl',
   xl: 'text-3xl',
   '2xl': 'text-4xl',
+  '3xl': 'text-5xl',
+  '4xl': 'text-6xl',
 };
 
 export function WitnessLogo({ 
@@ -60,11 +64,7 @@ export function WitnessLogo({
               0%, 90%, 100% { transform: scaleY(1); }
               95% { transform: scaleY(0.1); }
             }
-            @keyframes witness-glow {
-              0%, 100% { filter: drop-shadow(0 0 8px rgba(242, 114, 27, 0.3)); }
-              50% { filter: drop-shadow(0 0 16px rgba(242, 114, 27, 0.5)); }
-            }
-            .witness-logo { animation: witness-float 3s ease-in-out infinite, witness-glow 4s ease-in-out infinite; }
+            .witness-logo { animation: witness-float 3s ease-in-out infinite; }
             .witness-eye { transform-origin: center; animation: witness-blink 4s ease-in-out infinite; }
             .witness-eye-right { animation-delay: 0.1s; }
           `}

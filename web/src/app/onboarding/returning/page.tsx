@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { apiClient } from '@/services/api';
 import { Button } from '@/components/ui/Button';
 import { GrainOverlay } from '@/components/onboarding/ui/GrainOverlay';
+import { WitnessLogo } from '@/components/ui/WitnessLogo';
 
 interface Question {
     id: string;
@@ -105,11 +106,14 @@ export default function ReturningUserOnboardingPage() {
 
     if (loading) {
         return (
-            <div className="fixed inset-0 bg-white flex items-center justify-center">
+            <div className="fixed inset-0 bg-[#0A0A0A] flex items-center justify-center">
                 <GrainOverlay />
-                <div className="text-center">
-                    <div className="w-12 h-12 border-4 border-black border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-                    <p className="font-mono text-black/60">Preparing your welcome back...</p>
+                <div className="text-center relative z-10">
+                    <div className="mb-6">
+                        <WitnessLogo size="lg" animate={true} />
+                    </div>
+                    <div className="w-10 h-10 border-2 border-[#F97316] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                    <p className="text-white/50 text-sm">Preparing your welcome back...</p>
                 </div>
             </div>
         );
@@ -117,10 +121,10 @@ export default function ReturningUserOnboardingPage() {
 
     if (error) {
         return (
-            <div className="fixed inset-0 bg-white flex items-center justify-center">
+            <div className="fixed inset-0 bg-[#0A0A0A] flex items-center justify-center">
                 <GrainOverlay />
-                <div className="text-center">
-                    <p className="font-mono text-red-500 mb-4">{error}</p>
+                <div className="text-center relative z-10">
+                    <p className="text-red-400 mb-4">{error}</p>
                 </div>
             </div>
         );
@@ -132,52 +136,56 @@ export default function ReturningUserOnboardingPage() {
     const currentQuestion = personalized.questions[questionIndex];
 
     return (
-        <div className="fixed inset-0 bg-white text-black font-sans flex flex-col z-[100]">
+        <div className="fixed inset-0 bg-[#0A0A0A] text-white font-sans flex flex-col z-[100]">
             <GrainOverlay />
 
             {/* Header */}
-            <div className="relative z-10 px-8 py-8 flex justify-between items-center bg-white/90 backdrop-blur-sm border-b border-black/5">
+            <div className="relative z-10 px-6 md:px-12 h-16 flex justify-between items-center border-b border-white/10">
                 <div className="flex items-center gap-6">
-                    <div className="w-10 h-10 bg-black text-white flex items-center justify-center">
-                        <span className="font-mono font-bold text-sm">
-                            {step === 'welcome' ? 'HI' : step === 'complete' ? '!' : questionIndex + 1}
-                        </span>
-                    </div>
+                    <WitnessLogo size="xs" showWordmark />
                     {step === 'questions' && (
-                        <div className="h-1.5 w-32 bg-gray-100 rounded-full overflow-hidden">
-                            <div 
-                                className="h-full bg-black transition-all duration-500 ease-out" 
-                                style={{ width: `${((questionIndex + 1) / personalized.questions.length) * 100}%` }} 
-                            />
+                        <div className="hidden sm:flex items-center gap-3">
+                            <div className="h-0.5 w-20 bg-white/10 rounded-full overflow-hidden">
+                                <div 
+                                    className="h-full bg-[#F97316] transition-all duration-500 ease-out" 
+                                    style={{ width: `${((questionIndex + 1) / personalized.questions.length) * 100}%` }} 
+                                />
+                            </div>
+                            <span className="text-xs text-white/40">
+                                {questionIndex + 1}/{personalized.questions.length}
+                            </span>
                         </div>
                     )}
                 </div>
                 <button 
                     onClick={() => router.push('/dashboard')} 
-                    className="text-xs font-mono font-bold text-black/30 hover:text-black uppercase tracking-widest transition-colors"
+                    className="text-sm font-medium text-white/40 hover:text-white transition-colors"
                 >
                     Skip
                 </button>
             </div>
 
             {/* Main Content */}
-            <div className="relative z-10 flex-grow overflow-y-auto flex flex-col items-center justify-center px-6 max-w-2xl mx-auto w-full">
+            <div className="relative z-10 flex-grow overflow-y-auto flex flex-col items-center justify-center px-6 max-w-xl mx-auto w-full">
                 
                 {/* Welcome Step */}
                 {step === 'welcome' && (
                     <div className="text-center animate-fade-in">
-                        <h1 className="font-mono text-3xl md:text-4xl font-bold mb-6">
+                        <div className="mb-8">
+                            <WitnessLogo size="lg" animate={true} />
+                        </div>
+                        <h1 className="text-2xl md:text-3xl font-bold mb-6">
                             {personalized.welcomeMessage}
                         </h1>
                         
                         {personalized.summaryOfPast && (
-                            <p className="font-mono text-lg text-black/60 mb-8">
+                            <p className="text-base text-white/60 mb-6">
                                 {personalized.summaryOfPast}
                             </p>
                         )}
 
                         {history.daysSinceActive && (
-                            <p className="font-mono text-sm text-black/40 mb-12">
+                            <p className="text-sm text-white/40 mb-10">
                                 It&apos;s been {history.daysSinceActive} days. Let&apos;s get back on track.
                             </p>
                         )}
@@ -185,9 +193,8 @@ export default function ReturningUserOnboardingPage() {
                         <Button 
                             variant="primary" 
                             onClick={handleStartQuestions}
-                            className="min-w-[200px]"
                         >
-                            Let&apos;s Go
+                            LET&apos;S GO
                         </Button>
                     </div>
                 )}
@@ -195,14 +202,14 @@ export default function ReturningUserOnboardingPage() {
                 {/* Questions Step */}
                 {step === 'questions' && currentQuestion && (
                     <div className="w-full text-center animate-fade-in" key={currentQuestion.id}>
-                        <h2 className="font-mono text-2xl md:text-3xl font-medium mb-12">
+                        <h2 className="text-2xl md:text-3xl font-bold mb-12 text-white">
                             {currentQuestion.question}
                         </h2>
 
                         {currentQuestion.type === 'text' && (
                             <input
                                 type="text"
-                                className="w-full bg-transparent border-b-4 border-black/10 py-4 text-2xl md:text-3xl font-mono text-black focus:outline-none focus:border-black text-center"
+                                className="w-full bg-transparent border-b-4 border-white/10 py-4 text-2xl md:text-3xl text-white focus:outline-none focus:border-[#F97316] text-center transition-colors"
                                 placeholder={currentQuestion.placeholder}
                                 value={answers[currentQuestion.id] || ''}
                                 onChange={(e) => setAnswers({ ...answers, [currentQuestion.id]: e.target.value })}
@@ -213,9 +220,9 @@ export default function ReturningUserOnboardingPage() {
 
                         {currentQuestion.type === 'slider' && (
                             <div className="w-full max-w-md mx-auto">
-                                <div className="text-6xl font-mono font-bold mb-8">
+                                <div className="text-6xl font-bold mb-8 text-white">
                                     {answers[currentQuestion.id] || currentQuestion.default || currentQuestion.min}
-                                    <span className="text-2xl text-black/40 ml-2">min</span>
+                                    <span className="text-2xl text-white/40 ml-2">min</span>
                                 </div>
                                 <input
                                     type="range"
@@ -223,9 +230,9 @@ export default function ReturningUserOnboardingPage() {
                                     max={currentQuestion.max}
                                     value={answers[currentQuestion.id] || currentQuestion.default || currentQuestion.min}
                                     onChange={(e) => setAnswers({ ...answers, [currentQuestion.id]: parseInt(e.target.value) })}
-                                    className="w-full h-2 bg-black/10 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:bg-black [&::-webkit-slider-thumb]:rounded-full"
+                                    className="w-full h-2 bg-white/10 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-6 [&::-webkit-slider-thumb]:h-6 [&::-webkit-slider-thumb]:bg-[#F97316] [&::-webkit-slider-thumb]:rounded-full"
                                 />
-                                <div className="flex justify-between text-sm font-mono text-black/40 mt-2">
+                                <div className="flex justify-between text-sm text-white/40 mt-2">
                                     <span>{currentQuestion.min} min</span>
                                     <span>{currentQuestion.max} min</span>
                                 </div>
@@ -235,7 +242,7 @@ export default function ReturningUserOnboardingPage() {
                         {currentQuestion.type === 'time' && (
                             <input
                                 type="time"
-                                className="bg-transparent border-b-4 border-black/10 py-4 text-4xl font-mono text-black focus:outline-none focus:border-black text-center"
+                                className="bg-transparent border-b-4 border-white/10 py-4 text-4xl text-white focus:outline-none focus:border-[#F97316] text-center transition-colors"
                                 value={answers[currentQuestion.id] || currentQuestion.default || '21:00'}
                                 onChange={(e) => setAnswers({ ...answers, [currentQuestion.id]: e.target.value })}
                             />
@@ -255,15 +262,18 @@ export default function ReturningUserOnboardingPage() {
                 {/* Complete Step */}
                 {step === 'complete' && (
                     <div className="text-center animate-fade-in">
-                        <div className="w-20 h-20 bg-black text-white flex items-center justify-center mx-auto mb-8 rounded-full">
+                        <div className="mb-8">
+                            <WitnessLogo size="2xl" animate={true} />
+                        </div>
+                        <div className="w-20 h-20 bg-[#F97316] text-[#0A0A0A] flex items-center justify-center mx-auto mb-8 rounded-full">
                             <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                             </svg>
                         </div>
-                        <h2 className="font-mono text-2xl md:text-3xl font-bold mb-4">
+                        <h2 className="text-2xl md:text-3xl font-bold mb-4 text-white">
                             Welcome Back!
                         </h2>
-                        <p className="font-mono text-lg text-black/60">
+                        <p className="text-lg text-white/60">
                             {personalized.encouragement}
                         </p>
                     </div>

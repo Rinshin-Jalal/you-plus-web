@@ -3,6 +3,10 @@
 import React from 'react';
 import { Check, ArrowRight, Phone, X, Clock, Mic, Calendar, TrendingUp, Volume2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { GrainOverlay } from '@/components/onboarding/ui/GrainOverlay';
+import { WitnessLogo } from '@/components/ui/WitnessLogo';
+import { LegalFooter } from '@/components/shared/LegalFooter';
 
 export default function LandingPage() {
   const router = useRouter();
@@ -12,167 +16,165 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white text-black font-mono">
+    <div className="min-h-screen bg-[#0A0A0A] text-[#FAFAFA] relative">
+      <GrainOverlay />
       
       {/* Dev buttons */}
       <div className="fixed bottom-4 right-4 z-[999] flex flex-col gap-2">
-        <button onClick={() => router.push('/dashboard')} className="bg-black text-white text-xs px-3 py-1.5">[Dev] Dashboard</button>
-        <button onClick={() => router.push('/call')} className="bg-red-600 text-white text-xs px-3 py-1.5">[Dev] Call</button>
+        <button onClick={() => router.push('/dashboard')} className="bg-white/10 text-white text-xs px-3 py-1.5 backdrop-blur font-mono">[Dev] Dashboard</button>
+        <button onClick={() => router.push('/call')} className="bg-[#F97316] text-black text-xs px-3 py-1.5 font-mono">[Dev] Call</button>
       </div>
 
       {/* Nav */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-white border-b-2 border-black">
-        <div className="max-w-5xl mx-auto px-6 h-14 flex justify-between items-center">
-          <div className="text-xl font-bold">You+</div>
-          <button onClick={() => router.push('/dashboard')} className="text-sm hover:underline underline-offset-4">Login</button>
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-[#0A0A0A]/90 backdrop-blur-md border-b border-white/10">
+        <div className="max-w-[1200px] mx-auto px-6 h-16 flex justify-between items-center">
+          <Link href="/" className="flex items-center gap-2">
+            <WitnessLogo size="sm" showWordmark />
+          </Link>
+          <div className="flex items-center gap-4">
+            <Link href="/auth/login" className="text-sm text-white/70 hover:text-white transition-colors">
+              Login
+            </Link>
+            <button 
+              onClick={startOnboarding} 
+              className="bg-[#F97316] text-black px-5 py-2 text-sm font-bold uppercase tracking-wide hover:bg-[#FB923C] transition-colors"
+            >
+              GET STARTED
+            </button>
+          </div>
         </div>
       </nav>
 
-      <main className="pt-14">
+      <main className="pt-16 relative z-10">
         
-        {/* ============ HERO - WHITE ============ */}
-        <section className="px-6 py-24 md:py-32 bg-white border-b-2 border-black">
-          <div className="max-w-5xl mx-auto">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+        {/* ============ HERO - CENTERED ============ */}
+        <section className="relative min-h-screen flex items-center justify-center px-6 py-24 overflow-hidden">
+          {/* Phone background image */}
+          <div 
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-20"
+            style={{ backgroundImage: 'url(/phone.png)' }}
+          />
+          {/* Dark overlay on top of image */}
+          <div className="absolute inset-0 bg-gradient-to-b from-[#0A0A0A]/60 via-[#0A0A0A]/75 to-[#0A0A0A]" />
+          
+          <div className="relative z-10 max-w-4xl mx-auto text-center">
+            {/* Badge */}
+            <div className="inline-block border border-[#F97316]/50 bg-[#F97316]/10 px-4 py-2 text-xs font-mono uppercase tracking-[0.2em] text-[#F97316] mb-8">
+              FOR PEOPLE DONE WITH EXCUSES
+            </div>
+            
+            {/* Main headline */}
+            <h1 className="text-4xl md:text-6xl lg:text-7xl font-black leading-[0.95] mb-8 tracking-tight">
+              <span className="block text-white">YOUR</span>
+              <span className="block text-[#F97316]">FUTURE SELF</span>
+              <span className="block text-white">CALLS TONIGHT.</span>
+            </h1>
+            
+            {/* Subheadline */}
+            <p className="text-lg md:text-xl text-white/70 mb-4 max-w-xl mx-auto">
+              Every night at <span className="text-[#F97316] font-semibold">9:00 PM</span>, your phone rings.
+              <br />You have to answer for what you did today.
+            </p>
+            
+            <p className="text-sm md:text-base text-white/50 mb-10 max-w-lg mx-auto">
+              No more lying to apps. No more broken streaks. No more excuses.
+              <br />Just you, your voice, and the truth.
+            </p>
+
+            {/* CTAs */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+              <button 
+                onClick={startOnboarding}
+                className="bg-[#F97316] text-black px-8 py-4 text-sm font-bold uppercase tracking-wide hover:bg-[#FB923C] transition-colors flex items-center gap-3"
+              >
+                <span>ANSWER THE CALL</span>
+                <ArrowRight size={18} />
+              </button>
               
-              {/* Left - Copy */}
-              <div>
-                <div className="inline-block border-2 border-black px-3 py-1 text-xs font-bold mb-8 tracking-wide">
-                  FOR PEOPLE WHO ARE DONE WITH THEIR OWN BULLSHIT
+              <button className="text-white/60 hover:text-white text-sm transition-colors px-4 py-4">
+                See how it works
+              </button>
+            </div>
+            
+            {/* Social proof - Score Indicator */}
+            <div className="flex items-center justify-center gap-4 mt-12">
+              <div className="flex items-center gap-2">
+                {/* Score bars */}
+                <div className="flex items-end gap-1 h-8">
+                  <div className="w-2 h-3 bg-[#F97316]/40 rounded-sm" />
+                  <div className="w-2 h-5 bg-[#F97316]/60 rounded-sm" />
+                  <div className="w-2 h-7 bg-[#F97316]/80 rounded-sm" />
+                  <div className="w-2 h-8 bg-[#F97316] rounded-sm" />
                 </div>
-                
-                <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold leading-tight mb-8">
-                  I get a call every night from my future self.
-                </h1>
-                
-                <p className="text-lg mb-4 leading-relaxed">
-                  It's the only thing that's kept me consistent.
-                </p>
-                
-                <p className="text-base text-black/60 mb-10 leading-relaxed max-w-md">
-                  I've downloaded every productivity app. Tried journaling, habit trackers, 
-                  accountability partners, "make your bed" videos. Still fell off. Every. Single. Time.
-                  So I built something different.
-                </p>
-
-                <div className="flex flex-col sm:flex-row items-start gap-6">
-                  <button 
-                    onClick={startOnboarding}
-                    className="bg-black text-white px-8 py-4 text-sm font-bold border-2 border-black shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-1.5 hover:translate-y-1.5 transition-all flex items-center gap-3"
-                  >
-                    <span>START YOUR FIRST CALL</span>
-                    <ArrowRight size={18} />
-                  </button>
-                  
-                  <div className="flex items-center gap-3 text-sm py-4">
-                    <span className="w-2 h-2 bg-[#00FF00]" />
-                    <span>2,847 started this week</span>
-                  </div>
+                <div className="flex flex-col items-start ml-2">
+                  <span className="text-2xl font-black text-[#F97316] leading-none">2,847</span>
+                  <span className="text-xs text-white/40 uppercase tracking-wide">calls this week</span>
                 </div>
               </div>
-
-              {/* Right - Phone mockup */}
-              <div className="relative">
-                <div className="border-2 border-black bg-black text-white p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.2)]">
-                  {/* Phone header */}
-                  <div className="flex items-center justify-between mb-6 pb-4 border-b border-white/20">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 border-2 border-white flex items-center justify-center">
-                        <Phone size={18} />
-                      </div>
-                      <div>
-                        <div className="text-sm font-bold">INCOMING CALL</div>
-                        <div className="text-xs text-white/50">You+ Accountability</div>
-                      </div>
-                    </div>
-                    <div className="text-xs text-white/40">9:47 PM</div>
-                  </div>
-                  
-                  {/* Call content */}
-                  <div className="space-y-3 mb-6">
-                    <div className="text-xs text-white/50 uppercase tracking-wider">Tonight's Audit</div>
-                    <div className="text-base font-bold leading-snug">
-                      "You said you'd hit the gym and finish the proposal. Did you do it?"
-                    </div>
-                  </div>
-                  
-                  {/* Voice visualization */}
-                  <div className="flex items-center justify-center gap-1 py-6">
-                    {[40, 70, 50, 80, 60, 90, 45, 75, 55, 85, 65, 40].map((h, i) => (
-                      <div key={i} className="w-1 bg-white/70" style={{ height: `${h * 0.4}px` }} />
-                    ))}
-                  </div>
-                  
-                  {/* Actions */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <button className="border-2 border-white/30 py-3 text-sm font-bold hover:bg-white hover:text-black transition-colors">
-                      I DID IT
-                    </button>
-                    <button className="border-2 border-red-500 text-red-500 py-3 text-sm font-bold hover:bg-red-500 hover:text-white transition-colors">
-                      I DIDN'T
-                    </button>
-                  </div>
-                </div>
-                
-                {/* Decorative elements */}
-                <div className="absolute -top-3 -right-3 w-6 h-6 border-2 border-black bg-white" />
-                <div className="absolute -bottom-3 -left-3 w-6 h-6 bg-black" />
-              </div>
+            </div>
+            
+            {/* Scroll indicator */}
+            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-white/30">
+              <span className="text-xs font-mono tracking-widest">SCROLL</span>
+              <div className="w-px h-8 bg-gradient-to-b from-white/30 to-transparent" />
             </div>
           </div>
         </section>
 
-        {/* ============ THE PROBLEM - BLACK ============ */}
-        <section className="px-6 py-24 bg-black text-white border-b-2 border-black">
-          <div className="max-w-5xl mx-auto">
+        {/* ============ THE PROBLEM ============ */}
+        <section className="px-6 py-24 bg-[#F97316] relative">
+          
+          <div className="max-w-5xl mx-auto relative z-10">
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
               
               {/* Left - The cycle */}
-              <div>
-                <h2 className="text-2xl md:text-3xl font-bold mb-10 leading-tight">
-                  You know the cycle.
+              <div className="bg-[#0A0A0A] p-10 -rotate-1">
+                <h2 className="text-3xl md:text-4xl font-black mb-10 leading-tight tracking-tight">
+                  YOU KNOW<br />THE CYCLE.
                 </h2>
                 
                 <div className="space-y-8">
-                  <div className="border-l-4 border-red-500 pl-6">
-                    <div className="font-bold text-lg mb-2">Sunday night motivation</div>
-                    <p className="text-sm text-white/60 leading-relaxed">"This week is going to be different. I'm going to wake up at 6am, hit the gym, eat clean, finish that project."</p>
+                  <div className="border-l-4 border-white/30 pl-6 hover:border-[#DC2626] transition-colors cursor-default">
+                    <div className="font-bold text-xl mb-2">Sunday night motivation</div>
+                    <p className="text-base text-white/60 leading-relaxed">"This week is going to be different. I'm going to wake up at 6am, hit the gym, eat clean..."</p>
                   </div>
                   
-                  <div className="border-l-4 border-red-500 pl-6">
-                    <div className="font-bold text-lg mb-2">Monday reality</div>
-                    <p className="text-sm text-white/60 leading-relaxed">Snoozed the alarm. Skipped the gym. Ordered takeout. Scrolled until 2am. Told yourself "I'll start tomorrow."</p>
+                  <div className="border-l-4 border-white/30 pl-6 hover:border-[#DC2626] transition-colors cursor-default">
+                    <div className="font-bold text-xl mb-2">Monday reality</div>
+                    <p className="text-base text-white/60 leading-relaxed">Snoozed the alarm. Skipped the gym. Ordered takeout. Told yourself "I'll start tomorrow."</p>
                   </div>
                   
-                  <div className="border-l-4 border-red-500 pl-6">
-                    <div className="font-bold text-lg mb-2">The guilt spiral</div>
-                    <p className="text-sm text-white/60 leading-relaxed">You're not lazy. You're not broken. You just have no one to answer to except yourself. And you've learned to lie to yourself really well.</p>
+                  <div className="border-l-4 border-white/30 pl-6 hover:border-[#DC2626] transition-colors cursor-default">
+                    <div className="font-bold text-xl mb-2">The guilt spiral</div>
+                    <p className="text-base text-white/60 leading-relaxed">You're not lazy. You just have no one to answer to except yourself. And you've learned to lie to yourself really well.</p>
                   </div>
                 </div>
               </div>
               
               {/* Right - What failed */}
-              <div>
-                <h2 className="text-base font-bold mb-8 flex items-center gap-3">
-                  <X size={20} className="text-red-500" />
-                  What you've already tried
+              <div className="bg-[#0A0A0A] p-10 rotate-1">
+                <h2 className="text-xl font-bold mb-10 flex items-center gap-3">
+                  <div className="w-8 h-8 bg-[#B91C1C] flex items-center justify-center">
+                    <X size={18} className="text-white" />
+                  </div>
+                  <span className="uppercase tracking-wide">WHAT YOU'VE TRIED</span>
                 </h2>
                 
-                <div className="space-y-0">
+                <div className="space-y-5">
                   {[
-                    { thing: "Productivity apps", why: "Abandoned after 3 days. Too easy to ignore." },
-                    { thing: "Habit trackers", why: "Broke the streak, felt guilty, deleted it." },
-                    { thing: "Accountability partners", why: "They got busy. Stopped asking." },
-                    { thing: "Journaling", why: "Blank pages. Broken promises." },
-                    { thing: "\"Wake up earlier\"", why: "Snoozed 47 times." },
-                    { thing: "Motivational content", why: "Felt good. Changed nothing." },
+                    { thing: "Productivity apps", why: "Abandoned after 3 days" },
+                    { thing: "Habit trackers", why: "Broke the streak, deleted it" },
+                    { thing: "Accountability partners", why: "They got busy" },
+                    { thing: "Journaling", why: "Blank pages" },
+                    { thing: "\"Wake up earlier\"", why: "Snoozed 47 times" },
+                    { thing: "Motivational content", why: "Changed nothing" },
                   ].map((item, i) => (
-                    <div key={i} className="flex gap-4 py-4 border-b border-white/10">
-                      <X size={16} className="text-red-500 flex-shrink-0 mt-1" />
+                    <div key={i} className="flex gap-4">
+                      <X size={16} className="text-[#B91C1C] flex-shrink-0 mt-1" />
                       <div>
-                        <div className="text-sm font-bold">{item.thing}</div>
-                        <div className="text-sm text-white/50">{item.why}</div>
+                        <div className="font-semibold text-white">{item.thing}</div>
+                        <div className="text-sm text-white/40">{item.why}</div>
                       </div>
                     </div>
                   ))}
@@ -182,57 +184,93 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* ============ THE INSIGHT - WHITE ============ */}
-        <section className="px-6 py-32 bg-white text-black border-b-2 border-black relative overflow-hidden">
-          {/* Large background text */}
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none select-none">
-            <span className="text-[20vw] font-bold text-black/[0.03] leading-none">VOICE</span>
-          </div>
+        {/* ============ THE INSIGHT ============ */}
+        <section className="px-6 py-24 bg-[#0A0A0A] relative overflow-hidden">
           
-          <div className="max-w-4xl mx-auto relative z-10">
+          <div className="max-w-5xl mx-auto relative z-10">
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-12 md:gap-16 items-center">
               
               {/* Left - The lies */}
-              <div className="space-y-6">
-                <div className="text-xs uppercase tracking-widest text-black/40 mb-2">What you can lie to</div>
+              <div>
+                <div className="text-xs font-mono uppercase tracking-[0.3em] text-white/40 mb-8">WHAT YOU CAN LIE TO</div>
                 
-                <div className="space-y-4">
-                  <div className="flex items-center gap-4 p-4 bg-black/5 border-l-4 border-black/20">
-                    <X size={20} className="text-black/30" />
-                    <span className="text-base text-black/50 line-through">Apps & notifications</span>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-4 p-5 bg-white/[0.03]">
+                    <X size={18} className="text-white/30" />
+                    <span className="text-lg text-white/50">Apps & notifications</span>
                   </div>
-                  <div className="flex items-center gap-4 p-4 bg-black/5 border-l-4 border-black/20">
-                    <X size={20} className="text-black/30" />
-                    <span className="text-base text-black/50 line-through">Checkboxes & streaks</span>
+                  <div className="flex items-center gap-4 p-5 bg-white/[0.05]">
+                    <X size={18} className="text-white/30" />
+                    <span className="text-lg text-white/50">Checkboxes & streaks</span>
                   </div>
-                  <div className="flex items-center gap-4 p-4 bg-black/5 border-l-4 border-black/20">
-                    <X size={20} className="text-black/30" />
-                    <span className="text-base text-black/50 line-through">The voice in your head</span>
+                  <div className="flex items-center gap-4 p-5 bg-white/[0.03]">
+                    <X size={18} className="text-white/30" />
+                    <span className="text-lg text-white/50">The voice in your head</span>
                   </div>
                 </div>
               </div>
               
               {/* Right - The truth */}
-              <div className="border-4 border-black p-8 bg-black text-white shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
-                <div className="text-xs uppercase tracking-widest text-white/40 mb-6">What you can't lie to</div>
+              <div className="bg-[#F97316] p-10 text-black">
+                <div className="text-xs font-mono uppercase tracking-[0.3em] text-black/50 mb-8">WHAT YOU CAN'T LIE TO</div>
                 
-                <div className="flex items-center gap-4 mb-6">
-                  <div className="w-14 h-14 border-2 border-[#00FF00] flex items-center justify-center">
-                    <Mic size={28} className="text-[#00FF00]" />
+                <div className="flex items-center gap-4 mb-8">
+                  <div className="w-14 h-14 bg-black/20 flex items-center justify-center">
+                    <Mic size={24} className="text-black" />
                   </div>
-                  <span className="text-2xl font-bold">Your own voice</span>
+                  <span className="text-2xl font-black">Your own voice</span>
                 </div>
                 
-                <p className="text-base text-white/70 leading-relaxed mb-6">
-                  When you have to say it out loud — "I didn't do it" — something changes. 
-                  You can't rationalize. You can't minimize. You hear the truth.
+                <p className="text-lg text-black/80 leading-relaxed">
+                  When you have to say it out loud — "I didn't do it" — something changes. You can't rationalize. You can't minimize. You hear the truth.
                 </p>
-                
-                <div className="pt-6 border-t border-white/20">
-                  <p className="text-sm text-white/50 italic">
-                    "That's why I built this. Not an app you check. A call you answer. 
-                    Your voice. Your truth. Every night."
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ============ HOW IT WORKS ============ */}
+        <section className="px-6 py-24 bg-[#F5F5F5] relative">
+          
+          <div className="max-w-6xl mx-auto relative z-10">
+            
+            <div className="mb-16">
+              <span className="text-xs font-mono uppercase tracking-[0.3em] text-[#F97316]">HOW IT WORKS</span>
+              <h2 className="text-3xl md:text-5xl font-black mt-4 text-[#1A1A1A] tracking-tight">THREE MOMENTS. EVERY DAY.</h2>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-0">
+              
+              {/* Step 1 - The Weight */}
+              <div className="relative px-8 py-10 border-r border-[#E5E5E5]">
+                <div className="absolute top-6 left-8 text-[120px] font-black text-[#E5E5E5] leading-none select-none pointer-events-none" style={{ fontFamily: 'system-ui' }}>01</div>
+                <div className="relative z-10 pt-24">
+                  <h3 className="text-lg font-black mb-4 text-[#1A1A1A] uppercase tracking-wide">THE WEIGHT</h3>
+                  <p className="text-base text-[#4A4A4A] leading-relaxed">
+                    Live your day knowing the call is coming tonight. No app to check. Just the quiet knowledge that you'll have to answer for what you did.
+                  </p>
+                </div>
+              </div>
+
+              {/* Step 2 - The Audit */}
+              <div className="relative px-8 py-10 border-r border-[#E5E5E5]">
+                <div className="absolute top-6 left-8 text-[120px] font-black text-[#E5E5E5] leading-none select-none pointer-events-none" style={{ fontFamily: 'system-ui' }}>02</div>
+                <div className="relative z-10 pt-24">
+                  <h3 className="text-lg font-black mb-4 text-[#1A1A1A] uppercase tracking-wide">THE AUDIT</h3>
+                  <p className="text-base text-[#4A4A4A] leading-relaxed">
+                    Your phone rings. The AI remembers exactly what you committed to. Now you have to say out loud whether you did it.
+                  </p>
+                </div>
+              </div>
+
+              {/* Step 3 - Tomorrow's Plan (Orange) */}
+              <div className="relative px-8 py-10 bg-[#F97316]">
+                <div className="absolute top-6 left-8 text-[120px] font-black text-[#EA580C]/30 leading-none select-none pointer-events-none" style={{ fontFamily: 'system-ui' }}>03</div>
+                <div className="relative z-10 pt-24">
+                  <h3 className="text-lg font-black mb-4 text-white uppercase tracking-wide">TOMORROW'S PLAN</h3>
+                  <p className="text-base text-white/90 leading-relaxed">
+                    After the audit, you set tomorrow's commitments. Say them out loud. The AI remembers. Tomorrow night, you'll answer for these too.
                   </p>
                 </div>
               </div>
@@ -240,254 +278,207 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* ============ HOW IT WORKS - WHITE ============ */}
-        <section className="px-6 py-24 bg-white text-black border-b-2 border-black">
-          <div className="max-w-5xl mx-auto">
-            
-            <div className="text-center mb-16">
-              <h2 className="text-2xl md:text-3xl font-bold mb-4">How it actually works</h2>
-              <p className="text-base text-black/60 max-w-lg mx-auto">No complex setup. No gamification. No streaks to protect. Just one call every night that changes everything.</p>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-0">
+        {/* ============ FEATURES + IS THIS YOU (shared background) ============ */}
+        <section className="bg-[#0A0A0A] relative overflow-hidden">
+          {/* Background image */}
+          <div 
+            className="absolute inset-0 bg-contain bg-center bg-no-repeat opacity-20 scale-150"
+            style={{ backgroundImage: 'url(/hopewindow.png)' }}
+          />
+          {/* Dark overlay */}
+          <div className="absolute inset-0 bg-[#0A0A0A]/80" />
+          
+          {/* FEATURES */}
+          <div className="px-6 py-12 relative z-10">
+            <div className="max-w-6xl mx-auto">
               
-              {/* Step 1 */}
-              <div className="border-2 border-black p-8 md:border-r-0">
-                <div className="flex items-center gap-4 mb-6">
-                  <div className="w-12 h-12 bg-black text-white flex items-center justify-center text-lg font-bold">1</div>
-                  <Clock size={24} />
-                </div>
-                <h3 className="text-base font-bold mb-3">DAY: THE WEIGHT</h3>
-                <p className="text-sm text-black/60 mb-5 leading-relaxed">
-                  Live your day knowing the call is coming tonight. No app to check. No boxes to tick. 
-                  Just the quiet knowledge that you'll have to answer for what you did.
-                </p>
-                <div className="bg-black text-white p-4 text-sm">
-                  <div className="text-white/40 mb-2">The feeling:</div>
-                  You can't escape it. The audit is coming.
-                </div>
-              </div>
-
-              {/* Step 2 */}
-              <div className="border-2 border-black p-8 md:border-r-0">
-                <div className="flex items-center gap-4 mb-6">
-                  <div className="w-12 h-12 bg-black text-white flex items-center justify-center text-lg font-bold">2</div>
-                  <Phone size={24} />
-                </div>
-                <h3 className="text-base font-bold mb-3">NIGHT: THE AUDIT</h3>
-                <p className="text-sm text-black/60 mb-5 leading-relaxed">
-                  Your phone rings. The AI remembers exactly what you committed to. 
-                  Now you have to say out loud whether you did it. No dodging. Just truth.
-                </p>
-                <div className="bg-black text-white p-4 text-sm">
-                  <div className="text-white/40 mb-2">The question:</div>
-                  "You said gym and side project. Did you do it?"
-                </div>
-              </div>
-
-              {/* Step 3 */}
-              <div className="border-2 border-black p-8 bg-black text-white">
-                <div className="flex items-center gap-4 mb-6">
-                  <div className="w-12 h-12 bg-white text-black flex items-center justify-center text-lg font-bold">3</div>
-                  <ArrowRight size={24} />
-                </div>
-                <h3 className="text-base font-bold mb-3">THEN: TOMORROW'S PLAN</h3>
-                <p className="text-sm text-white/60 mb-5 leading-relaxed">
-                  After the audit, you set tomorrow's commitments. Say them out loud. 
-                  The AI remembers. Tomorrow night, you'll answer for these too.
-                </p>
-                <div className="bg-white text-black p-4 text-sm">
-                  <div className="text-black/40 mb-2">Your commitment:</div>
-                  "Tomorrow I'll wake up at 7, finish the report, and call mom."
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ============ FEATURES - WHITE continues ============ */}
-        <section className="px-6 py-24 bg-white text-black border-b-2 border-black">
-          <div className="max-w-5xl mx-auto">
-            
-            <h2 className="text-lg font-bold mb-12 text-center">What makes this different</h2>
-            
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <h2 className="text-2xl md:text-3xl font-black mb-10 uppercase tracking-wide text-white">WHAT MAKES THIS DIFFERENT</h2>
               
-              <div className="border-2 border-black p-6">
-                <div className="w-10 h-10 border-2 border-black flex items-center justify-center mb-4">
-                  <Mic size={20} />
-                </div>
-                <h3 className="text-sm font-bold mb-2">VOICE-FIRST</h3>
-                <p className="text-sm text-black/60 leading-relaxed">No typing. You have to say it out loud. There's power in hearing your own voice commit.</p>
-              </div>
-
-              <div className="border-2 border-black p-6">
-                <div className="w-10 h-10 border-2 border-black flex items-center justify-center mb-4">
-                  <Volume2 size={20} />
-                </div>
-                <h3 className="text-sm font-bold mb-2">REAL CALLS</h3>
-                <p className="text-sm text-black/60 leading-relaxed">Not notifications. Real calls you have to pick up. Can't swipe away.</p>
-              </div>
-
-              <div className="border-2 border-black p-6">
-                <div className="w-10 h-10 border-2 border-black flex items-center justify-center mb-4">
-                  <Calendar size={20} />
-                </div>
-                <h3 className="text-sm font-bold mb-2">AI MEMORY</h3>
-                <p className="text-sm text-black/60 leading-relaxed">It remembers everything. Your patterns. Your excuses. You can't gaslight it.</p>
-              </div>
-
-              <div className="border-2 border-black p-6 bg-black text-white">
-                <div className="w-10 h-10 border-2 border-white flex items-center justify-center mb-4">
-                  <TrendingUp size={20} />
-                </div>
-                <h3 className="text-sm font-bold mb-2">WEEKLY AUDITS</h3>
-                <p className="text-sm text-white/60 leading-relaxed">Every week, face your track record. How many times did you keep your word?</p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ============ IS THIS YOU - WHITE continues ============ */}
-        <section className="px-6 py-24 bg-white border-b-2 border-black">
-          <div className="max-w-5xl mx-auto">
-            
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-              
-              {/* Left */}
-              <div>
-                <h2 className="text-2xl md:text-3xl font-bold mb-4">Is this you?</h2>
-                <p className="text-base text-black/60 mb-8">If any of these hit close to home, you might be exactly who this is for.</p>
+              <div className="grid grid-cols-1 md:grid-cols-4">
                 
-                <div className="space-y-3">
+                <div className="px-6 py-4 border-r border-white/10 hover:bg-white/5 transition-colors cursor-default">
+                  <div className="w-12 h-12 border border-white/30 flex items-center justify-center mb-4">
+                    <Mic size={20} className="text-white" />
+                  </div>
+                  <h3 className="text-sm font-black mb-2 uppercase tracking-wide text-white">VOICE-FIRST</h3>
+                  <p className="text-sm text-white/60 leading-relaxed">No typing. You have to say it out loud.</p>
+                </div>
+
+                <div className="px-6 py-4 border-r border-white/10 hover:bg-white/5 transition-colors cursor-default">
+                  <div className="w-12 h-12 border border-white/30 flex items-center justify-center mb-4">
+                    <Phone size={20} className="text-white" />
+                  </div>
+                  <h3 className="text-sm font-black mb-2 uppercase tracking-wide text-white">REAL CALLS</h3>
+                  <p className="text-sm text-white/60 leading-relaxed">Not notifications. Can't swipe away.</p>
+                </div>
+
+                <div className="px-6 py-4 border-r border-white/10 hover:bg-white/5 transition-colors cursor-default">
+                  <div className="w-12 h-12 border border-white/30 flex items-center justify-center mb-4">
+                    <Calendar size={20} className="text-white" />
+                  </div>
+                  <h3 className="text-sm font-black mb-2 uppercase tracking-wide text-white">AI MEMORY</h3>
+                  <p className="text-sm text-white/60 leading-relaxed">It remembers everything. Your patterns. Your excuses.</p>
+                </div>
+
+                <div className="px-6 py-4 hover:bg-white/5 transition-colors cursor-default">
+                  <div className="w-12 h-12 border border-white/30 flex items-center justify-center mb-4">
+                    <TrendingUp size={20} className="text-white" />
+                  </div>
+                  <h3 className="text-sm font-black mb-2 uppercase tracking-wide text-white">WEEKLY AUDITS</h3>
+                  <p className="text-sm text-white/60 leading-relaxed">Face your track record. How many times did you keep your word?</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* IS THIS YOU */}
+          <div className="px-6 pt-8 pb-24 relative z-10">
+            <div className="max-w-6xl mx-auto">
+              
+              <div className="mb-16">
+                <span className="text-xs font-mono uppercase tracking-[0.3em] text-[#F97316]">SOUND FAMILIAR?</span>
+                <h2 className="text-3xl md:text-5xl font-black mt-4 text-white tracking-tight">IS THIS YOU?</h2>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                
+                {/* Left - Checklist */}
+                <div className="space-y-0">
                   {[
                     "You've said \"I'll start Monday\" more times than you can count",
-                    "You know exactly what you need to do - you just don't do it",
+                    "You know exactly what you need to do — you just don't do it",
                     "You've downloaded dozens of apps and abandoned them all",
                     "You're tired of making promises to yourself and breaking them",
                     "You've lost trust in your own word",
-                    "You're done with gentle approaches - you need something real"
+                    "You're done with gentle approaches — you need something real"
                   ].map((item, i) => (
-                    <div key={i} className="flex items-start gap-4 p-4 border-2 border-black">
-                      <Check size={18} className="flex-shrink-0 mt-0.5" />
-                      <span className="text-sm">{item}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-              
-              {/* Right - Results mockup */}
-              <div className="border-2 border-black p-6 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
-                <div className="text-xs uppercase tracking-wider text-black/40 mb-6">Your weekly audit - Week 3</div>
-                
-                <div className="grid grid-cols-7 gap-2 mb-6">
-                  {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, i) => (
-                    <div key={i} className="text-center">
-                      <div className="text-xs text-black/40 mb-2">{day}</div>
-                      <div className={`w-full aspect-square border-2 border-black flex items-center justify-center ${i < 5 ? 'bg-black' : i === 5 ? 'bg-white' : 'bg-black/5'}`}>
-                        {i < 5 && <Check size={16} className="text-white" />}
-                        {i === 5 && <X size={16} className="text-red-500" />}
-                      </div>
+                    <div key={i} className="flex items-center gap-4 p-5 border-b border-white/10">
+                      <Check size={20} className="flex-shrink-0 text-[#F97316]" />
+                      <span className="text-base text-white/80">{item}</span>
                     </div>
                   ))}
                 </div>
                 
-                <div className="space-y-3 border-t-2 border-black pt-5 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-black/60">Commitments kept</span>
-                    <span className="font-bold">5/6 (83%)</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-black/60">Current streak</span>
-                    <span className="font-bold">12 days</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-black/60">Total audits</span>
-                    <span className="font-bold">21</span>
-                  </div>
-                </div>
-                
-                <div className="mt-5 p-4 bg-black text-white text-sm">
-                  <div className="font-bold mb-2">AI Note:</div>
-                  <p className="text-white/70 leading-relaxed">"Saturday you said the wedding threw off your schedule. Pattern: social events disrupt routine. Consider lighter goals on event days."</p>
+                {/* Right - Orange CTA card */}
+                <div className="bg-[#F97316] p-10 flex flex-col justify-center">
+                  <h3 className="text-2xl md:text-3xl font-black text-black mb-6">
+                    THEN THIS IS FOR YOU.
+                  </h3>
+                  <p className="text-lg text-black/70 mb-8 leading-relaxed">
+                    No more apps. No more streaks. Just one call every night that changes everything.
+                  </p>
+                  <button 
+                    onClick={startOnboarding}
+                    className="bg-black text-white px-8 py-4 text-sm font-bold uppercase tracking-wide hover:bg-black/80 transition-colors w-fit flex items-center gap-3"
+                  >
+                    <span>GET STARTED</span>
+                    <ArrowRight size={18} />
+                  </button>
                 </div>
               </div>
             </div>
           </div>
         </section>
 
-        {/* ============ CTA + PRICING - BLACK ============ */}
-        <section className="bg-black text-white border-b-2 border-black">
-          <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2">
+        {/* ============ MEET THE WITNESS ============ */}
+        <section className="px-6 py-24 bg-white">
+          <div className="max-w-6xl mx-auto">
             
-            {/* CTA - Left */}
-            <div className="px-6 py-24 flex items-center">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
+              
+              {/* Left - Mascot */}
+              <div className="flex justify-center">
+                <WitnessLogo size="4xl" />
+              </div>
+              
+              {/* Right - Info */}
               <div>
-                <h2 className="text-3xl md:text-4xl font-bold mb-6 leading-tight">
-                  THE CALL<br />IS COMING.
-                </h2>
-                <p className="text-lg text-white/60 mb-4">
-                  Tonight at 9pm, your phone will ring.
+                <span className="text-xs font-mono uppercase tracking-[0.3em] text-[#F97316]">YOUR COMPANION</span>
+                <h2 className="text-3xl md:text-4xl font-black mt-4 text-[#1A1A1A] tracking-tight mb-6">MEET THE WITNESS</h2>
+                <p className="text-lg text-[#4A4A4A] leading-relaxed mb-6">
+                  Your accountability companion. It watches, remembers, and reflects your journey back at you.
                 </p>
-                <p className="text-sm text-white/50 mb-10 leading-relaxed max-w-sm">
-                  You'll hear the question: "Did you do what you said you would do?"
-                  And for the first time, you won't be able to lie.
+                <p className="text-base text-[#6A6A6A] leading-relaxed mb-8">
+                  The more honest you are, the more it evolves. Unlock new forms and accessories as you prove your commitment.
                 </p>
                 <button 
-                  onClick={startOnboarding}
-                  className="bg-white text-black px-8 py-4 text-sm font-bold border-2 border-white shadow-[6px_6px_0px_0px_rgba(255,255,255,0.3)] hover:shadow-none hover:translate-x-1.5 hover:translate-y-1.5 transition-all inline-flex items-center gap-3"
+                  onClick={() => router.push('/witness')}
+                  className="text-[#F97316] font-bold text-sm uppercase tracking-wide hover:text-[#EA580C] transition-colors flex items-center gap-2"
                 >
-                  <span>ANSWER THE CALL</span>
-                  <ArrowRight size={18} />
+                  <span>LEARN MORE</span>
+                  <ArrowRight size={16} />
                 </button>
               </div>
             </div>
+          </div>
+        </section>
 
-            {/* Pricing - Right */}
-            <div className="px-6 py-24 flex items-center justify-center border-t-2 lg:border-t-0 lg:border-l-2 border-white/20">
-              <div className="w-full max-w-sm">
-                
-                <div className="border-2 border-white p-8">
-                  
-                  <div className="text-xs uppercase tracking-wider text-white/40 mb-4">Simple pricing</div>
-                  
-                  <div className="text-5xl font-bold mb-2">$6.99</div>
-                  <p className="text-sm text-white/60 mb-8">/week after 7-day free trial</p>
+        {/* ============ CTA + PRICING ============ */}
+        <section className="grid grid-cols-1 lg:grid-cols-2 min-h-[600px]">
+          
+          {/* Left - CTA (Dark) */}
+          <div className="bg-[#0A0A0A] px-8 md:px-16 py-24 flex items-center">
+            <div>
+              <h2 className="text-4xl md:text-5xl font-black mb-8 leading-tight text-white">
+                THE CALL IS<br /><span className="text-[#F97316]">COMING.</span>
+              </h2>
+              <p className="text-xl text-white/70 mb-4">
+                Tonight at 9pm, your phone will ring.
+              </p>
+              <p className="text-base text-white/50 mb-10 leading-relaxed max-w-md">
+                You'll hear the question: "Did you do what you said you would do?" And for the first time, you won't be able to lie.
+              </p>
+              <button 
+                onClick={startOnboarding}
+                className="bg-[#F97316] text-black px-8 py-4 text-sm font-bold uppercase tracking-wide hover:bg-[#FB923C] transition-colors inline-flex items-center gap-3"
+              >
+                <span>ANSWER THE CALL</span>
+                <ArrowRight size={18} />
+              </button>
+            </div>
+          </div>
 
-                  <div className="space-y-3 mb-8 py-6 border-y-2 border-white/20 text-sm">
-                    {[
-                      'Nightly accountability calls',
-                      'AI that remembers everything',
-                      'Weekly performance audits',
-                      'Pattern recognition',
-                      'Cancel anytime'
-                    ].map((item, i) => (
-                      <div key={i} className="flex items-center gap-3">
-                        <Check size={16} />
-                        <span>{item}</span>
-                      </div>
-                    ))}
+          {/* Right - Pricing (Orange) */}
+          <div className="bg-[#F97316] px-8 md:px-16 py-24 flex items-center">
+            <div className="w-full max-w-md">
+              
+              <div className="text-xs font-mono uppercase tracking-[0.3em] text-black/50 mb-4">SIMPLE PRICING</div>
+              
+              <div className="text-6xl md:text-7xl font-black text-black mb-2">$6.99</div>
+              <p className="text-lg text-black/60 mb-10">/week after 7-day free trial</p>
+
+              <div className="space-y-4 mb-10">
+                {[
+                  'Nightly accountability calls',
+                  'AI that remembers everything',
+                  'Weekly performance audits',
+                  'Pattern recognition',
+                  'Cancel anytime'
+                ].map((item, i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <ArrowRight size={16} className="text-black/70" />
+                    <span className="text-base font-semibold text-black">{item}</span>
                   </div>
-
-                  <button 
-                    onClick={startOnboarding}
-                    className="w-full bg-white text-black py-4 text-sm font-bold border-2 border-white hover:bg-black hover:text-white transition-colors"
-                  >
-                    START FREE TRIAL
-                  </button>
-                  
-                  <p className="text-center text-xs text-white/40 mt-4">No credit card required</p>
-                </div>
+                ))}
               </div>
+
+              <button 
+                onClick={startOnboarding}
+                className="w-full bg-black text-white py-5 text-sm font-bold uppercase tracking-wide hover:bg-black/80 transition-colors"
+              >
+                START FREE TRIAL
+              </button>
+              
+              <p className="text-center text-sm text-black/50 mt-4">No credit card required</p>
             </div>
           </div>
         </section>
 
-        {/* ============ FAQ - WHITE ============ */}
-        <section className="px-6 py-24 bg-white text-black border-b-2 border-black">
+        {/* ============ FAQ ============ */}
+        <section className="px-6 py-24 bg-[#0A0A0A]">
           <div className="max-w-3xl mx-auto">
             
-            <h2 className="text-lg font-bold mb-12">Questions you might have</h2>
+            <h2 className="text-lg font-bold mb-12 uppercase tracking-wide">Questions you might have</h2>
             
             <div className="space-y-0">
               {[
@@ -498,40 +489,59 @@ export default function LandingPage() {
                 { q: "Is this actually healthy?", a: "Honestly? Not sure. But it has broken cycles that people have been stuck in for years." },
                 { q: "Can I cancel anytime?", a: "Yes. But most people don't. Not because they're trapped, but because it's actually working." },
               ].map((item, i) => (
-                <div key={i} className="py-6 border-b-2 border-black">
+                <div key={i} className="py-6 border-b border-white/10">
                   <h3 className="text-base font-bold mb-2">{item.q}</h3>
-                  <p className="text-sm text-black/60 leading-relaxed">{item.a}</p>
+                  <p className="text-sm text-white/50 leading-relaxed">{item.a}</p>
                 </div>
               ))}
             </div>
           </div>
         </section>
 
-        {/* ============ FINAL CTA - BLACK ============ */}
-        <section className="px-6 py-24 bg-black text-white text-center">
-          <div className="max-w-xl mx-auto">
-            <h2 className="text-2xl md:text-3xl font-bold mb-4">Stop lying to yourself.</h2>
-            <p className="text-base text-white/60 mb-10">The call is coming. Will you answer?</p>
-            <button 
-              onClick={startOnboarding}
-              className="bg-white text-black px-8 py-4 text-sm font-bold border-2 border-white hover:bg-black hover:text-white transition-all inline-flex items-center gap-3"
-            >
-              <span>START YOUR FIRST CALL</span>
-              <ArrowRight size={18} />
-            </button>
-          </div>
-        </section>
-
-        {/* Footer */}
-        <footer className="px-6 py-8 bg-black text-white border-t-2 border-white/20">
-          <div className="max-w-3xl mx-auto flex justify-between items-center text-sm">
-            <span className="font-bold">You+</span>
-            <div className="flex gap-8">
-              <a href="#" className="text-white/50 hover:text-white">Contact</a>
-              <a href="#" className="text-white/40 hover:text-white">Terms</a>
+        {/* ============ FINAL CTA ============ */}
+        <section className="px-6 min-h-screen bg-[#0A0A0A] text-center relative overflow-hidden flex flex-col">
+          {/* Background image */}
+          <div 
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-30"
+            style={{ backgroundImage: 'url(/tabe.png)' }}
+          />
+          {/* Dark overlay */}
+          <div className="absolute inset-0 bg-[#0A0A0A]/70" />
+          
+          <div className="flex-1 flex items-center justify-center">
+            <div className="max-w-xl mx-auto relative z-10">
+              <h2 className="text-3xl md:text-4xl font-black mb-4 uppercase">Stop lying<br />to yourself.</h2>
+              <p className="text-lg text-white/50 mb-10">The call is coming. Will you answer?</p>
+              <button 
+                onClick={startOnboarding}
+                className="bg-[#F97316] text-black px-10 py-5 text-sm font-bold uppercase tracking-wide hover:bg-[#FB923C] transition-colors inline-flex items-center gap-3"
+              >
+                <span>START YOUR FIRST CALL</span>
+                <ArrowRight size={18} />
+              </button>
             </div>
           </div>
-        </footer>
+          
+          {/* Footer inside the section */}
+          <div className="relative z-10 py-6 px-4">
+            <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-sm">
+              <p className="text-white/40">
+                © {new Date().getFullYear()} You+. All rights reserved.
+              </p>
+              <div className="flex items-center gap-6">
+                <a href="/legal/privacy" className="text-white/40 hover:text-white/70 transition-colors">
+                  Privacy Policy
+                </a>
+                <a href="/legal/terms" className="text-white/40 hover:text-white/70 transition-colors">
+                  Terms of Service
+                </a>
+                <a href="mailto:support@youplus.app" className="text-white/40 hover:text-white/70 transition-colors">
+                  Contact
+                </a>
+              </div>
+            </div>
+          </div>
+        </section>
 
       </main>
     </div>

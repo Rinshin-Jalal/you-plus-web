@@ -248,9 +248,9 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
         )}
 
         {step.type === 'loader' && (
-            <div key={step.id} className="flex flex-col items-center gap-8">
-                <div className="w-24 h-24 border-8 border-t-neon-teal border-black/5 rounded-full animate-spin" />
-                <p className="font-mono text-sm text-black/50 animate-pulse uppercase tracking-widest font-bold">{step.label}</p>
+            <div key={step.id} className="flex flex-col items-center gap-6">
+                <div className="w-16 h-16 border-2 border-t-[#F97316] border-white/10 rounded-full animate-spin" />
+                <p className="text-sm text-white/50">{step.label}</p>
                 {setTimeout(() => next(), 3000) && null}
             </div>
         )}
@@ -264,15 +264,15 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
         )}
 
         {step.type === 'paywall' && (
-            <div key={step.id} className="text-center space-y-12">
-                <div className="inline-flex p-8 border-4 border-black rounded-full mb-4">
-                    <Zap size={64} className="text-black" fill="currentColor" />
+            <div key={step.id} className="text-center space-y-10">
+                <div className="mb-4">
+                    <WitnessLogo size="xl" animate={true} />
                 </div>
                 <div>
-                    <h2 className="font-mono text-black text-2xl md:text-3xl leading-relaxed font-medium mb-6">You are ready.</h2>
-                    <p className="font-mono text-black/50 max-w-md mx-auto text-base leading-relaxed">The system is built. The standard is set.<br/>Now we begin.</p>
+                    <h2 className="text-2xl md:text-3xl font-bold mb-4 text-white">You are ready.</h2>
+                    <p className="text-white/50 max-w-md mx-auto text-base">The system is built. The standard is set.<br/>Now we begin.</p>
                 </div>
-                <Button size="lg" variant="primary" className="w-full text-xl py-6 border-black shadow-[8px_8px_0_0_rgba(0,0,0,1)] hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all" onClick={onFinish}>
+                <Button size="lg" variant="primary" onClick={onFinish}>
                     ENTER YOU+
                 </Button>
             </div>

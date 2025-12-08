@@ -207,13 +207,13 @@ export const PillarQuestions = ({
 
       {/* Overall progress bar */}
       <div className="mt-12 w-full max-w-xs mx-auto">
-        <div className="h-1 bg-white/10 rounded overflow-hidden">
+        <div className="h-0.5 bg-white/10 rounded-full overflow-hidden">
           <div 
-            className="h-full bg-gradient-to-r from-orange-500 to-amber-500 transition-all duration-500 ease-out rounded"
+            className="h-full bg-[#F97316] transition-all duration-500 ease-out"
             style={{ width: `${progress}%` }}
           />
         </div>
-        <p className="text-center font-mono text-xs text-white/40 mt-2">
+        <p className="text-center text-xs text-white/40 mt-2">
           {currentQuestionNumber} / {totalQuestions}
         </p>
       </div>

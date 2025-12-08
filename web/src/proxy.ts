@@ -18,6 +18,7 @@ export async function proxy(request: NextRequest) {
         '/auth/auth-code-error',
         '/api/auth/signout',
         '/legal',
+        '/witness',
     ]
 
     // Routes that should stay open to unauthenticated users
