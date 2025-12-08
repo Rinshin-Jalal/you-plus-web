@@ -48,7 +48,7 @@ export default function LandingPage() {
       <main className="pt-16 relative z-10">
         
         {/* ============ HERO - CENTERED ============ */}
-        <section className="relative min-h-screen flex items-center justify-center px-6 py-24 overflow-hidden">
+        <section className="relative min-h-[95vh] flex items-center justify-center px-6 py-24 overflow-hidden">
           {/* Phone background image */}
           <div 
             className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-20"
@@ -71,14 +71,13 @@ export default function LandingPage() {
             </h1>
             
             {/* Subheadline */}
-            <p className="text-lg md:text-xl text-white/70 mb-4 max-w-xl mx-auto">
+            <p className="text-lg md:text-xl text-white/70 mb-3 max-w-xl mx-auto">
               Every night at <span className="text-[#F97316] font-semibold">9:00 PM</span>, your phone rings.
               <br />You have to answer for what you did today.
             </p>
             
-            <p className="text-sm md:text-base text-white/50 mb-10 max-w-lg mx-auto">
-              No more lying to apps. No more broken streaks. No more excuses.
-              <br />Just you, your voice, and the truth.
+            <p className="text-xs md:text-sm text-white/40 mb-10 max-w-lg mx-auto">
+              Just you, your voice, and the truth.
             </p>
 
             {/* CTAs */}
@@ -97,26 +96,33 @@ export default function LandingPage() {
             </div>
             
             {/* Social proof - Score Indicator */}
-            <div className="flex items-center justify-center gap-4 mt-12">
-              <div className="flex items-center gap-2">
-                {/* Score bars */}
-                <div className="flex items-end gap-1 h-8">
-                  <div className="w-2 h-3 bg-[#F97316]/40 rounded-sm" />
-                  <div className="w-2 h-5 bg-[#F97316]/60 rounded-sm" />
-                  <div className="w-2 h-7 bg-[#F97316]/80 rounded-sm" />
-                  <div className="w-2 h-8 bg-[#F97316] rounded-sm" />
-                </div>
-                <div className="flex flex-col items-start ml-2">
-                  <span className="text-2xl font-black text-[#F97316] leading-none">2,847</span>
-                  <span className="text-xs text-white/40 uppercase tracking-wide">calls this week</span>
-                </div>
+            <div className="flex items-center justify-center gap-3 mt-12">
+              <div className="flex -space-x-2">
+                <div className="w-8 h-8 rounded-full bg-[#F97316] border-2 border-[#0A0A0A] flex items-center justify-center text-xs font-bold text-black">M</div>
+                <div className="w-8 h-8 rounded-full bg-[#F97316]/80 border-2 border-[#0A0A0A] flex items-center justify-center text-xs font-bold text-black">J</div>
+                <div className="w-8 h-8 rounded-full bg-[#F97316]/60 border-2 border-[#0A0A0A] flex items-center justify-center text-xs font-bold text-black/80">K</div>
               </div>
+              <span className="text-sm text-white/40">2,847 this week</span>
             </div>
             
             {/* Scroll indicator */}
-            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-white/30">
-              <span className="text-xs font-mono tracking-widest">SCROLL</span>
-              <div className="w-px h-8 bg-gradient-to-b from-white/30 to-transparent" />
+            <div className="hidden md:flex absolute -bottom-24 left-1/2 -translate-x-1/2 flex-col items-center gap-2 text-white/30">
+              <svg 
+                className="w-6 h-10 animate-bounce" 
+                viewBox="0 0 24 40" 
+                fill="none" 
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <rect x="1" y="1" width="22" height="38" rx="11" stroke="currentColor" strokeWidth="2" />
+                <circle className="animate-pulse" cx="12" cy="12" r="4" fill="currentColor">
+                  <animate 
+                    attributeName="cy" 
+                    values="10;20;10" 
+                    dur="1.5s" 
+                    repeatCount="indefinite" 
+                  />
+                </circle>
+              </svg>
             </div>
           </div>
         </section>
