@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Zap } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { WitnessLogo } from '@/components/ui/WitnessLogo';
 import { audioService } from '@/services/audio';
 import { storageService } from '@/services/storage';
 

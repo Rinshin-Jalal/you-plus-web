@@ -1,16 +1,3 @@
-/**
- * API Validation Schemas using Zod
- * 
- * This file contains all Zod schemas for validating API requests and responses.
- * These schemas provide runtime type checking and validation for all API endpoints.
- * 
- * Using these schemas ensures:
- * 1. Type safety at runtime (not just compile time)
- * 2. Automatic request/response validation
- * 3. Clear error messages for invalid data
- * 4. Self-documenting API contracts
- */
-
 import { z } from "zod";
 
 // Common base schemas

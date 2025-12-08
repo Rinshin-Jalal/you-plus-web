@@ -1,14 +1,8 @@
-/**
- * Settings (trimmed): eligibility, schedule (GET), subscription status update
- */
 import { Context } from "hono";
 import { createSupabaseClient } from "@/features/core/utils/database";
 import { Env } from "@/index";
 import { getAuthenticatedUserId } from "@/middleware/auth";
 
-/**
- * GET /api/calls/eligibility
- */
 export const getCallEligibility = async (c: Context) => {
   const userId = getAuthenticatedUserId(c);
   const env = c.env as Env;
@@ -78,9 +72,6 @@ export const getCallEligibility = async (c: Context) => {
   }
 };
 
-/**
- * GET /api/settings/schedule
- */
 export const getScheduleSettings = async (c: Context) => {
   const userId = getAuthenticatedUserId(c);
   const env = c.env as Env;
@@ -118,9 +109,6 @@ export const getScheduleSettings = async (c: Context) => {
   }
 };
 
-/**
- * PUT /api/settings/subscription-status
- */
 export const updateSubscriptionStatus = async (c: Context) => {
   const userId = getAuthenticatedUserId(c);
   const { isActive, isEntitled, revenuecatCustomerId } = await c.req.json();
@@ -191,10 +179,6 @@ export const updateSubscriptionStatus = async (c: Context) => {
   }
 };
 
-/**
- * PUT /api/settings/schedule
- * Update user's call schedule (call window start time and timezone)
- */
 export const updateScheduleSettings = async (c: Context) => {
   const userId = getAuthenticatedUserId(c);
   const body = await c.req.json();
@@ -258,10 +242,6 @@ export const updateScheduleSettings = async (c: Context) => {
   }
 };
 
-/**
- * PUT /api/settings/revenuecat-customer-id
- * Store RevenueCat customer ID for user after payment
- */
 export const updateRevenueCatCustomerId = async (c: Context) => {
   const userId = getAuthenticatedUserId(c);
   const { originalAppUserId } = await c.req.json();

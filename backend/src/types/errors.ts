@@ -1,11 +1,3 @@
-/**
- * Centralized Error Handling Types and Utilities
- * 
- * This file provides type-safe error handling patterns for the entire application.
- * It includes standardized error types, error factories, and utilities for consistent
- * error handling across frontend and backend.
- */
-
 import { z } from "zod";
 
 // Base error types

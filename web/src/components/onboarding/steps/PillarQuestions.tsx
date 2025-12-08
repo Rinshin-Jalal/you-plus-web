@@ -48,6 +48,7 @@ export const PillarQuestions = ({
         label: label.charAt(0).toUpperCase() + label.slice(1),
         icon: '',
         description: '',
+        category: 'lifestyle',
         currentStateOptions: GENERIC_CURRENT_STATE_OPTIONS,
         goalPrompt: '',
         futurePrompt: '',

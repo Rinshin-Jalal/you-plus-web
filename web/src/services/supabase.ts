@@ -174,9 +174,6 @@ export const auth = {
  * Database helper functions - aligned with migrations 002-005
  */
 export const db = {
-  /**
-   * Get user profile from users table
-   */
   async getUserProfile(userId: string): Promise<{ data: User | null; error: Error | null }> {
     const client = getClient()
     const { data, error } = await client
@@ -187,9 +184,6 @@ export const db = {
     return { data, error }
   },
 
-  /**
-   * Get user status (streak, trust score, promise stats)
-   */
   async getStatus(userId: string): Promise<{ data: Status | null; error: Error | null }> {
     const client = getClient()
     const { data, error } = await client
@@ -200,9 +194,6 @@ export const db = {
     return { data, error }
   },
 
-  /**
-   * Get call memory (narrative state, quotes, personas)
-   */
   async getCallMemory(userId: string): Promise<{ data: CallMemory | null; error: Error | null }> {
     const client = getClient()
     const { data, error } = await client
@@ -213,9 +204,6 @@ export const db = {
     return { data, error }
   },
 
-  /**
-   * Get recent call analytics (last 7 days)
-   */
   async getRecentCallAnalytics(userId: string, days: number = 7): Promise<{ data: CallAnalytics[] | null; error: Error | null }> {
     const client = getClient()
     const cutoffDate = new Date()
@@ -230,9 +218,6 @@ export const db = {
     return { data, error }
   },
 
-  /**
-   * Get current subscription (DodoPayments only)
-   */
   async getSubscription(userId: string): Promise<{ data: Subscription | null; error: Error | null }> {
     const client = getClient()
     const { data, error } = await client
@@ -245,9 +230,6 @@ export const db = {
     return { data, error }
   },
 
-  /**
-   * Get full dashboard data
-   */
   async getDashboardData(userId: string): Promise<{
     user: User | null;
     status: Status | null;
@@ -291,9 +273,6 @@ export const db = {
     }
   },
 
-  /**
-   * Compute dashboard stats from status data
-   */
   computeStats(status: Status | null): DashboardStats {
     if (!status) {
       return {
@@ -327,9 +306,6 @@ export const db = {
     }
   },
 
-  /**
-   * Update user timezone
-   */
   async updateTimezone(userId: string, timezone: string): Promise<{ error: Error | null }> {
     const client = getClient()
     const { error } = await client
@@ -339,9 +315,6 @@ export const db = {
     return { error }
   },
 
-  /**
-   * Pause/unpause calls
-   */
   async pauseCalls(userId: string, pauseUntil?: Date): Promise<{ error: Error | null }> {
     const client = getClient()
     const { error } = await client
@@ -366,9 +339,6 @@ export const db = {
     return { error }
   },
 
-  /**
-   * Update user's last login timestamp
-   */
   async updateLastLogin(userId: string): Promise<{ error: Error | null }> {
     const client = getClient()
     const { error } = await client
@@ -378,13 +348,8 @@ export const db = {
     return { error }
   },
 
-  // ═══════════════════════════════════════════════════════════════════════════
   // 5 PILLARS SYSTEM (Migration 009)
-  // ═══════════════════════════════════════════════════════════════════════════
 
-  /**
-   * Get user's future self (core identity)
-   */
   async getFutureSelf(userId: string): Promise<{ data: FutureSelf | null; error: Error | null }> {
     const client = getClient()
     const { data, error } = await client
@@ -395,9 +360,6 @@ export const db = {
     return { data, error }
   },
 
-  /**
-   * Get user's pillars with their states
-   */
   async getPillars(userId: string): Promise<{ data: FutureSelfPillar[] | null; error: Error | null }> {
     const client = getClient()
     const { data, error } = await client
@@ -409,9 +371,6 @@ export const db = {
     return { data, error }
   },
 
-  /**
-   * Get pillar with summary stats (using RPC)
-   */
   async getPillarSummary(userId: string): Promise<{ data: FutureSelfPillar[] | null; error: Error | null }> {
     const client = getClient()
     const { data, error } = await client
@@ -419,9 +378,6 @@ export const db = {
     return { data, error }
   },
 
-  /**
-   * Get pillar alignment (using RPC)
-   */
   async getPillarAlignment(userId: string): Promise<{ data: IdentityAlignment | null; error: Error | null }> {
     const client = getClient()
     const { data, error } = await client
@@ -434,9 +390,6 @@ export const db = {
     return { data: null, error }
   },
 
-  /**
-   * Get full dashboard data including pillars
-   */
   async getDashboardDataWithPillars(userId: string): Promise<{
     user: User | null;
     status: Status | null;
@@ -502,9 +455,6 @@ export const db = {
     }
   },
 
-  /**
-   * Compute dashboard stats including pillar alignment
-   */
   computeStatsWithPillars(status: Status | null, pillarAlignment: IdentityAlignment | null): DashboardStats {
     const baseStats = this.computeStats(status)
     

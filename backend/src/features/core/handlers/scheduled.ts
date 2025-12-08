@@ -1,11 +1,3 @@
-/**
- * Scheduled Call Handler
- * 
- * This handler runs every 5 minutes via Cloudflare Cron triggers.
- * It checks which users have their call_time within the current 5-minute window
- * and triggers calls for them.
- */
-
 import { createClient } from "@supabase/supabase-js";
 import type { Env } from "@/types/environment";
 

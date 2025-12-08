@@ -2,12 +2,18 @@
 // PILLAR PRESETS - Dynamic pillar selection system
 // ============================================================================
 
+export const MIN_PILLARS = 3;
+export const MAX_PILLARS = 5;
+
 export interface PillarPreset {
   id: string;
   label: string;
   icon: string;
   description: string;
   category: 'health' | 'growth' | 'relationships' | 'purpose' | 'lifestyle';
+  currentStateOptions?: string[];
+  goalPrompt?: string;
+  futurePrompt?: string;
 }
 
 /**

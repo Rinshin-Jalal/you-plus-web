@@ -53,9 +53,6 @@ export const useDashboardData = () => {
   };
 };
 
-/**
- * Hook to get just the stats (uses cached data from store)
- */
 export const useStats = () => {
   const stats = useDashboardStore(selectStats);
   const loading = useDashboardStore(selectDashboardLoading);
@@ -68,9 +65,6 @@ export const useStats = () => {
   return { stats, loading };
 };
 
-/**
- * Hook to get trust status label based on trust score
- */
 export const useTrustStatus = () => {
   const { stats, loading } = useStats();
 
