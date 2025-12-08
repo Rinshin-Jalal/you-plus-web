@@ -55,10 +55,6 @@ class PaymentService {
     this.platform = getPlatform();
   }
 
-  /**
-   * Link a guest checkout to the authenticated user after sign-in
-   * Also syncs any localStorage onboarding data
-   */
   async linkGuestCheckout(guestId: string, onboardingData?: Record<string, unknown>): Promise<{ success: boolean; error?: string }> {
     try {
       const response = await apiClient.post<{ success: boolean; message: string; customerId: string }>(
@@ -126,10 +122,6 @@ class PaymentService {
     }
   }
 
-  /**
-   * Create a guest checkout session (no auth required)
-   * Used when user wants to pay before signing up
-   */
   async createGuestCheckoutSession(planId: string, email?: string): Promise<DodoCheckoutSession & { guestId: string } | null> {
     if (this.platform !== 'web') {
       console.warn('createGuestCheckoutSession is only for web platform');
@@ -184,9 +176,6 @@ class PaymentService {
     }
   }
 
-  /**
-   * Redirect to checkout without requiring auth
-   */
   async redirectToGuestCheckout(planId: string, email?: string): Promise<void> {
     if (this.platform === 'web') {
       const session = await this.createGuestCheckoutSession(planId, email);
@@ -281,10 +270,6 @@ class PaymentService {
     }
   }
 
-  /**
-   * Change the current subscription plan (upgrade/downgrade)
-   * Uses full_immediately mode - charges full new price, no refunds
-   */
   async changePlan(newPlanId: string): Promise<{ success: boolean; error?: string; newPlan?: { id: string; name: string; price_cents: number; currency: string } }> {
     if (this.platform !== 'web') {
       console.warn('Plan changes are only for web platform');

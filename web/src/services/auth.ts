@@ -49,13 +49,11 @@ class AuthService {
 
   async signOut(): Promise<{ error: Error | null }> {
     try {
-      // Call server API to clear cookies
       await fetch('/api/auth/signout', {
         method: 'POST',
         credentials: 'include',
       });
 
-      // Sign out from client (Supabase will handle cookie cleanup)
       const result = await supabaseAuth.signOut();
 
       if (result.error) {

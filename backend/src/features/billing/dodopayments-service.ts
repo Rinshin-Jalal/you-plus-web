@@ -73,14 +73,12 @@ export class DodoPaymentsService {
       }
 
       if (found) {
-        // Update the customer's name if we have a better one than the stored value
         if (trimmedName && trimmedName.length > 0 && found.name !== trimmedName) {
           try {
             await (this.client as any).customers.update(found.customer_id, { name: trimmedName });
             found.name = trimmedName;
           } catch (updateError) {
             console.warn('[dodo] Failed to update customer name, continuing:', updateError);
-            // Keep existing name if update fails
           }
         }
 
@@ -251,10 +249,6 @@ export class DodoPaymentsService {
     }
   }
 
-  /**
-   * Change a subscription's plan (upgrade or downgrade)
-   * Uses 'full_immediately' mode - charges full new price immediately, no proration/refunds
-   */
   async changePlan(subscriptionId: string, newProductId: string): Promise<boolean> {
     try {
       await (this.client as any).subscriptions.changePlan(subscriptionId, {
@@ -288,10 +282,6 @@ export class DodoPaymentsService {
     }
   }
 
-  /**
-   * List products and transform them into a frontend-friendly format
-   * with proper pricing, currency, and interval information
-   */
   async listProductsForCheckout(): Promise<Array<{
     product_id: string;
     name: string;

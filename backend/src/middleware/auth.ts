@@ -36,10 +36,6 @@ export const requireAuth = async (
   }
 };
 
-/**
- * Middleware to require an active subscription via DodoPayments
- * Checks DodoPayments API directly for active subscription status
- */
 export const requireActiveSubscription = async (
   c: Context,
   next: Next

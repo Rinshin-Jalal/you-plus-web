@@ -12,7 +12,7 @@ const billing = new Hono<{
   };
 }>();
 
-// Link a guest checkout to the authenticated user and sync onboarding data
+// Link guest checkout to authenticated user
 billing.post('/link-guest-checkout', requireAuth, async (c) => {
   const userId = c.get('userId');
   const userEmail = c.get('userEmail');
@@ -47,7 +47,6 @@ billing.post('/link-guest-checkout', requireAuth, async (c) => {
       })
       .eq('id', userId);
 
-    // Save onboarding data if provided
     if (onboardingData && Object.keys(onboardingData).length > 0) {
       console.log('[link-guest-checkout] Saving onboarding data...');
       
@@ -66,7 +65,6 @@ billing.post('/link-guest-checkout', requireAuth, async (c) => {
         console.log('[link-guest-checkout] User marked as onboarding complete');
       }
 
-      // Create future_self record with 5 Pillars system
       if (onboardingData.futureSelfStatement || onboardingData.pillars) {
         const futureSelfData = {
           user_id: userId,
@@ -85,7 +83,6 @@ billing.post('/link-guest-checkout', requireAuth, async (c) => {
           console.log('[link-guest-checkout] future_self record created/updated');
         }
 
-        // Upsert pillars if provided
         if (onboardingData.pillars && Array.isArray(onboardingData.pillars)) {
           for (const pillar of onboardingData.pillars) {
             const { error: pillarError } = await supabase
@@ -107,7 +104,6 @@ billing.post('/link-guest-checkout', requireAuth, async (c) => {
         }
       }
 
-      // Update users table with call_time if provided
       if (onboardingData.callTime || onboardingData.call_time) {
         const { error: callTimeError } = await supabase
           .from('users')
@@ -142,7 +138,6 @@ billing.get('/subscription', requireAuth, async (c) => {
   try {
     const supabase = createSupabaseClient(env);
 
-    // Get user's dodo_customer_id
     const { data: userData } = await supabase
       .from('users')
       .select('dodo_customer_id')
@@ -171,12 +166,10 @@ billing.get('/subscription', requireAuth, async (c) => {
 
     console.log('userData.dodo_customer_id:', userData.dodo_customer_id);
 
-    // Fetch subscriptions from DodoPayments API
     const dodo = createDodoPaymentsService(env);
     const subscriptions = await dodo.getCustomerSubscriptions(userData.dodo_customer_id);
 
 
-    // Prefer truly active subscriptions; treat pending as not yet active to avoid false positives
     const activeSubscription = subscriptions
       .filter((sub) => sub.status === 'active')
       .sort((a, b) => {
@@ -223,14 +216,12 @@ billing.get('/subscription', requireAuth, async (c) => {
       });
     }
 
-    // Treat as active only if status is active AND we have a future period end
     const now = Date.now();
     const periodEndRaw = activeSubscription.current_period_end;
     const periodEnd = periodEndRaw ? new Date(periodEndRaw).getTime() : null;
     const periodValid = periodEnd !== null && periodEnd > now;
     const isActive = activeSubscription.status === 'active' && periodValid;
 
-    // If Dodo says active but period is missing/expired, demote to inactive to avoid false banners
     if (!isActive) {
       return c.json({
         subscription: {
@@ -296,8 +287,7 @@ billing.get('/history', requireAuth, async (c) => {
   }
 });
 
-// Public checkout - no auth required
-// Creates a guest checkout session, user links account after payment
+// Guest checkout - no auth required
 billing.post('/checkout/create-guest', async (c) => {
   const env = c.env;
 
@@ -312,8 +302,6 @@ billing.post('/checkout/create-guest', async (c) => {
 
     const dodo = createDodoPaymentsService(env);
 
-    // For guest checkout, we create a temporary customer or use email if provided
-    // The customer will be linked to a user account after they sign in
     const guestId = `guest_${Date.now()}_${Math.random().toString(36).substring(7)}`;
     const guestEmail = email || `${guestId}@guest.youplus.app`;
     console.log('[guest-checkout] Creating customer:', { guestId, guestEmail });
@@ -384,7 +372,6 @@ billing.post('/checkout/create', requireAuth, async (c) => {
         })
         .eq('id', userId);
     } else if (preferredName) {
-      // Ensure the name in Dodo is up to date for existing customers
       try {
         await dodo.ensureCustomer(userId, preferredEmail, preferredName);
       } catch (updateError) {
@@ -577,10 +564,8 @@ billing.post('/change-plan', requireAuth, async (c) => {
 
     const dodo = createDodoPaymentsService(env);
 
-    // Fetch subscriptions from DodoPayments API
     const subscriptions = await dodo.getCustomerSubscriptions(userData.dodo_customer_id);
 
-    // Find active subscription
     const activeSubscription = subscriptions.find(
       (sub) => sub.status === 'active' || sub.status === 'pending'
     );
@@ -589,15 +574,12 @@ billing.post('/change-plan', requireAuth, async (c) => {
       return c.json({ error: 'No active subscription found' }, 404);
     }
 
-    // Check if trying to change to the same plan
     if (activeSubscription.product_id === newPlanId) {
       return c.json({ error: 'Already subscribed to this plan' }, 400);
     }
 
-    // Change the plan in DodoPayments
     await dodo.changePlan(activeSubscription.subscription_id, newPlanId);
 
-    // Get the new plan details
     const products = await dodo.listProductsForCheckout();
     const newPlan = products.find(p => p.product_id === newPlanId);
 

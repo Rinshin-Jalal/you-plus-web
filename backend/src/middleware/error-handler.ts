@@ -146,17 +146,7 @@ function handleServiceError(
   }
 }
 
-export const asyncHandler = (
-  fn: (c: Context) => Promise<Response>
-) => {
-  return async (c: Context): Promise<Response> => {
-    try {
-      return await fn(c);
-    } catch (error) {
-      throw error;
-    }
-  };
-};
+
 
 export class ValidationError extends AppError {
   constructor(message: string, details?: unknown) {

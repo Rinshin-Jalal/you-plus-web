@@ -24,9 +24,6 @@ export function useFormError() {
     }));
   }, []);
 
-  /**
-   * Set multiple field errors at once
-   */
   const setFieldErrors = useCallback((fieldErrors: FieldError[]) => {
     const errorMap: Record<string, string> = {};
     fieldErrors.forEach(({ field, message }) => {
@@ -135,9 +132,6 @@ export function useFormValidation<T extends Record<string, unknown>>(
     }));
   }, []);
 
-  /**
-   * Mark a field as touched (for showing validation errors)
-   */
   const setFieldTouched = useCallback((field: keyof T) => {
     setTouched(prev => ({
       ...prev,
@@ -145,9 +139,6 @@ export function useFormValidation<T extends Record<string, unknown>>(
     }));
   }, []);
 
-  /**
-   * Validate all fields
-   */
   const validate = useCallback(() => {
     const validationErrors = validationFn(values);
     if (validationErrors) {

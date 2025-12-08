@@ -18,9 +18,6 @@ export interface UpdateProfileData {
 }
 
 class AccountService {
-  /**
-   * Get the current user's profile from Supabase auth + users table
-   */
   async getProfile(): Promise<UserProfile | null> {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -52,9 +49,6 @@ class AccountService {
     }
   }
 
-  /**
-   * Update the current user's profile
-   */
   async updateProfile(data: UpdateProfileData): Promise<{ success: boolean; error?: string }> {
     try {
       await apiClient.put('/api/core/profile', data);
@@ -68,10 +62,6 @@ class AccountService {
     }
   }
 
-  /**
-   * Delete the current user's account
-   * This is a destructive action that cannot be undone
-   */
   async deleteAccount(): Promise<{ success: boolean; error?: string }> {
     try {
       await apiClient.delete('/api/core/profile');
@@ -89,9 +79,6 @@ class AccountService {
     }
   }
 
-  /**
-   * Sign out the current user
-   */
   async signOut(): Promise<{ success: boolean; error?: string }> {
     try {
       const { error } = await supabase.auth.signOut();
@@ -107,9 +94,6 @@ class AccountService {
     }
   }
 
-  /**
-   * Get the user's preferences (stored in localStorage for now)
-   */
   getPreferences(): { theme: 'light' | 'dark' | 'system'; notifications: boolean } {
     if (typeof window === 'undefined') {
       return { theme: 'system', notifications: true };
@@ -127,9 +111,6 @@ class AccountService {
     return { theme: 'system', notifications: true };
   }
 
-  /**
-   * Save user preferences
-   */
   savePreferences(prefs: { theme?: 'light' | 'dark' | 'system'; notifications?: boolean }): void {
     if (typeof window === 'undefined') return;
 
