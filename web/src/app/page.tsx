@@ -192,6 +192,38 @@ export default function LandingPage() {
             background: 'linear-gradient(180deg, #0D0D0D 0%, #080808 100%)'
           }}
         >
+          {/* Background Image - Phone in dark room */}
+          <div 
+            className="absolute inset-0 z-0"
+            style={{
+              backgroundImage: 'url(/phone.png)',
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              opacity: 0.3
+            }}
+          />
+          {/* Orange tint overlay - STRONG */}
+          <div 
+            className="absolute inset-0 z-0"
+            style={{
+              background: 'linear-gradient(180deg, rgba(249,115,22,0.35) 0%, rgba(234,88,12,0.25) 50%, rgba(194,65,12,0.2) 100%)',
+              mixBlendMode: 'overlay'
+            }}
+          />
+          {/* Secondary orange glow from top */}
+          <div 
+            className="absolute inset-0 z-0"
+            style={{
+              background: 'radial-gradient(ellipse 80% 50% at 50% 0%, rgba(249,115,22,0.3) 0%, transparent 60%)'
+            }}
+          />
+          {/* Gradient overlay to blend image */}
+          <div 
+            className="absolute inset-0 z-0"
+            style={{
+              background: 'linear-gradient(90deg, rgba(13,13,13,0.85) 0%, rgba(13,13,13,0.6) 50%, rgba(13,13,13,0.75) 100%)'
+            }}
+          />
           <div className="max-w-5xl mx-auto relative z-10">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
               
@@ -707,11 +739,36 @@ export default function LandingPage() {
 
         {/* ============ THE PROBLEM ============ */}
         <section 
-          className="px-6 py-24 border-b border-white/10 relative"
+          className="px-6 py-24 border-b border-white/10 relative overflow-hidden"
           style={{
             background: 'linear-gradient(180deg, #0A0A0A 0%, #0D0D0D 50%, #0A0A0A 100%)'
           }}
         >
+          {/* Background Image - Messy desk with abandoned tools */}
+          <div 
+            className="absolute inset-0 z-0"
+            style={{
+              backgroundImage: 'url(/tabe.png)',
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              opacity: 0.4
+            }}
+          />
+          {/* Orange tint overlay */}
+          <div 
+            className="absolute inset-0 z-0"
+            style={{
+              background: 'linear-gradient(180deg, rgba(249,115,22,0.12) 0%, rgba(234,88,12,0.08) 100%)',
+              mixBlendMode: 'overlay'
+            }}
+          />
+          {/* Dark overlay to ensure text readability - lighter to show more image */}
+          <div 
+            className="absolute inset-0 z-0"
+            style={{
+              background: 'linear-gradient(180deg, rgba(10,10,10,0.7) 0%, rgba(13,13,13,0.6) 50%, rgba(10,10,10,0.8) 100%)'
+            }}
+          />
           <div className="max-w-5xl mx-auto relative z-10">
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
@@ -836,11 +893,36 @@ export default function LandingPage() {
 
         {/* ============ HOW IT WORKS ============ */}
         <section 
-          className="px-6 py-24 border-b border-white/10 relative"
+          className="px-6 py-24 border-b border-white/10 relative overflow-hidden"
           style={{
             background: 'linear-gradient(180deg, #0A0A0A 0%, #0D0D0D 100%)'
           }}
         >
+          {/* Background Image - Day/Night cycle */}
+          <div 
+            className="absolute inset-0 z-0"
+            style={{
+              backgroundImage: 'url(/2sides.png)',
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              opacity: 0.4
+            }}
+          />
+          {/* Orange tint overlay */}
+          <div 
+            className="absolute inset-0 z-0"
+            style={{
+              background: 'linear-gradient(180deg, rgba(249,115,22,0.12) 0%, rgba(234,88,12,0.08) 100%)',
+              mixBlendMode: 'overlay'
+            }}
+          />
+          {/* Dark overlay for text readability */}
+          <div 
+            className="absolute inset-0 z-0"
+            style={{
+              background: 'linear-gradient(180deg, rgba(10,10,10,0.75) 0%, rgba(13,13,13,0.65) 50%, rgba(10,10,10,0.8) 100%)'
+            }}
+          />
           <div className="max-w-5xl mx-auto relative z-10">
             
             <div className="text-center mb-16">
@@ -991,12 +1073,37 @@ export default function LandingPage() {
 
         {/* ============ IS THIS YOU ============ */}
         <section 
-          className="px-6 py-24 border-b border-white/10"
+          className="px-6 py-24 border-b border-white/10 relative overflow-hidden"
           style={{
             background: 'linear-gradient(180deg, #0A0A0A 0%, #0D0D0D 100%)'
           }}
         >
-          <div className="max-w-5xl mx-auto">
+          {/* Background Image - Relatable moment */}
+          <div 
+            className="absolute inset-0 z-0"
+            style={{
+              backgroundImage: 'url(/isthisyou.png)',
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              opacity: 0.45
+            }}
+          />
+          {/* Orange tint overlay */}
+          <div 
+            className="absolute inset-0 z-0"
+            style={{
+              background: 'linear-gradient(180deg, rgba(249,115,22,0.15) 0%, rgba(234,88,12,0.1) 100%)',
+              mixBlendMode: 'overlay'
+            }}
+          />
+          {/* Dark overlay for text readability */}
+          <div 
+            className="absolute inset-0 z-0"
+            style={{
+              background: 'linear-gradient(90deg, rgba(10,10,10,0.85) 0%, rgba(13,13,13,0.6) 50%, rgba(10,10,10,0.7) 100%)'
+            }}
+          />
+          <div className="max-w-5xl mx-auto relative z-10">
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
               
@@ -1074,12 +1181,37 @@ export default function LandingPage() {
 
         {/* ============ CTA + PRICING ============ */}
         <section 
-          className="border-b border-white/10"
+          className="border-b border-white/10 relative overflow-hidden"
           style={{
             background: 'linear-gradient(180deg, #0A0A0A 0%, #080808 100%)'
           }}
         >
-          <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2">
+          {/* Background Image - Hope/New beginning */}
+          <div 
+            className="absolute inset-0 z-0"
+            style={{
+              backgroundImage: 'url(/hopewindow.png)',
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              opacity: 0.45
+            }}
+          />
+          {/* Orange tint overlay */}
+          <div 
+            className="absolute inset-0 z-0"
+            style={{
+              background: 'radial-gradient(ellipse at center, rgba(249,115,22,0.2) 0%, rgba(234,88,12,0.08) 70%)',
+              mixBlendMode: 'overlay'
+            }}
+          />
+          {/* Dark overlay for text readability */}
+          <div 
+            className="absolute inset-0 z-0"
+            style={{
+              background: 'linear-gradient(90deg, rgba(10,10,10,0.8) 0%, rgba(8,8,8,0.6) 50%, rgba(10,10,10,0.85) 100%)'
+            }}
+          />
+          <div className="max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 relative z-10">
             
             {/* CTA - Left */}
             <div className="px-6 py-24 flex items-center">
@@ -1189,12 +1321,37 @@ export default function LandingPage() {
 
         {/* ============ FINAL CTA ============ */}
         <section 
-          className="px-6 py-24 text-center"
+          className="px-6 py-24 text-center relative overflow-hidden"
           style={{
             background: 'linear-gradient(180deg, #0D0D0D 0%, #080808 100%)'
           }}
         >
-          <div className="max-w-xl mx-auto">
+          {/* Background Image - Alarm/Dawn - New beginning */}
+          <div 
+            className="absolute inset-0 z-0"
+            style={{
+              backgroundImage: 'url(/alarm.png)',
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              opacity: 0.55
+            }}
+          />
+          {/* Orange tint overlay - stronger for final CTA */}
+          <div 
+            className="absolute inset-0 z-0"
+            style={{
+              background: 'radial-gradient(ellipse at center, rgba(249,115,22,0.25) 0%, rgba(234,88,12,0.1) 70%)',
+              mixBlendMode: 'overlay'
+            }}
+          />
+          {/* Gradient overlay for text readability + vignette effect - lighter */}
+          <div 
+            className="absolute inset-0 z-0"
+            style={{
+              background: 'radial-gradient(ellipse at center, rgba(13,13,13,0.35) 0%, rgba(8,8,8,0.85) 70%)'
+            }}
+          />
+          <div className="max-w-xl mx-auto relative z-10">
             <h2 className="text-2xl md:text-3xl font-bold mb-4">Stop lying to yourself.</h2>
             <p className="text-base text-white/70 mb-10">The call is coming. Will you answer?</p>
             <button 
