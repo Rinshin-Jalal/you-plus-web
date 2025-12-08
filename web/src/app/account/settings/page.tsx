@@ -190,9 +190,9 @@ function SettingsContent() {
   if (isLoading) {
     return (
       <div className="animate-pulse space-y-6">
-        <div className="h-8 bg-black/10 rounded w-1/4"></div>
-        <div className="h-48 bg-black/10 rounded"></div>
-        <div className="h-48 bg-black/10 rounded"></div>
+        <div className="h-8 bg-white/10 rounded w-1/4"></div>
+        <div className="h-48 bg-white/10 rounded"></div>
+        <div className="h-48 bg-white/10 rounded"></div>
       </div>
     );
   }
@@ -201,8 +201,8 @@ function SettingsContent() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-black">Settings</h1>
-        <Button variant="outline" onClick={() => router.push('/dashboard')}>
+        <h1 className="text-2xl font-bold text-white">Settings</h1>
+        <Button variant="outline" onClick={() => router.push('/dashboard')} className="border-white/20 text-white hover:bg-white/10">
           Back to Dashboard
         </Button>
       </div>
@@ -210,10 +210,10 @@ function SettingsContent() {
       {/* Message */}
       {message && (
         <div
-          className={`p-4 rounded-lg border-2 ${
+          className={`p-4 rounded-lg border ${
             message.type === 'success'
-              ? 'border-black bg-white text-black'
-              : 'border-red-600 bg-white text-red-600'
+              ? 'border-white/20 bg-white/5 text-white'
+              : 'border-red-600/50 bg-red-900/20 text-red-400'
           }`}
         >
           {message.text}
@@ -221,26 +221,26 @@ function SettingsContent() {
       )}
 
       {/* Profile Section */}
-      <Card className="p-6">
-        <h2 className="text-lg font-semibold text-black mb-4">Profile</h2>
+      <Card className="p-6 bg-[#111] border-white/20">
+        <h2 className="text-lg font-semibold text-white mb-4">Profile</h2>
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-black mb-1">
+            <label className="block text-sm font-medium text-white mb-1">
               Email
             </label>
             <input
               type="email"
               value={profile?.email || ''}
               disabled
-              className="w-full p-3 border-2 border-black rounded-lg bg-white text-black/50"
+              className="w-full p-3 border border-white/20 rounded-lg bg-white/5 text-white/50"
             />
-            <p className="text-xs text-black/50 mt-1">
+            <p className="text-xs text-white/50 mt-1">
               Email cannot be changed
             </p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-black mb-1">
+            <label className="block text-sm font-medium text-white mb-1">
               Name
             </label>
             <input
@@ -248,63 +248,63 @@ function SettingsContent() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Your name"
-              className="w-full p-3 border-2 border-black rounded-lg bg-white text-black focus:outline-none focus:ring-2 focus:ring-black"
+              className="w-full p-3 border border-white/20 rounded-lg bg-white/5 text-white focus:outline-none focus:ring-2 focus:ring-[#F97316]"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-black mb-1">
+            <label className="block text-sm font-medium text-white mb-1">
               Timezone
             </label>
             <select
               value={timezone}
               onChange={(e) => setTimezone(e.target.value)}
-              className="w-full p-3 border-2 border-black rounded-lg bg-white text-black focus:outline-none focus:ring-2 focus:ring-black"
+              className="w-full p-3 border border-white/20 rounded-lg bg-white/5 text-white focus:outline-none focus:ring-2 focus:ring-[#F97316]"
             >
               {timezones.map((tz) => (
-                <option key={tz} value={tz}>
+                <option key={tz} value={tz} className="bg-[#111] text-white">
                   {tz.replace(/_/g, ' ')}
                 </option>
               ))}
             </select>
           </div>
 
-          <Button variant="primary" onClick={handleSaveProfile} disabled={isSaving}>
+          <Button variant="primary" onClick={handleSaveProfile} disabled={isSaving} className="bg-[#F97316] hover:bg-[#EA580C] text-white">
             {isSaving ? 'Saving...' : 'Save Profile'}
           </Button>
         </div>
       </Card>
 
       {/* Preferences Section */}
-      <Card className="p-6">
-        <h2 className="text-lg font-semibold text-black mb-4">Preferences</h2>
+      <Card className="p-6 bg-[#111] border-white/20">
+        <h2 className="text-lg font-semibold text-white mb-4">Preferences</h2>
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-black mb-1">
+            <label className="block text-sm font-medium text-white mb-1">
               Theme
             </label>
             <select
               value={theme}
               onChange={(e) => setTheme(e.target.value as 'light' | 'dark' | 'system')}
-              className="w-full p-3 border-2 border-black rounded-lg bg-white text-black focus:outline-none focus:ring-2 focus:ring-black"
+              className="w-full p-3 border border-white/20 rounded-lg bg-white/5 text-white focus:outline-none focus:ring-2 focus:ring-[#F97316]"
             >
-              <option value="system">System</option>
-              <option value="light">Light</option>
-              <option value="dark">Dark</option>
+              <option value="system" className="bg-[#111] text-white">System</option>
+              <option value="light" className="bg-[#111] text-white">Light</option>
+              <option value="dark" className="bg-[#111] text-white">Dark</option>
             </select>
           </div>
 
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-medium text-black text-sm">Notifications</p>
-              <p className="text-black/50 text-xs">
+              <p className="font-medium text-white text-sm">Notifications</p>
+              <p className="text-white/50 text-xs">
                 Receive push notifications for reminders
               </p>
             </div>
             <button
               onClick={() => setNotifications(!notifications)}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                notifications ? 'bg-black' : 'bg-black/30'
+                notifications ? 'bg-[#F97316]' : 'bg-white/30'
               }`}
             >
               <span
@@ -315,37 +315,37 @@ function SettingsContent() {
             </button>
           </div>
 
-          <Button variant="primary" onClick={handleSavePreferences}>
+          <Button variant="primary" onClick={handleSavePreferences} className="bg-[#F97316] hover:bg-[#EA580C] text-white">
             Save Preferences
           </Button>
         </div>
       </Card>
 
       {/* Subscription & Billing Section */}
-      <Card className="p-6">
-        <h2 className="text-lg font-semibold text-black mb-4">Subscription & Billing</h2>
+      <Card className="p-6 bg-[#111] border-white/20">
+        <h2 className="text-lg font-semibold text-white mb-4">Subscription & Billing</h2>
         
         {/* Current Subscription Info */}
         {subscription && (
-          <div className="mb-4 p-4 border-2 border-black rounded-lg">
+          <div className="mb-4 p-4 border border-white/20 rounded-lg bg-white/5">
             <div className="flex justify-between items-start">
               <div>
-                <p className="font-medium text-black">
+                <p className="font-medium text-white">
                   {subscription.planName || 'Current Plan'}
                 </p>
-                <p className="text-sm text-black/60">
-                  Status: <span className={subscription.status === 'active' ? 'text-green-600' : 'text-red-600'}>
+                <p className="text-sm text-white/60">
+                  Status: <span className={subscription.status === 'active' ? 'text-[#F97316]' : 'text-red-400'}>
                     {subscription.status}
                   </span>
                 </p>
                 {subscription.currentPeriodEnd && (
-                  <p className="text-sm text-black/60">
+                  <p className="text-sm text-white/60">
                     Renews: {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
                   </p>
                 )}
               </div>
               {subscription.amountCents && (
-                <p className="text-lg font-bold text-black">
+                <p className="text-lg font-bold text-white">
                   {formatPrice(subscription.amountCents, subscription.currency)}/mo
                 </p>
               )}
@@ -357,10 +357,10 @@ function SettingsContent() {
         {showPlanSelector && (
           <div className="mb-4">
             <div className="flex justify-between items-center mb-3">
-              <p className="font-medium text-black">Change Plan</p>
+              <p className="font-medium text-white">Change Plan</p>
               <button
                 onClick={() => setShowPlanSelector(false)}
-                className="text-black/60 hover:text-black text-sm"
+                className="text-white/60 hover:text-white text-sm"
               >
                 Cancel
               </button>
@@ -368,8 +368,8 @@ function SettingsContent() {
             
             {isLoadingPlans ? (
               <div className="animate-pulse space-y-2">
-                <div className="h-16 bg-black/10 rounded"></div>
-                <div className="h-16 bg-black/10 rounded"></div>
+                <div className="h-16 bg-white/10 rounded"></div>
+                <div className="h-16 bg-white/10 rounded"></div>
               </div>
             ) : (
               <div className="space-y-2">
@@ -380,26 +380,26 @@ function SettingsContent() {
                   return (
                     <div
                       key={plan.id}
-                      className={`p-4 border-2 rounded-lg ${
-                        isCurrentPlan ? 'border-black bg-black/5' : 'border-black/30 hover:border-black'
+                      className={`p-4 border rounded-lg ${
+                        isCurrentPlan ? 'border-[#F97316] bg-[#F97316]/10' : 'border-white/20 hover:border-white/40'
                       }`}
                     >
                       <div className="flex justify-between items-center">
                         <div>
-                          <p className="font-medium text-black">
+                          <p className="font-medium text-white">
                             {plan.name}
                             {isCurrentPlan && (
-                              <span className="ml-2 text-xs bg-black text-white px-2 py-0.5 rounded">
+                              <span className="ml-2 text-xs bg-[#F97316] text-white px-2 py-0.5 rounded">
                                 Current
                               </span>
                             )}
                           </p>
-                          <p className="text-sm text-black/60">{plan.description}</p>
+                          <p className="text-sm text-white/60">{plan.description}</p>
                         </div>
                         <div className="text-right">
-                          <p className="font-bold text-black">
+                          <p className="font-bold text-white">
                             {formatPrice(priceCents, plan.currency)}
-                            <span className="text-sm font-normal text-black/60">
+                            <span className="text-sm font-normal text-white/60">
                               /{plan.interval || 'month'}
                             </span>
                           </p>
@@ -408,7 +408,7 @@ function SettingsContent() {
                               variant="outline"
                               onClick={() => handleChangePlan(plan.product_id || plan.id)}
                               disabled={isChangingPlan}
-                              className="mt-2 text-sm"
+                              className="mt-2 text-sm border-white/20 text-white hover:bg-white/10"
                             >
                               {isChangingPlan ? 'Changing...' : 'Switch'}
                             </Button>
@@ -429,34 +429,34 @@ function SettingsContent() {
             <Button
               variant="outline"
               onClick={handleShowPlanSelector}
-              className="w-full"
+              className="w-full border-white/20 text-white hover:bg-white/10"
             >
               Change Plan
             </Button>
           )}
-          <Button variant="outline" onClick={handleManageBilling} className="w-full">
+          <Button variant="outline" onClick={handleManageBilling} className="w-full border-white/20 text-white hover:bg-white/10">
             Manage Billing & Payment Methods
           </Button>
         </div>
       </Card>
 
       {/* Sign Out */}
-      <Card className="p-6">
-        <Button variant="outline" onClick={handleSignOut} className="w-full">
+      <Card className="p-6 bg-[#111] border-white/20">
+        <Button variant="outline" onClick={handleSignOut} className="w-full border-white/20 text-white hover:bg-white/10">
           Sign Out
         </Button>
       </Card>
 
       {/* Danger Zone */}
-      <Card className="p-6 border-red-600">
-        <h2 className="text-lg font-semibold text-red-600 mb-4">Danger Zone</h2>
-        <p className="text-black/60 text-sm mb-4">
+      <Card className="p-6 bg-[#111] border-red-600/50">
+        <h2 className="text-lg font-semibold text-red-400 mb-4">Danger Zone</h2>
+        <p className="text-white/60 text-sm mb-4">
           Once you delete your account, there is no going back. Please be certain.
         </p>
 
         {showDeleteConfirm ? (
           <div className="space-y-3">
-            <p className="text-red-600 text-sm font-medium">
+            <p className="text-red-400 text-sm font-medium">
               Are you absolutely sure you want to delete your account?
             </p>
             <div className="flex gap-3">
@@ -464,6 +464,7 @@ function SettingsContent() {
                 variant="outline"
                 onClick={() => setShowDeleteConfirm(false)}
                 disabled={isDeleting}
+                className="border-white/20 text-white hover:bg-white/10"
               >
                 Cancel
               </Button>
@@ -471,6 +472,7 @@ function SettingsContent() {
                 variant="danger"
                 onClick={handleDeleteAccount}
                 disabled={isDeleting}
+                className="bg-red-600 hover:bg-red-700 text-white"
               >
                 {isDeleting ? 'Deleting...' : 'Yes, Delete My Account'}
               </Button>
@@ -480,7 +482,7 @@ function SettingsContent() {
           <Button
             variant="outline"
             onClick={() => setShowDeleteConfirm(true)}
-            className="text-red-600 hover:text-red-700 hover:border-red-300"
+            className="text-red-400 border-red-600/50 hover:bg-red-900/20"
           >
             Delete Account
           </Button>
@@ -493,7 +495,7 @@ function SettingsContent() {
 export default function SettingsPage() {
   return (
     <AuthGuard>
-      <div className="min-h-screen bg-white py-8 px-4">
+      <div className="min-h-screen bg-[#0D0D0D] py-8 px-4">
         <div className="max-w-2xl mx-auto">
           <SettingsContent />
         </div>

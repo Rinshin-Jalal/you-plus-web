@@ -40,10 +40,10 @@ export const PillarSelection = ({ selected, onSelect, onContinue }: PillarSelect
     <div className="w-full max-w-2xl mx-auto animate-in slide-in-from-bottom-8 duration-500">
       {/* Header */}
       <div className="text-center mb-8">
-        <h2 className="font-mono text-2xl md:text-3xl font-bold mb-2 text-black">
+        <h2 className="font-mono text-2xl md:text-3xl font-bold mb-2 text-white">
           What do you want to change?
         </h2>
-        <p className="font-mono text-gray-600">
+        <p className="font-mono text-white/50">
           Pick {MIN_PILLARS}-{MAX_PILLARS} areas that matter most to you
         </p>
       </div>
@@ -55,7 +55,7 @@ export const PillarSelection = ({ selected, onSelect, onContinue }: PillarSelect
             <div
               key={i}
               className={`w-3 h-3 rounded-full transition-all duration-300 ${
-                i < selected.length ? 'bg-black scale-110' : 'bg-gray-200'
+                i < selected.length ? 'bg-orange-500 scale-110 shadow-[0_0_8px_rgba(249,115,22,0.5)]' : 'bg-white/20'
               }`}
             />
           ))}
@@ -75,15 +75,15 @@ export const PillarSelection = ({ selected, onSelect, onContinue }: PillarSelect
               disabled={isDisabled}
               className={`relative p-4 rounded-xl border-2 transition-all duration-200 text-left
                 ${isSelected 
-                  ? 'border-black bg-black text-white' 
+                  ? 'border-orange-500 bg-orange-500/20 text-white shadow-[0_0_20px_rgba(249,115,22,0.2)]' 
                   : isDisabled
-                    ? 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed'
-                    : 'border-gray-200 bg-white hover:border-gray-400 cursor-pointer'
+                    ? 'border-white/5 bg-white/5 opacity-50 cursor-not-allowed'
+                    : 'border-white/10 bg-white/5 hover:border-orange-500/50 cursor-pointer'
                 }`}
             >
               {/* Selected checkmark */}
               {isSelected && (
-                <div className="absolute top-2 right-2">
+                <div className="absolute top-2 right-2 text-orange-500">
                   <Check className="w-4 h-4" strokeWidth={3} />
                 </div>
               )}
@@ -92,13 +92,13 @@ export const PillarSelection = ({ selected, onSelect, onContinue }: PillarSelect
               <div className="text-2xl mb-2">{pillar.icon}</div>
 
               {/* Label */}
-              <div className="font-mono font-semibold text-sm leading-tight">
+              <div className="font-mono font-semibold text-sm leading-tight text-white">
                 {pillar.label}
               </div>
 
               {/* Description */}
               <div className={`font-mono text-xs mt-1 leading-tight ${
-                isSelected ? 'text-white/70' : 'text-gray-500'
+                isSelected ? 'text-white/70' : 'text-white/40'
               }`}>
                 {pillar.description}
               </div>
@@ -113,29 +113,29 @@ export const PillarSelection = ({ selected, onSelect, onContinue }: PillarSelect
             disabled={selected.length >= MAX_PILLARS}
             className={`p-4 rounded-xl border-2 border-dashed transition-all duration-200 text-left
               ${selected.length >= MAX_PILLARS
-                ? 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed'
-                : 'border-gray-300 bg-white hover:border-gray-400 cursor-pointer'
+                ? 'border-white/5 bg-white/5 opacity-50 cursor-not-allowed'
+                : 'border-white/20 bg-white/5 hover:border-orange-500/50 cursor-pointer'
               }`}
           >
             <div className="text-2xl mb-2">
-              <Plus className="w-6 h-6 text-gray-400" />
+              <Plus className="w-6 h-6 text-white/40" />
             </div>
-            <div className="font-mono font-semibold text-sm text-gray-600">
+            <div className="font-mono font-semibold text-sm text-white/60">
               Create Your Own
             </div>
-            <div className="font-mono text-xs mt-1 text-gray-400">
+            <div className="font-mono text-xs mt-1 text-white/30">
               Something else?
             </div>
           </button>
         ) : (
-          <div className="p-4 rounded-xl border-2 border-black bg-white">
+          <div className="p-4 rounded-xl border-2 border-orange-500 bg-white/5">
             <input
               type="text"
               value={customPillar}
               onChange={(e) => setCustomPillar(e.target.value)}
               placeholder="e.g., Gaming Less"
               autoFocus
-              className="w-full font-mono text-sm border-b border-gray-200 pb-2 mb-2 focus:outline-none focus:border-black"
+              className="w-full font-mono text-sm border-b border-white/20 pb-2 mb-2 focus:outline-none focus:border-orange-500 bg-transparent text-white placeholder-white/30"
               onKeyDown={(e) => {
                 if (e.key === 'Enter') addCustomPillar();
                 if (e.key === 'Escape') setShowCustomInput(false);
@@ -145,13 +145,13 @@ export const PillarSelection = ({ selected, onSelect, onContinue }: PillarSelect
               <button
                 onClick={addCustomPillar}
                 disabled={!customPillar.trim()}
-                className="flex-1 py-1 px-2 bg-black text-white rounded text-xs font-mono disabled:opacity-50"
+                className="flex-1 py-1 px-2 bg-orange-500 text-white rounded text-xs font-mono disabled:opacity-50"
               >
                 Add
               </button>
               <button
                 onClick={() => setShowCustomInput(false)}
-                className="py-1 px-2 text-gray-500 hover:text-black"
+                className="py-1 px-2 text-white/50 hover:text-white"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -167,13 +167,13 @@ export const PillarSelection = ({ selected, onSelect, onContinue }: PillarSelect
             const preset = PILLAR_PRESETS.find(p => p.id === pillarId);
             const isCustom = pillarId.startsWith('custom_');
             const label = preset?.label || pillarId.replace('custom_', '').replace(/_/g, ' ');
-            const icon = preset?.icon || '✨';
+            const icon = preset?.icon || '';
 
             return (
               <button
                 key={pillarId}
                 onClick={() => togglePillar(pillarId)}
-                className="flex items-center gap-1 px-3 py-1.5 bg-black text-white rounded-full font-mono text-sm hover:bg-gray-800 transition-colors"
+                className="flex items-center gap-1 px-3 py-1.5 bg-orange-500/20 text-orange-400 border border-orange-500/30 rounded-full font-mono text-sm hover:bg-orange-500/30 transition-colors"
               >
                 <span>{icon}</span>
                 <span>{label}</span>
@@ -191,8 +191,8 @@ export const PillarSelection = ({ selected, onSelect, onContinue }: PillarSelect
           disabled={!canContinue}
           className={`px-8 py-4 rounded-xl font-mono font-bold text-lg transition-all duration-300
             ${canContinue
-              ? 'bg-black text-white hover:scale-105 cursor-pointer'
-              : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+              ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white hover:scale-105 cursor-pointer shadow-[0_0_30px_rgba(249,115,22,0.3)]'
+              : 'bg-white/10 text-white/40 cursor-not-allowed'
             }`}
         >
           {canContinue 

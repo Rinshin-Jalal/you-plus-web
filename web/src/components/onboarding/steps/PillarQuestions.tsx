@@ -46,7 +46,7 @@ export const PillarQuestions = ({
       return {
         id: currentPillarId,
         label: label.charAt(0).toUpperCase() + label.slice(1),
-        icon: '✨',
+        icon: '',
         description: '',
         currentStateOptions: GENERIC_CURRENT_STATE_OPTIONS,
         goalPrompt: '',
@@ -111,11 +111,11 @@ export const PillarQuestions = ({
       <div className="text-center mb-8">
         <div className="flex items-center justify-center gap-2 mb-2">
           <span className="text-3xl">{currentPillar.icon}</span>
-          <h2 className="font-mono text-2xl font-bold text-black uppercase tracking-wide">
+          <h2 className="font-mono text-2xl font-bold text-white uppercase tracking-wide">
             {currentPillar.label}
           </h2>
         </div>
-        <p className="font-mono text-sm text-gray-500">
+        <p className="font-mono text-sm text-white/50">
           Pillar {pillarIndex + 1} of {selectedPillars.length}
         </p>
       </div>
@@ -133,10 +133,10 @@ export const PillarQuestions = ({
               key={q}
               className={`w-3 h-3 rounded-full transition-all duration-300 ${
                 isCurrent 
-                  ? 'bg-black scale-125' 
+                  ? 'bg-orange-500 scale-125 shadow-[0_0_8px_rgba(249,115,22,0.5)]' 
                   : isCompleted 
-                    ? 'bg-black' 
-                    : 'bg-gray-200'
+                    ? 'bg-orange-500' 
+                    : 'bg-white/20'
               }`}
             />
           );
@@ -149,7 +149,7 @@ export const PillarQuestions = ({
         {/* CURRENT STATE - Choice with dynamic options */}
         {questionType === 'current' && (
           <div className="w-full flex flex-col items-center text-center">
-            <h3 className="font-mono text-xl md:text-2xl text-black font-medium mb-8">
+            <h3 className="font-mono text-xl md:text-2xl text-white font-medium mb-8">
               Where are you at right now?
             </h3>
             <BrutalChoice 
@@ -163,7 +163,7 @@ export const PillarQuestions = ({
         {/* GOAL - Input */}
         {questionType === 'goal' && (
           <div className="w-full flex flex-col items-center text-center">
-            <h3 className="font-mono text-xl md:text-2xl text-black font-medium mb-8">
+            <h3 className="font-mono text-xl md:text-2xl text-white font-medium mb-8">
               {isCustomPillar ? "What's your goal?" : currentPillar.goalPrompt}
             </h3>
             <MegaInput
@@ -172,7 +172,7 @@ export const PillarQuestions = ({
               onEnter={() => currentValue && handleNext(currentValue)}
             />
             <Button
-              className="mt-12 w-full max-w-xs border-black"
+              className="mt-12 w-full max-w-xs"
               variant="primary"
               onClick={() => handleNext(currentValue)}
               disabled={isTransitioning || !currentValue}
@@ -185,7 +185,7 @@ export const PillarQuestions = ({
         {/* FUTURE STATE - Input */}
         {questionType === 'future' && (
           <div className="w-full flex flex-col items-center text-center">
-            <h3 className="font-mono text-xl md:text-2xl text-black font-medium mb-8">
+            <h3 className="font-mono text-xl md:text-2xl text-white font-medium mb-8">
               {isCustomPillar ? "When you win, what does it look like?" : currentPillar.futurePrompt}
             </h3>
             <MegaInput
@@ -194,7 +194,7 @@ export const PillarQuestions = ({
               onEnter={() => currentValue && handleNext(currentValue)}
             />
             <Button
-              className="mt-12 w-full max-w-xs border-black"
+              className="mt-12 w-full max-w-xs"
               variant="primary"
               onClick={() => handleNext(currentValue)}
               disabled={isTransitioning || !currentValue}
@@ -207,13 +207,13 @@ export const PillarQuestions = ({
 
       {/* Overall progress bar */}
       <div className="mt-12 w-full max-w-xs mx-auto">
-        <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
+        <div className="h-1 bg-white/10 rounded-full overflow-hidden">
           <div 
-            className="h-full bg-black transition-all duration-500 ease-out"
+            className="h-full bg-gradient-to-r from-orange-500 to-amber-500 transition-all duration-500 ease-out shadow-[0_0_8px_rgba(249,115,22,0.5)]"
             style={{ width: `${progress}%` }}
           />
         </div>
-        <p className="text-center font-mono text-xs text-gray-400 mt-2">
+        <p className="text-center font-mono text-xs text-white/40 mt-2">
           {currentQuestionNumber} / {totalQuestions}
         </p>
       </div>

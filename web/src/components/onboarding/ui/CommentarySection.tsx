@@ -28,7 +28,7 @@ export const CommentarySection = ({ lines, onNext }: CommentarySectionProps) => 
                 i <= currentLineIndex && (
                     <div key={i} className="animate-in fade-in slide-in-from-bottom-2 duration-500">
                         {i < currentLineIndex ? (
-                            <span className="font-mono text-xl md:text-2xl leading-relaxed font-medium text-black/50">
+                            <span className="font-mono text-xl md:text-2xl leading-relaxed font-medium text-white/40">
                                 {line}
                             </span>
                         ) : (
@@ -36,7 +36,7 @@ export const CommentarySection = ({ lines, onNext }: CommentarySectionProps) => 
                                 text={line} 
                                 speed={35} 
                                 onComplete={handleLineComplete}
-                                className="font-mono text-xl md:text-2xl leading-relaxed font-medium text-black"
+                                className="font-mono text-xl md:text-2xl leading-relaxed font-medium text-white"
                             />
                         )}
                     </div>

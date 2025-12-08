@@ -47,7 +47,7 @@ export const Typewriter = ({ text, onComplete, speed = 30, startDelay = 0, class
   }, [text, speed, onComplete, started]);
 
   return (
-    <span className={className || "font-mono text-black text-xl md:text-2xl leading-relaxed font-medium"}>
+    <span className={className || "font-mono text-white text-xl md:text-2xl leading-relaxed font-medium"}>
       {display}
       <span className="animate-pulse inline-block w-2 h-5 bg-current opacity-60 ml-1 align-middle" />
     </span>

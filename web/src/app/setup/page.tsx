@@ -149,9 +149,9 @@ export default function SetupPage() {
   // Loading states
   if (authLoading || subLoading || step === 'checking' || step === 'pushing') {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-4">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-teal-500 mb-4"></div>
-        <p className="text-gray-600 font-mono text-sm">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-[#0D0D0D] p-4">
+        <div className="animate-spin rounded-full h-12 w-12 border-2 border-white border-t-transparent mb-4"></div>
+        <p className="text-white/60 font-mono text-sm">
           {authLoading && 'Checking authentication...'}
           {!authLoading && subLoading && 'Checking subscription...'}
           {step === 'pushing' && 'Saving your data...'}
@@ -164,24 +164,24 @@ export default function SetupPage() {
   // Error state
   if (step === 'error') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-[#0D0D0D] p-4">
         <div className="max-w-md w-full text-center">
-          <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+          <div className="w-20 h-20 bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
             <span className="text-4xl">😕</span>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">
+          <h1 className="text-2xl font-bold text-white mb-4">
             Something went wrong
           </h1>
-          <p className="text-gray-600 mb-8">
+          <p className="text-white/60 mb-8">
             {error || 'We couldn\'t save your data. Please try again.'}
           </p>
           <div className="space-y-3">
-            <Button onClick={handleRetry} className="w-full">
+            <Button onClick={handleRetry} className="w-full bg-[#F97316] hover:bg-[#EA580C] text-white">
               Try Again
             </Button>
             <button
               onClick={() => router.replace('/dashboard')}
-              className="w-full py-2 text-gray-500 hover:text-gray-700 text-sm transition-colors"
+              className="w-full py-2 text-white/50 hover:text-white/70 text-sm transition-colors"
             >
               Skip and go to dashboard
             </button>
@@ -192,7 +192,7 @@ export default function SetupPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[#0D0D0D] flex items-center justify-center p-4">
       <div className="max-w-md w-full">
         {/* Progress Indicator */}
         <div className="flex justify-center gap-2 mb-8">
@@ -201,10 +201,10 @@ export default function SetupPage() {
               key={s}
               className={`h-2 w-16 rounded-full transition-colors ${
                 step === s
-                  ? 'bg-teal-500'
+                  ? 'bg-[#F97316]'
                   : ['phone', 'complete'].indexOf(step) > idx
-                  ? 'bg-teal-300'
-                  : 'bg-gray-200'
+                  ? 'bg-[#F97316]/50'
+                  : 'bg-white/20'
               }`}
             />
           ))}
@@ -214,13 +214,13 @@ export default function SetupPage() {
         {step === 'phone' && (
           <div className="animate-fade-in">
             <div className="text-center mb-8">
-              <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <div className="w-20 h-20 bg-[#F97316]/20 rounded-full flex items-center justify-center mx-auto mb-6">
                 <span className="text-4xl">📱</span>
               </div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-4">
+              <h1 className="text-3xl font-bold text-white mb-4">
                 Almost There!
               </h1>
-              <p className="text-gray-600">
+              <p className="text-white/60">
                 Add your phone number so your Future Self can call you.
               </p>
             </div>
@@ -238,7 +238,7 @@ export default function SetupPage() {
               <Button
                 onClick={handlePhoneSubmit}
                 disabled={saving}
-                className="w-full"
+                className="w-full bg-[#F97316] hover:bg-[#EA580C] text-white"
               >
                 {saving ? (
                   <span className="flex items-center justify-center gap-2">
@@ -267,13 +267,13 @@ export default function SetupPage() {
 
               <button
                 onClick={handleSkip}
-                className="w-full py-2 text-gray-500 hover:text-gray-700 text-sm transition-colors"
+                className="w-full py-2 text-white/50 hover:text-white/70 text-sm transition-colors"
               >
                 Skip for now (add later in settings)
               </button>
             </div>
 
-            <p className="mt-6 text-center text-xs text-gray-400">
+            <p className="mt-6 text-center text-xs text-white/40">
               We'll only use this for your accountability calls. No spam, ever.
             </p>
           </div>
@@ -283,9 +283,9 @@ export default function SetupPage() {
         {step === 'complete' && (
           <div className="text-center animate-fade-in">
             <div className="mb-8">
-              <div className="w-20 h-20 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <div className="w-20 h-20 bg-[#F97316]/20 rounded-full flex items-center justify-center mx-auto mb-6">
                 <svg
-                  className="w-10 h-10 text-teal-600"
+                  className="w-10 h-10 text-[#F97316]"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -298,19 +298,19 @@ export default function SetupPage() {
                   />
                 </svg>
               </div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-4">
+              <h1 className="text-3xl font-bold text-white mb-4">
                 You're All Set!
               </h1>
-              <p className="text-gray-600 mb-2">
+              <p className="text-white/60 mb-2">
                 Your Future Self will call you at your scheduled time.
               </p>
-              <p className="text-gray-500 text-sm">
+              <p className="text-white/50 text-sm">
                 Redirecting to dashboard...
               </p>
             </div>
 
             <div className="animate-pulse">
-              <div className="h-1 w-32 bg-teal-200 rounded mx-auto"></div>
+              <div className="h-1 w-32 bg-[#F97316]/30 rounded mx-auto"></div>
             </div>
           </div>
         )}

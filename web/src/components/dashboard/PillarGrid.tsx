@@ -24,16 +24,16 @@ const getPillarDisplay = (pillarId: string): { icon: string; label: string } => 
 };
 
 const getTrustLevel = (score: number): { label: string; color: string; bgColor: string } => {
-  if (score >= 80) return { label: 'Strong', color: 'text-green-600', bgColor: 'bg-green-500' };
-  if (score >= 60) return { label: 'Building', color: 'text-blue-600', bgColor: 'bg-blue-500' };
-  if (score >= 40) return { label: 'Fragile', color: 'text-yellow-600', bgColor: 'bg-yellow-500' };
-  return { label: 'Broken', color: 'text-red-600', bgColor: 'bg-red-500' };
+  if (score >= 80) return { label: 'Strong', color: 'text-green-400', bgColor: 'bg-green-500' };
+  if (score >= 60) return { label: 'Building', color: 'text-blue-400', bgColor: 'bg-blue-500' };
+  if (score >= 40) return { label: 'Fragile', color: 'text-yellow-400', bgColor: 'bg-yellow-500' };
+  return { label: 'Broken', color: 'text-red-400', bgColor: 'bg-red-500' };
 };
 
 const getStreakIndicator = (pillar: FutureSelfPillar): React.ReactNode => {
   if (pillar.consecutive_broken >= 2) {
     return (
-      <div className="flex items-center gap-1.5 text-red-600">
+      <div className="flex items-center gap-1.5 text-red-400">
         <TrendingDown size={14} strokeWidth={2.5} />
         <span className="text-[10px] font-mono font-bold">{pillar.consecutive_broken}d</span>
       </div>
@@ -41,14 +41,14 @@ const getStreakIndicator = (pillar: FutureSelfPillar): React.ReactNode => {
   }
   if (pillar.consecutive_kept >= 3) {
     return (
-      <div className="flex items-center gap-1.5 text-green-600">
+      <div className="flex items-center gap-1.5 text-green-400">
         <TrendingUp size={14} strokeWidth={2.5} />
         <span className="text-[10px] font-mono font-bold">{pillar.consecutive_kept}d</span>
       </div>
     );
   }
   return (
-    <div className="flex items-center gap-1.5 text-black/30">
+    <div className="flex items-center gap-1.5 text-white/30">
       <Minus size={14} strokeWidth={2.5} />
     </div>
   );
@@ -66,15 +66,15 @@ const PillarCard = ({
   
   return (
     <div 
-      className={`group relative border-2 p-5 transition-all duration-200 hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] ${
+      className={`group relative border p-5 transition-all duration-200 ${
         isPrimary 
-          ? 'border-black bg-gradient-to-br from-black/5 to-transparent' 
-          : 'border-black/20 hover:border-black'
+          ? 'border-[#F97316] bg-[#F97316]/5' 
+          : 'border-white/20 hover:border-white/40 bg-white/5'
       }`}
     >
       {/* Primary Badge */}
       {isPrimary && (
-        <div className="absolute -top-3 left-4 flex items-center gap-1.5 bg-black text-white text-[10px] font-mono uppercase tracking-widest px-2.5 py-1">
+        <div className="absolute -top-3 left-4 flex items-center gap-1.5 bg-[#F97316] text-black text-[10px] font-mono uppercase tracking-widest px-2.5 py-1">
           <Star size={10} fill="currentColor" />
           Primary
         </div>
@@ -85,7 +85,7 @@ const PillarCard = ({
         <div className="flex items-center gap-3">
           <span className="text-2xl">{icon}</span>
           <div>
-            <h4 className="font-display font-bold text-sm uppercase tracking-tight leading-tight">
+            <h4 className="font-bold text-sm uppercase tracking-tight leading-tight text-white">
               {label}
             </h4>
             <span className={`text-[10px] font-mono font-bold uppercase tracking-wider ${trustLevel.color}`}>
@@ -97,21 +97,21 @@ const PillarCard = ({
       </div>
       
       {/* Future State / Identity */}
-      <p className="font-mono text-xs text-black/70 mb-4 line-clamp-2 min-h-[2.5rem] leading-relaxed">
+      <p className="font-mono text-xs text-white/60 mb-4 line-clamp-2 min-h-[2.5rem] leading-relaxed">
         {pillar.future_state || pillar.identity_statement}
       </p>
       
       {/* Trust Score Bar */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <span className="font-mono text-[10px] uppercase tracking-widest text-black/40">
+          <span className="font-mono text-[10px] uppercase tracking-widest text-white/40">
             Trust
           </span>
-          <span className="font-display font-extrabold text-lg">
+          <span className="font-bold text-lg text-white">
             {pillar.trust_score}%
           </span>
         </div>
-        <div className="w-full h-2.5 bg-black/10 overflow-hidden">
+        <div className="w-full h-2.5 bg-white/10 overflow-hidden">
           <div 
             className={`h-full transition-all duration-700 ease-out ${trustLevel.bgColor}`}
             style={{ width: `${pillar.trust_score}%` }}
@@ -121,11 +121,11 @@ const PillarCard = ({
       
       {/* Non-Negotiable */}
       {pillar.non_negotiable && (
-        <div className="mt-4 pt-4 border-t border-black/10">
-          <p className="font-mono text-[10px] text-black/40 uppercase tracking-widest mb-1">
+        <div className="mt-4 pt-4 border-t border-white/10">
+          <p className="font-mono text-[10px] text-white/40 uppercase tracking-widest mb-1">
             Daily Non-Negotiable
           </p>
-          <p className="font-mono text-xs text-black/80 line-clamp-2 leading-relaxed">
+          <p className="font-mono text-xs text-white/70 line-clamp-2 leading-relaxed">
             {pillar.non_negotiable}
           </p>
         </div>
@@ -137,12 +137,12 @@ const PillarCard = ({
 export const PillarGrid = ({ pillars, primaryPillar, hasCompletedFirstCall = true }: PillarGridProps) => {
   if (!pillars || pillars.length === 0) {
     return (
-      <div className="border-2 border-dashed border-black/20 p-8 text-center bg-gray-50/50">
+      <div className="border border-dashed border-white/20 p-8 text-center bg-white/5">
         <span className="text-4xl mb-4 block">🎯</span>
-        <p className="font-mono text-sm text-black/50 mb-2">
+        <p className="font-mono text-sm text-white/50 mb-2">
           No pillars defined yet
         </p>
-        <p className="font-mono text-xs text-black/30">
+        <p className="font-mono text-xs text-white/30">
           Complete onboarding to set up your transformation pillars
         </p>
       </div>
@@ -173,24 +173,24 @@ export const PillarGrid = ({ pillars, primaryPillar, hasCompletedFirstCall = tru
             return (
               <div 
                 key={pillar.id}
-                className={`relative border-2 border-dashed p-5 ${
-                  isPrimary ? 'border-black/30' : 'border-black/15'
+                className={`relative border border-dashed p-5 ${
+                  isPrimary ? 'border-white/30' : 'border-white/15'
                 }`}
               >
                 {isPrimary && (
-                  <div className="absolute -top-3 left-4 flex items-center gap-1.5 bg-black/20 text-black/50 text-[10px] font-mono uppercase tracking-widest px-2.5 py-1">
+                  <div className="absolute -top-3 left-4 flex items-center gap-1.5 bg-white/20 text-white/50 text-[10px] font-mono uppercase tracking-widest px-2.5 py-1">
                     <Star size={10} />
                     Primary
                   </div>
                 )}
                 <div className="flex items-center gap-3 mb-3">
                   <span className="text-2xl grayscale">{icon}</span>
-                  <h4 className="font-display font-bold text-sm uppercase tracking-tight text-black/50">
+                  <h4 className="font-bold text-sm uppercase tracking-tight text-white/50">
                     {label}
                   </h4>
                 </div>
-                <div className="h-2 bg-black/10 w-full mb-3" />
-                <div className="h-2 bg-black/10 w-3/4" />
+                <div className="h-2 bg-white/10 w-full mb-3" />
+                <div className="h-2 bg-white/10 w-3/4" />
               </div>
             );
           })}
@@ -198,8 +198,8 @@ export const PillarGrid = ({ pillars, primaryPillar, hasCompletedFirstCall = tru
         
         {/* Overlay message */}
         <div className="absolute inset-0 flex items-center justify-center">
-          <div className="bg-white/95 backdrop-blur-sm border-2 border-black px-6 py-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-            <p className="font-display font-bold text-sm uppercase tracking-tight text-center">
+          <div className="bg-[#0D0D0D]/95 backdrop-blur-sm border-2 border-[#F97316] px-6 py-4 shadow-[4px_4px_0px_0px_#F97316]">
+            <p className="font-bold text-sm uppercase tracking-tight text-center text-white">
               Complete your first call to unlock
             </p>
           </div>

@@ -38,11 +38,11 @@ export default function BillingSuccessPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-white text-gray-900">
+    <div className="min-h-screen flex items-center justify-center bg-[#0D0D0D] text-white">
       <div className="text-center space-y-4">
         <div className="flex justify-center">
           <svg
-            className="h-16 w-16 text-green-600"
+            className="h-16 w-16 text-[#F97316]"
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
             viewBox="0 0 24 24"
@@ -58,7 +58,7 @@ export default function BillingSuccessPage() {
         </div>
         <h1 className="text-2xl font-bold">Payment Successful!</h1>
         {processing && (
-          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-gray-900 mx-auto" />
+          <div className="animate-spin rounded-full h-8 w-8 border-2 border-white border-t-transparent mx-auto" />
         )}
       </div>
     </div>

@@ -24,8 +24,8 @@ const renderMockWaveform = (canvas: HTMLCanvasElement) => {
     const drawHeight = barHeight * 1.5;
 
     // Dynamic Color based on intensity
-    if (drawHeight > 180) ctx.fillStyle = "#FF0033";
-    else if (drawHeight > 80) ctx.fillStyle = "#4ECDC4";
+    if (drawHeight > 180) ctx.fillStyle = "#F97316";
+    else if (drawHeight > 80) ctx.fillStyle = "#EA580C";
     else ctx.fillStyle = "#333333";
 
     ctx.fillRect(x, canvas.height - drawHeight / 2, barWidth, drawHeight / 2);
@@ -56,8 +56,8 @@ const AudioVisualizer = () => {
 
   return (
     <div className="w-full h-64 border-4 border-white/20 rounded-lg overflow-hidden relative bg-black shadow-[8px_8px_0px_0px_rgba(40,40,40,1)]">
-      <div className="absolute top-4 left-4 font-mono text-xs text-neon-teal uppercase tracking-widest z-10 flex items-center gap-2">
-        <span className="w-2 h-2 bg-neon-teal rounded-full animate-pulse"></span>
+      <div className="absolute top-4 left-4 font-mono text-xs text-[#F97316] uppercase tracking-widest z-10 flex items-center gap-2">
+        <span className="w-2 h-2 bg-[#F97316] rounded-full animate-pulse"></span>
         AI Core Processing
       </div>
       <canvas ref={canvasRef} width={800} height={300} className="w-full h-full" />
@@ -88,7 +88,7 @@ export default function LiveCallInterface({ onEndCall }: { onEndCall: () => void
             <h1 className="font-display font-black text-4xl text-white uppercase tracking-tight">
               Audit In Progress
             </h1>
-            <div className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-neon-teal animate-pulse">
+            <div className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-[#F97316] animate-pulse">
               {status}
             </div>
           </div>

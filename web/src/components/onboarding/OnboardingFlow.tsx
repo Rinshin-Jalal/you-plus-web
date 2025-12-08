@@ -150,34 +150,34 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
   const canStopRecording = recordingTime >= MIN_VOICE_DURATION;
 
   return (
-    <div className="fixed inset-0 bg-white font-sans flex flex-col z-[100]">
+    <div className="fixed inset-0 bg-[#0D0D0D] font-sans flex flex-col z-[100]">
       <GrainOverlay />
 
       {/* Header */}
-      <div className="relative z-10 px-8 py-6 flex justify-between items-center border-b border-black/10">
+      <div className="relative z-10 px-8 py-6 flex justify-between items-center border-b border-white/5">
         <div className="flex items-center gap-4">
             {/* Progress bar */}
-            <div className="w-32 h-1 bg-black/10 rounded-full overflow-hidden">
+            <div className="w-32 h-1 bg-white/10 rounded-full overflow-hidden">
                 <div 
-                    className="h-full bg-black transition-all duration-500 ease-out rounded-full"
+                    className="h-full bg-gradient-to-r from-orange-500 to-amber-500 transition-all duration-500 ease-out rounded-full shadow-[0_0_8px_rgba(249,115,22,0.5)]"
                     style={{ width: `${progress}%` }}
                 />
             </div>
             
             {/* Step counter */}
-            <span className="font-mono text-xs text-black/40">
+            <span className="font-mono text-xs text-white/40">
                 {stepIndex + 1}/{STEPS.length}
             </span>
             
             {/* Act indicator */}
             {step.act && (
-                <span className="hidden md:block font-mono text-xs uppercase tracking-widest text-black/40">
+                <span className="hidden md:block font-mono text-xs uppercase tracking-widest text-white/40">
                     Act {step.act}/7
                 </span>
             )}
         </div>
         
-        <button onClick={onFinish} className="text-xs font-mono font-bold uppercase tracking-widest text-black/30 hover:text-black transition-colors">
+        <button onClick={onFinish} className="text-xs font-mono font-bold uppercase tracking-widest text-white/30 hover:text-white transition-colors">
             Exit
         </button>
       </div>
@@ -206,7 +206,7 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
 
         {step.type === 'input' && step.field && (
             <div key={step.id} className="w-full flex flex-col items-center text-center">
-                <h2 className="font-mono text-2xl md:text-3xl leading-relaxed font-medium mb-12 text-black">
+                <h2 className="font-mono text-2xl md:text-3xl leading-relaxed font-medium mb-12 text-white">
                     {personalizedLabel}
                 </h2>
                 <MegaInput 
@@ -228,7 +228,7 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
 
         {step.type === 'choice' && step.field && (
             <div key={step.id} className="w-full flex flex-col items-center text-center">
-                 <h2 className="font-mono text-2xl md:text-3xl leading-relaxed font-medium mb-12 text-black">{personalizedLabel}</h2>
+                 <h2 className="font-mono text-2xl md:text-3xl leading-relaxed font-medium mb-12 text-white">{personalizedLabel}</h2>
                  <BrutalChoice 
                     options={
                         // For primary_pillar, dynamically generate choices from selected pillars
@@ -253,7 +253,7 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
 
         {step.type === 'multiselect' && step.choices && step.field && (
             <div key={step.id} className="w-full flex flex-col items-center text-center">
-                 <h2 className="font-mono text-2xl md:text-3xl leading-relaxed font-medium mb-12 text-black">{personalizedLabel}</h2>
+                 <h2 className="font-mono text-2xl md:text-3xl leading-relaxed font-medium mb-12 text-white">{personalizedLabel}</h2>
                  <div className="flex flex-col gap-3 w-full max-w-lg">
                     {step.choices.map((option: string) => {
                         const selected = (data[step.field!] || []).includes(option);
@@ -268,10 +268,10 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
                                     setData({ ...data, [step.field!]: updated });
                                 }}
                                 disabled={isTransitioning}
-                                className={`w-full p-4 border-2 font-mono text-left transition-all ${
+                                className={`w-full p-4 border-2 font-mono text-left transition-all rounded-lg ${
                                     selected 
-                                        ? 'border-black bg-black text-white' 
-                                        : 'border-black/10 bg-white text-black hover:border-black/40'
+                                        ? 'border-orange-500 bg-orange-500/20 text-white' 
+                                        : 'border-white/10 bg-white/5 text-white hover:border-orange-500/50'
                                 }`}
                             >
                                 {option}
@@ -311,7 +311,7 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
 
         {step.type === 'stepper' && step.field && (
             <div key={step.id} className="flex flex-col items-center text-center gap-16">
-                <h2 className="font-mono text-2xl md:text-3xl leading-relaxed font-medium text-black">{personalizedLabel}</h2>
+                <h2 className="font-mono text-2xl md:text-3xl leading-relaxed font-medium text-white">{personalizedLabel}</h2>
                 <Counter 
                     min={step.min} max={step.max}
                     value={data[step.field] || step.min}
@@ -330,8 +330,8 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
 
         {step.type === 'voice' && step.field && (
              <div key={step.id} className="text-center w-full flex flex-col items-center">
-                 <h2 className="font-mono text-2xl md:text-3xl leading-relaxed font-medium mb-4 text-black">{personalizedLabel}</h2>
-                 <p className="font-mono text-base mb-12 text-black/40">{personalizedSubtext}</p>
+                 <h2 className="font-mono text-2xl md:text-3xl leading-relaxed font-medium mb-4 text-white">{personalizedLabel}</h2>
+                 <p className="font-mono text-base mb-12 text-white/40">{personalizedSubtext}</p>
                  
                  <VoiceVisualizer 
                     isRecording={voiceState} 
@@ -346,11 +346,11 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
 
         {(step.type === 'date' || step.type === 'time') && step.field && (
             <div key={step.id} className="w-full flex flex-col items-center text-center">
-                 <h2 className="font-mono text-2xl md:text-3xl leading-relaxed font-medium mb-12 text-black">{personalizedLabel}</h2>
+                 <h2 className="font-mono text-2xl md:text-3xl leading-relaxed font-medium mb-12 text-white">{personalizedLabel}</h2>
                  <input 
                     type={step.type}
                     defaultValue={step.type === 'time' ? '21:00' : undefined}
-                    className="w-full max-w-lg bg-transparent border-b-4 border-black/10 py-8 text-4xl md:text-5xl font-mono font-medium focus:outline-none tracking-tight text-center px-4 text-black"
+                    className="w-full max-w-lg bg-transparent border-b-4 border-orange-500/30 py-8 text-4xl md:text-5xl font-mono font-medium focus:outline-none focus:border-orange-500 tracking-tight text-center px-4 text-white transition-colors"
                     onChange={(e) => setData({ ...data, [step.field!]: e.target.value })}
                  />
                  <Button 
@@ -437,28 +437,28 @@ function FinalLoader({ onComplete }: { onComplete: () => void }) {
 
     return (
         <div className="flex flex-col items-center gap-8 text-center max-w-md">
-            <h2 className="font-mono text-2xl md:text-3xl font-medium text-black">
+            <h2 className="font-mono text-2xl md:text-3xl font-medium text-white">
                 Creating your future self...
             </h2>
             
             {/* Progress bar */}
-            <div className="w-full h-2 bg-black/10 rounded-full overflow-hidden">
+            <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
                 <div 
-                    className="h-full bg-black rounded-full transition-all duration-100 ease-out"
+                    className="h-full bg-gradient-to-r from-orange-500 to-amber-500 rounded-full transition-all duration-100 ease-out shadow-[0_0_12px_rgba(249,115,22,0.5)]"
                     style={{ width: `${progress}%` }}
                 />
             </div>
             
             {/* Fun fact */}
-            <p className="font-mono text-sm min-h-[3rem] transition-opacity duration-500 text-black/40">
+            <p className="font-mono text-sm min-h-[3rem] transition-opacity duration-500 text-white/40">
                 {FUN_FACTS[factIndex]}
             </p>
             
             {/* Loading dots */}
             <div className="flex gap-2">
-                <div className="w-3 h-3 rounded-full bg-black animate-bounce" style={{ animationDelay: '0ms' }} />
-                <div className="w-3 h-3 rounded-full bg-black animate-bounce" style={{ animationDelay: '150ms' }} />
-                <div className="w-3 h-3 rounded-full bg-black animate-bounce" style={{ animationDelay: '300ms' }} />
+                <div className="w-3 h-3 rounded-full bg-orange-500 animate-bounce" style={{ animationDelay: '0ms' }} />
+                <div className="w-3 h-3 rounded-full bg-orange-500 animate-bounce" style={{ animationDelay: '150ms' }} />
+                <div className="w-3 h-3 rounded-full bg-orange-500 animate-bounce" style={{ animationDelay: '300ms' }} />
             </div>
         </div>
     );

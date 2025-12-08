@@ -34,9 +34,9 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
 
   if (loading || subLoading) {
     return (
-      <div className="min-h-screen bg-white flex flex-col items-center justify-center gap-4">
-        <div className="w-10 h-10 border-3 border-black border-t-transparent animate-spin" />
-        <p className="font-mono text-[10px] uppercase tracking-widest text-black/40">Loading...</p>
+      <div className="min-h-screen bg-[#0D0D0D] flex flex-col items-center justify-center gap-4">
+        <div className="w-10 h-10 border-3 border-white border-t-transparent rounded-full animate-spin" />
+        <p className="font-mono text-[10px] uppercase tracking-widest text-white/40">Loading...</p>
       </div>
     );
   }
@@ -58,37 +58,37 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
   const needsOnboarding = hasSubscription && !hasCompletedOnboarding;
 
   return (
-    <div className="min-h-screen bg-white text-black font-sans relative">
+    <div className="min-h-screen bg-[#0D0D0D] text-white font-sans relative">
       <GrainOverlay />
       
       {/* Onboarding Required Overlay */}
       {needsOnboarding && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           {/* Blurred backdrop */}
-          <div className="absolute inset-0 bg-emerald-900/20 backdrop-blur-md" />
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-md" />
           
           {/* Popup Card */}
-          <div className="relative z-10 bg-emerald-600 border-4 border-emerald-800 p-8 md:p-12 max-w-md mx-4 shadow-[12px_12px_0px_0px_rgba(6,78,59,1)]">
+          <div className="relative z-10 bg-[#0D0D0D] border-2 border-[#F97316] p-8 md:p-12 max-w-md mx-4 shadow-[8px_8px_0px_0px_#F97316]">
             <div className="text-center">
-              <div className="w-16 h-16 bg-white text-emerald-600 flex items-center justify-center mx-auto mb-6">
+              <div className="w-16 h-16 bg-[#F97316] text-black flex items-center justify-center mx-auto mb-6">
                 <Compass size={32} />
               </div>
-              <h2 className="font-display font-extrabold text-2xl md:text-3xl uppercase tracking-tight mb-3 text-white">
+              <h2 className="font-bold text-2xl md:text-3xl uppercase tracking-tight mb-3 text-white">
                 Complete Your Setup
               </h2>
-              <p className="font-mono text-sm text-white/80 mb-8 leading-relaxed">
+              <p className="font-mono text-sm text-white/60 mb-8 leading-relaxed">
                 Define your future self and set up your pillars to get personalized AI coaching tailored just for you.
               </p>
               <Button
                 onClick={() => router.push('/onboarding')}
-                className="w-full bg-white text-emerald-600 hover:bg-white/90"
+                className="w-full bg-[#F97316] text-black hover:bg-[#FB923C] border-2 border-[#F97316]"
                 variant="outline"
               >
                 Start Onboarding
               </Button>
               <button
                 onClick={onLogout}
-                className="mt-4 font-mono text-xs text-white/60 hover:text-white/80 underline"
+                className="mt-4 font-mono text-xs text-white/40 hover:text-white/60 underline"
               >
                 Sign out
               </button>
@@ -101,30 +101,30 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
       {!hasSubscription && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           {/* Blurred backdrop */}
-          <div className="absolute inset-0 bg-red-950/40 backdrop-blur-md" />
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-md" />
           
           {/* Popup Card */}
-          <div className="relative z-10 bg-red-950 border-4 border-red-900 p-8 md:p-12 max-w-md mx-4 shadow-[12px_12px_0px_0px_rgba(69,10,10,1)]">
+          <div className="relative z-10 bg-[#0D0D0D] border-2 border-red-500 p-8 md:p-12 max-w-md mx-4 shadow-[8px_8px_0px_0px_rgba(239,68,68,0.6)]">
             <div className="text-center">
-              <div className="w-16 h-16 bg-white text-red-950 flex items-center justify-center mx-auto mb-6">
+              <div className="w-16 h-16 bg-red-500 text-white flex items-center justify-center mx-auto mb-6">
                 <span className="text-3xl font-bold">!</span>
               </div>
-              <h2 className="font-display font-extrabold text-2xl md:text-3xl uppercase tracking-tight mb-3 text-white">
+              <h2 className="font-bold text-2xl md:text-3xl uppercase tracking-tight mb-3 text-white">
                 Subscription Required
               </h2>
-              <p className="font-mono text-sm text-white/70 mb-8 leading-relaxed">
+              <p className="font-mono text-sm text-white/60 mb-8 leading-relaxed">
                 Unlock your potential with You+ Pro. Get daily AI coaching calls, personalized guidance, and track your transformation.
               </p>
               <Button
                 onClick={() => router.push('/checkout')}
-                className="w-full bg-white text-red-950 hover:bg-white/90"
+                className="w-full bg-[#F97316] text-black hover:bg-[#FB923C] border-2 border-[#F97316]"
                 variant="outline"
               >
                 Subscribe Now
               </Button>
               <button
                 onClick={onLogout}
-                className="mt-4 font-mono text-xs text-white/50 hover:text-white/70 underline"
+                className="mt-4 font-mono text-xs text-white/40 hover:text-white/60 underline"
               >
                 Sign out
               </button>
@@ -134,13 +134,13 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
       )}
       
       {/* Header */}
-      <header className={`sticky top-0 z-20 bg-white/95 backdrop-blur-sm border-b-2 border-black ${(!hasSubscription || needsOnboarding) ? 'blur-sm pointer-events-none' : ''}`}>
+      <header className={`sticky top-0 z-20 bg-[#0D0D0D]/95 backdrop-blur-sm border-b border-white/10 ${(!hasSubscription || needsOnboarding) ? 'blur-sm pointer-events-none' : ''}`}>
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 h-14 md:h-16 flex justify-between items-center">
           <div className="flex items-center gap-3 md:gap-4 min-w-0">
-            <h1 className="font-display font-extrabold text-xl md:text-2xl uppercase tracking-tight italic flex-shrink-0">
-              You<span className="text-black/30">+</span>
+            <h1 className="font-bold text-xl md:text-2xl uppercase tracking-tight flex-shrink-0">
+              You<span className="text-[#F97316]">+</span>
             </h1>
-            <span className="hidden md:block font-mono text-[10px] uppercase tracking-widest text-black/40 border-l-2 border-black/10 pl-4 truncate">
+            <span className="hidden md:block font-mono text-[10px] uppercase tracking-widest text-white/40 border-l border-white/10 pl-4 truncate">
               {data.futureSelf?.core_identity || 'Define your future self'}
             </span>
           </div>
@@ -149,14 +149,14 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
           <div className="flex items-center gap-2">
             <button 
               onClick={() => router.push('/account/settings')}
-              className="p-2.5 border border-black/10 hover:border-black hover:bg-black hover:text-white transition-all"
+              className="p-2.5 border border-white/20 hover:border-white hover:bg-white hover:text-black transition-all"
               aria-label="Settings"
             >
               <Settings size={16} />
             </button>
             <button 
               onClick={onLogout}
-              className="p-2.5 border border-red-600/20 hover:border-red-600 hover:bg-red-600 hover:text-white text-red-600 transition-all"
+              className="p-2.5 border border-red-500/30 hover:border-red-500 hover:bg-red-500 hover:text-white text-red-400 transition-all"
               aria-label="Sign out"
             >
               <LogOut size={16} />
@@ -169,8 +169,8 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
         
         {/* Welcome Section */}
         <div className="mb-6 md:mb-10">
-          <p className="font-mono text-[10px] uppercase tracking-widest text-black/40 mb-1">Welcome back,</p>
-          <h2 className="font-display font-extrabold text-3xl md:text-4xl lg:text-5xl uppercase tracking-tight">
+          <p className="font-mono text-[10px] uppercase tracking-widest text-white/40 mb-1">Welcome back,</p>
+          <h2 className="font-bold text-3xl md:text-4xl lg:text-5xl uppercase tracking-tight">
             {data.user?.name}
           </h2>
         </div>
@@ -187,8 +187,8 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
             {/* Stats Section */}
             <div>
               <div className="flex items-center gap-2 mb-3 md:mb-4">
-                <h3 className="font-display font-extrabold text-lg md:text-xl uppercase tracking-tight">The Record</h3>
-                <span className="font-mono text-[9px] uppercase tracking-widest text-black/40">// Your Truth</span>
+                <h3 className="font-bold text-lg md:text-xl uppercase tracking-tight">The Record</h3>
+                <span className="font-mono text-[9px] uppercase tracking-widest text-white/40">// Your Truth</span>
               </div>
               <StatsGrid stats={data.stats} hasCompletedFirstCall={hasCompletedFirstCall} />
             </div>
@@ -197,9 +197,9 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
             {data.pillars && data.pillars.length > 0 ? (
               <div>
                 <div className="flex items-center gap-2 mb-3 md:mb-4">
-                  <Compass size={16} className="text-black/50" />
-                  <h3 className="font-display font-extrabold text-lg md:text-xl uppercase tracking-tight">Your Pillars</h3>
-                  <span className="font-mono text-[9px] uppercase tracking-widest text-black/40">// {data.pillars.length} Active</span>
+                  <Compass size={16} className="text-white/50" />
+                  <h3 className="font-bold text-lg md:text-xl uppercase tracking-tight">Your Pillars</h3>
+                  <span className="font-mono text-[9px] uppercase tracking-widest text-white/40">// {data.pillars.length} Active</span>
                 </div>
                 <PillarGrid 
                   pillars={data.pillars} 
@@ -208,16 +208,16 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
                 />
                 {/* Identity Alignment Summary */}
                 {data.pillarAlignment && (
-                  <div className="mt-4 p-4 bg-gradient-to-r from-black/5 to-transparent border-2 border-black/15">
+                  <div className="mt-4 p-4 bg-white/5 border border-white/10">
                     <div className="flex items-center justify-between gap-4">
                       <div>
-                        <p className="font-mono text-[9px] uppercase tracking-widest text-black/40 mb-1">Identity Alignment</p>
-                        <p className="font-display font-extrabold text-2xl md:text-3xl">
+                        <p className="font-mono text-[9px] uppercase tracking-widest text-white/40 mb-1">Identity Alignment</p>
+                        <p className="font-bold text-2xl md:text-3xl">
                           {data.pillarAlignment.overall_alignment}%
                         </p>
                       </div>
                       <div className={`font-mono text-[9px] font-bold uppercase tracking-widest px-2.5 py-1.5 ${
-                        data.pillarAlignment.transformation_status === 'becoming' ? 'bg-green-500 text-white' :
+                        data.pillarAlignment.transformation_status === 'becoming' ? 'bg-green-500 text-black' :
                         data.pillarAlignment.transformation_status === 'progressing' ? 'bg-blue-500 text-white' :
                         data.pillarAlignment.transformation_status === 'struggling' ? 'bg-yellow-500 text-black' :
                         'bg-red-500 text-white'
@@ -230,17 +230,17 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
               </div>
             ) : data.futureSelf?.core_identity ? (
               /* Awaiting pillars data - onboarding complete but pillars not yet loaded */
-              <div className="border-2 border-dashed border-black/25 p-5 md:p-6 bg-gray-50/30">
+              <div className="border border-dashed border-white/20 p-5 md:p-6 bg-white/5">
                 <div className="flex items-start gap-3 md:gap-4">
-                  <div className="w-10 h-10 md:w-12 md:h-12 bg-black/10 flex items-center justify-center flex-shrink-0 animate-pulse">
-                    <Compass size={20} className="text-black/40" />
+                  <div className="w-10 h-10 md:w-12 md:h-12 bg-white/10 flex items-center justify-center flex-shrink-0 animate-pulse">
+                    <Compass size={20} className="text-white/40" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-mono text-[9px] uppercase tracking-widest text-black/40 mb-1">Loading</p>
-                    <h4 className="font-display font-extrabold text-lg md:text-xl uppercase tracking-tight mb-2 text-black/60">
+                    <p className="font-mono text-[9px] uppercase tracking-widest text-white/40 mb-1">Loading</p>
+                    <h4 className="font-bold text-lg md:text-xl uppercase tracking-tight mb-2 text-white/60">
                       Awaiting pillars data...
                     </h4>
-                    <p className="font-mono text-[11px] text-black/40 leading-relaxed">
+                    <p className="font-mono text-[11px] text-white/40 leading-relaxed">
                       Your pillars are being loaded.
                     </p>
                   </div>
@@ -248,17 +248,17 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
               </div>
             ) : (
               /* Empty state - no pillars set up yet */
-              <div className="border-2 border-dashed border-black/25 p-5 md:p-6 bg-gray-50/30">
+              <div className="border border-dashed border-white/20 p-5 md:p-6 bg-white/5">
                 <div className="flex items-start gap-3 md:gap-4">
-                  <div className="w-10 h-10 md:w-12 md:h-12 bg-black/10 flex items-center justify-center flex-shrink-0">
-                    <Compass size={20} className="text-black/40" />
+                  <div className="w-10 h-10 md:w-12 md:h-12 bg-white/10 flex items-center justify-center flex-shrink-0">
+                    <Compass size={20} className="text-white/40" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-mono text-[9px] uppercase tracking-widest text-black/40 mb-1">Getting Started</p>
-                    <h4 className="font-display font-extrabold text-lg md:text-xl uppercase tracking-tight mb-2 text-black/60">
+                    <p className="font-mono text-[9px] uppercase tracking-widest text-white/40 mb-1">Getting Started</p>
+                    <h4 className="font-bold text-lg md:text-xl uppercase tracking-tight mb-2 text-white/60">
                       Complete onboarding to define your pillars
                     </h4>
-                    <p className="font-mono text-[11px] text-black/40 leading-relaxed">
+                    <p className="font-mono text-[11px] text-white/40 leading-relaxed">
                       Choose 2-5 areas of life that matter most to you.
                     </p>
                   </div>
@@ -275,10 +275,10 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
             <AssessmentCard status={data.status} trustScore={data.stats.trustScore} hasCompletedFirstCall={hasCompletedFirstCall} />
 
             {/* Streak Card */}
-            <div className={`border-2 border-black p-5 md:p-6 relative overflow-hidden transition-all ${
+            <div className={`border-2 p-5 md:p-6 relative overflow-hidden transition-all ${
               isOnFire 
-                ? 'bg-gradient-to-br from-orange-500 to-red-600 text-white shadow-[6px_6px_0px_0px_rgba(234,88,12,0.4)]' 
-                : 'bg-black text-white shadow-[6px_6px_0px_0px_rgba(0,0,0,0.2)]'
+                ? 'border-[#F97316] bg-gradient-to-br from-[#F97316] to-red-600 text-white shadow-[6px_6px_0px_0px_rgba(249,115,22,0.4)]' 
+                : 'border-white/20 bg-white/5 text-white'
             }`}>
               {/* Background decoration */}
               {isOnFire && (
@@ -304,7 +304,7 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
                   )}
                 </div>
                 <div className="flex items-baseline gap-2">
-                  <span className="font-display font-extrabold text-5xl md:text-6xl tracking-tighter leading-none">
+                  <span className="font-bold text-5xl md:text-6xl tracking-tighter leading-none">
                     {data.stats.currentStreak}
                   </span>
                   <span className="font-mono text-sm uppercase tracking-widest text-white/50">Days</span>

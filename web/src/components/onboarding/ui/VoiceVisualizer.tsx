@@ -43,14 +43,14 @@ export const VoiceVisualizer = ({
         const canvas = canvasRef.current;
         const ctx = canvas?.getContext('2d');
         
-        // Initial Idle State
+        // Initial Idle State - dark theme
         if (canvas && ctx && !isRecording) {
-            ctx.fillStyle = '#f9fafb'; // bg-gray-50
+            ctx.fillStyle = '#1a1a1a';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             ctx.beginPath();
             ctx.moveTo(0, canvas.height / 2);
             ctx.lineTo(canvas.width, canvas.height / 2);
-            ctx.strokeStyle = '#d1d5db'; // gray-300
+            ctx.strokeStyle = '#333333';
             ctx.lineWidth = 2;
             ctx.stroke();
         }
@@ -93,16 +93,16 @@ export const VoiceVisualizer = ({
                         
                         analyser.getByteTimeDomainData(dataArray);
                         
-                        // Clear canvas
-                        ctx.fillStyle = '#f9fafb';
+                        // Clear canvas - dark background
+                        ctx.fillStyle = '#1a1a1a';
                         ctx.fillRect(0, 0, canvas.width, canvas.height);
                         
                         // Calculate progress line position
                         const progressX = (progressRef.current / 100) * canvas.width;
                         
-                        // Draw progress background fill (teal tint for completed portion)
+                        // Draw progress background fill (orange tint for completed portion)
                         if (progressRef.current < 100) {
-                            ctx.fillStyle = 'rgba(45, 212, 191, 0.15)'; // teal with low opacity
+                            ctx.fillStyle = 'rgba(249, 115, 22, 0.15)'; // orange with low opacity
                             ctx.fillRect(0, 0, progressX, canvas.height);
                         } else {
                             // Full green tint when ready
@@ -114,7 +114,7 @@ export const VoiceVisualizer = ({
                         const sliceWidth = canvas.width / bufferLength;
                         let x = 0;
                         
-                        // First pass: draw the "completed" portion in teal/green
+                        // First pass: draw the "completed" portion in orange/green
                         ctx.lineWidth = 3;
                         ctx.beginPath();
                         
@@ -134,7 +134,7 @@ export const VoiceVisualizer = ({
                             x += sliceWidth;
                         }
                         
-                        ctx.strokeStyle = canStopRef.current ? '#22c55e' : '#2dd4bf'; // green when ready, teal otherwise
+                        ctx.strokeStyle = canStopRef.current ? '#22c55e' : '#F97316'; // green when ready, orange otherwise
                         ctx.stroke();
                         
                         // Second pass: draw the "remaining" portion in gray
@@ -157,7 +157,7 @@ export const VoiceVisualizer = ({
                             }
                         }
                         
-                        ctx.strokeStyle = '#d1d5db'; // gray for remaining
+                        ctx.strokeStyle = '#444444'; // dark gray for remaining
                         ctx.stroke();
                         
                         // Draw progress line marker (vertical line at progress point)
@@ -165,7 +165,7 @@ export const VoiceVisualizer = ({
                             ctx.beginPath();
                             ctx.moveTo(progressX, 0);
                             ctx.lineTo(progressX, canvas.height);
-                            ctx.strokeStyle = '#2dd4bf';
+                            ctx.strokeStyle = '#F97316';
                             ctx.lineWidth = 2;
                             ctx.setLineDash([4, 4]);
                             ctx.stroke();
@@ -215,11 +215,11 @@ export const VoiceVisualizer = ({
 
     return (
         <div className="flex flex-col items-center gap-10 animate-in fade-in duration-1000 w-full max-w-md">
-            <div className="w-full border-4 border-black relative overflow-hidden shadow-lg rounded-lg bg-gray-50">
+            <div className="w-full border-2 border-orange-500/30 relative overflow-hidden shadow-lg rounded-lg bg-[#1a1a1a]">
                 <div className="absolute top-3 left-3 flex gap-1.5 z-10">
-                    <div className="w-2 h-2 rounded-full bg-black/20" />
-                    <div className="w-2 h-2 rounded-full bg-black/20" />
-                    <div className="w-2 h-2 rounded-full bg-black/20" />
+                    <div className="w-2 h-2 rounded-full bg-white/20" />
+                    <div className="w-2 h-2 rounded-full bg-white/20" />
+                    <div className="w-2 h-2 rounded-full bg-white/20" />
                 </div>
                 
                 <canvas 
@@ -231,8 +231,8 @@ export const VoiceVisualizer = ({
                 
                 {isRecording && (
                     <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
-                        <div className={`w-3 h-3 rounded-full animate-pulse ${canStop ? 'bg-green-500' : 'bg-red-600'}`} />
-                        <span className={`font-mono text-sm font-bold tracking-wider ${canStop ? 'text-green-400' : 'text-red-400'}`}>
+                        <div className={`w-3 h-3 rounded-full animate-pulse ${canStop ? 'bg-green-500' : 'bg-orange-500'}`} />
+                        <span className={`font-mono text-sm font-bold tracking-wider ${canStop ? 'text-green-400' : 'text-orange-400'}`}>
                             {canStop ? 'READY' : `${timeRemaining}s`}
                         </span>
                     </div>
@@ -246,8 +246,8 @@ export const VoiceVisualizer = ({
                     ${isRecording 
                         ? canStop 
                             ? 'border-green-500 bg-green-500 text-white scale-110 shadow-[0_10px_20px_rgba(34,197,94,0.3)] cursor-pointer' 
-                            : 'border-black/30 bg-black/30 text-white scale-105 cursor-not-allowed'
-                        : 'border-black hover:bg-black hover:text-white cursor-pointer text-black'
+                            : 'border-orange-500/50 bg-orange-500/30 text-white scale-105 cursor-not-allowed'
+                        : 'border-orange-500 text-orange-500 hover:bg-orange-500 hover:text-white cursor-pointer'
                     }`}
             >
                 {isRecording ? (
@@ -257,7 +257,7 @@ export const VoiceVisualizer = ({
                 )}
             </button>
             
-            <p className="font-mono text-xs uppercase tracking-[0.2em] font-bold text-black/40">
+            <p className="font-mono text-xs uppercase tracking-[0.2em] font-bold text-white/40">
                 {isRecording 
                     ? canStop 
                         ? 'Tap to Stop' 

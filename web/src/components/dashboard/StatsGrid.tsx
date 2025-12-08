@@ -23,41 +23,41 @@ const StatBox = ({
   isEmpty?: boolean;
 }) => {
   const variants = {
-    default: 'bg-white border-black/20 hover:border-black',
-    success: 'bg-gradient-to-br from-green-50 to-white border-green-500/50 hover:border-green-600',
-    danger: 'bg-gradient-to-br from-red-50 to-white border-red-500/50 hover:border-red-600',
+    default: 'bg-white/5 border-white/20 hover:border-white/40',
+    success: 'bg-green-500/10 border-green-500/50 hover:border-green-500',
+    danger: 'bg-red-500/10 border-red-500/50 hover:border-red-500',
   };
 
   const iconColors = {
-    default: 'text-black/40',
-    success: 'text-green-600',
-    danger: 'text-red-600',
+    default: 'text-white/40',
+    success: 'text-green-400',
+    danger: 'text-red-400',
   };
 
   if (isEmpty) {
     return (
-      <div className="border-2 border-dashed border-black/15 bg-gray-50/50 p-4 md:p-5 flex flex-col justify-between">
+      <div className="border border-dashed border-white/15 bg-white/5 p-4 md:p-5 flex flex-col justify-between">
         <div className="flex items-center gap-2 mb-3">
-          {icon && <span className="text-black/30">{icon}</span>}
-          <span className="font-mono text-[9px] font-bold uppercase tracking-widest text-black/30">{label}</span>
+          {icon && <span className="text-white/30">{icon}</span>}
+          <span className="font-mono text-[9px] font-bold uppercase tracking-widest text-white/30">{label}</span>
         </div>
         <div>
-          <span className="font-display font-extrabold text-3xl md:text-4xl leading-none tracking-tight text-black/20">--</span>
+          <span className="font-bold text-3xl md:text-4xl leading-none tracking-tight text-white/20">--</span>
         </div>
       </div>
     );
   }
 
   return (
-    <div className={`border-2 ${variants[variant]} p-4 md:p-5 flex flex-col justify-between transition-all duration-200 hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,0.1)]`}>
+    <div className={`border ${variants[variant]} p-4 md:p-5 flex flex-col justify-between transition-all duration-200`}>
       <div className="flex items-center gap-2 mb-3">
         {icon && <span className={iconColors[variant]}>{icon}</span>}
-        <span className="font-mono text-[9px] font-bold uppercase tracking-widest text-black/50">{label}</span>
+        <span className="font-mono text-[9px] font-bold uppercase tracking-widest text-white/50">{label}</span>
       </div>
       <div>
-        <span className="font-display font-extrabold text-3xl md:text-4xl leading-none tracking-tight">{value}</span>
+        <span className="font-bold text-3xl md:text-4xl leading-none tracking-tight text-white">{value}</span>
         {subtext && (
-          <p className="font-mono text-[9px] text-black/40 mt-1 uppercase tracking-wider">{subtext}</p>
+          <p className="font-mono text-[9px] text-white/40 mt-1 uppercase tracking-wider">{subtext}</p>
         )}
       </div>
     </div>
@@ -71,17 +71,17 @@ export const StatsGrid = ({ stats, hasCompletedFirstCall = true }: StatsGridProp
   // Show empty state if no calls completed yet
   if (!hasCompletedFirstCall) {
     return (
-      <div className="border-2 border-dashed border-black/20 p-5 md:p-6 bg-gray-50/30">
+      <div className="border border-dashed border-white/20 p-5 md:p-6 bg-white/5">
         <div className="flex items-start gap-3">
-          <div className="w-10 h-10 bg-black/10 flex items-center justify-center flex-shrink-0">
-            <Clock size={18} className="text-black/40" />
+          <div className="w-10 h-10 bg-white/10 flex items-center justify-center flex-shrink-0">
+            <Clock size={18} className="text-white/40" />
           </div>
           <div className="flex-1">
-            <p className="font-mono text-[9px] uppercase tracking-widest text-black/40 mb-1">Awaiting First Call</p>
-            <p className="font-display font-bold text-lg uppercase tracking-tight text-black/60 mb-1">
+            <p className="font-mono text-[9px] uppercase tracking-widest text-white/40 mb-1">Awaiting First Call</p>
+            <p className="font-bold text-lg uppercase tracking-tight text-white/60 mb-1">
               Your stats will appear here
             </p>
-            <p className="font-mono text-[11px] text-black/40 leading-relaxed">
+            <p className="font-mono text-[11px] text-white/40 leading-relaxed">
               Complete your first check-in call to start tracking your progress.
             </p>
           </div>

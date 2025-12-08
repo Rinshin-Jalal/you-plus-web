@@ -31,25 +31,25 @@ export function ActHeader({ act, title, subtitle, onNext }: ActHeaderProps) {
         }`}>
             {/* Act number */}
             <div className="mb-6">
-                <span className="font-mono text-xs uppercase tracking-[0.3em] text-black/40">
+                <span className="font-mono text-sm uppercase tracking-[0.3em] text-orange-500 font-bold">
                     Act {act} of 7
                 </span>
             </div>
             
             {/* Title */}
-            <h1 className="font-display font-extrabold text-4xl md:text-6xl uppercase tracking-tight mb-4 text-black">
+            <h1 className="font-display font-extrabold text-4xl md:text-6xl uppercase tracking-tight mb-4 text-white">
                 {title}
             </h1>
             
             {/* Subtitle */}
             {subtitle && (
-                <p className="font-mono text-lg md:text-xl text-black/40">
+                <p className="font-mono text-lg md:text-xl text-white/50">
                     {subtitle}
                 </p>
             )}
             
-            {/* Decorative line */}
-            <div className="mt-8 w-24 h-1 rounded-full bg-black" />
+            {/* Decorative line - orange gradient */}
+            <div className="mt-8 w-24 h-1 rounded-full bg-gradient-to-r from-orange-500 to-amber-500 shadow-[0_0_12px_rgba(249,115,22,0.5)]" />
         </div>
     );
 }

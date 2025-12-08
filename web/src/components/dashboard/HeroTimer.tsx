@@ -44,7 +44,7 @@ export const HeroTimer = ({ targetDate }: HeroTimerProps) => {
   // Ready state - call time has arrived, waiting for incoming call
   if (isReady) {
     return (
-      <div className="bg-black text-white border-2 border-black p-6 md:p-8 shadow-[8px_8px_0px_0px_rgba(0,0,0,0.3)] relative overflow-hidden">
+      <div className="bg-[#111] text-white border-2 border-green-500 p-6 md:p-8 shadow-[8px_8px_0px_0px_rgba(34,197,94,0.3)] relative overflow-hidden">
         {/* Animated pulse background */}
         <div className="absolute inset-0 bg-gradient-to-r from-green-500/20 to-transparent animate-pulse" />
         
@@ -62,7 +62,7 @@ export const HeroTimer = ({ targetDate }: HeroTimerProps) => {
               <Phone size={28} className="text-white animate-pulse" />
             </div>
             <div>
-              <h2 className="font-display font-extrabold text-2xl md:text-3xl uppercase tracking-tight">
+              <h2 className="font-bold text-2xl md:text-3xl uppercase tracking-tight">
                 Expecting Your Call
               </h2>
               <p className="font-mono text-xs text-white/50 mt-1">
@@ -81,16 +81,16 @@ export const HeroTimer = ({ targetDate }: HeroTimerProps) => {
 
   // Countdown state - waiting for scheduled time
   return (
-    <div className={`bg-white border-2 p-6 md:p-8 transition-all duration-300 ${
+    <div className={`bg-[#111] border-2 p-6 md:p-8 transition-all duration-300 ${
       isUrgent 
-        ? 'border-red-600 shadow-[8px_8px_0px_0px_rgba(220,38,38,1)]' 
-        : 'border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]'
+        ? 'border-[#F97316] shadow-[8px_8px_0px_0px_#F97316]' 
+        : 'border-white/20 shadow-[8px_8px_0px_0px_rgba(255,255,255,0.1)]'
     }`}>
       <div className="flex flex-col gap-4">
         {/* Header */}
         <div className="flex items-center gap-2">
-          <Clock size={16} className={isUrgent ? 'text-red-600' : 'text-black/40'} />
-          <span className={`font-mono text-[10px] uppercase tracking-widest ${isUrgent ? 'text-red-600' : 'text-black/40'}`}>
+          <Clock size={16} className={isUrgent ? 'text-[#F97316]' : 'text-white/40'} />
+          <span className={`font-mono text-[10px] uppercase tracking-widest ${isUrgent ? 'text-[#F97316]' : 'text-white/40'}`}>
             {isUrgent ? 'Almost Time' : 'Next Check-In'}
           </span>
         </div>
@@ -98,29 +98,29 @@ export const HeroTimer = ({ targetDate }: HeroTimerProps) => {
         {/* Timer Display */}
         <div className="flex items-baseline gap-1 md:gap-2">
           <div className="flex flex-col items-center">
-            <span className={`font-display font-extrabold text-5xl md:text-7xl tracking-tighter leading-none ${isUrgent ? 'text-red-600' : ''}`}>
+            <span className={`font-bold text-5xl md:text-7xl tracking-tighter leading-none ${isUrgent ? 'text-[#F97316]' : 'text-white'}`}>
               {formatNumber(timeLeft.hours)}
             </span>
-            <span className="font-mono text-[8px] uppercase tracking-widest text-black/30 mt-1">hrs</span>
+            <span className="font-mono text-[8px] uppercase tracking-widest text-white/30 mt-1">hrs</span>
           </div>
-          <span className="font-display font-extrabold text-3xl md:text-5xl text-black/20 self-start mt-2">:</span>
+          <span className="font-bold text-3xl md:text-5xl text-white/20 self-start mt-2">:</span>
           <div className="flex flex-col items-center">
-            <span className={`font-display font-extrabold text-5xl md:text-7xl tracking-tighter leading-none ${isUrgent ? 'text-red-600' : ''}`}>
+            <span className={`font-bold text-5xl md:text-7xl tracking-tighter leading-none ${isUrgent ? 'text-[#F97316]' : 'text-white'}`}>
               {formatNumber(timeLeft.minutes)}
             </span>
-            <span className="font-mono text-[8px] uppercase tracking-widest text-black/30 mt-1">min</span>
+            <span className="font-mono text-[8px] uppercase tracking-widest text-white/30 mt-1">min</span>
           </div>
-          <span className="font-display font-extrabold text-3xl md:text-5xl text-black/20 self-start mt-2">:</span>
+          <span className="font-bold text-3xl md:text-5xl text-white/20 self-start mt-2">:</span>
           <div className="flex flex-col items-center">
-            <span className="font-display font-extrabold text-5xl md:text-7xl tracking-tighter leading-none text-black/30">
+            <span className="font-bold text-5xl md:text-7xl tracking-tighter leading-none text-white/30">
               {formatNumber(timeLeft.seconds)}
             </span>
-            <span className="font-mono text-[8px] uppercase tracking-widest text-black/30 mt-1">sec</span>
+            <span className="font-mono text-[8px] uppercase tracking-widest text-white/30 mt-1">sec</span>
           </div>
         </div>
 
         {/* Message */}
-        <p className="font-mono text-xs text-black/40 pt-2 border-t border-black/10">
+        <p className="font-mono text-xs text-white/40 pt-2 border-t border-white/10">
           {isUrgent 
             ? "Prepare yourself. You'll receive a call soon." 
             : "You'll receive a call at your scheduled time."}
