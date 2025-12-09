@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useSubscription } from '@/hooks/useSubscription';
@@ -18,12 +18,285 @@ import { FullPageLoader, SavingOverlay } from '@/components/ui/Loaders';
  * Flow:
  * 1. Check if authenticated → if not, redirect to /auth/login?next=/setup
  * 2. Check if subscribed → if not, redirect to /checkout
- * 3. Push onboarding data to backend
+ * 3. Push onboarding data to backend (with engaging loading experience)
  * 4. Collect phone number
  * 5. Redirect to dashboard
  */
 
 type SetupStep = 'checking' | 'pushing' | 'phone' | 'complete' | 'error';
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ENGAGING LOADING MESSAGES
+// ═══════════════════════════════════════════════════════════════════════════
+
+interface LoadingMessage {
+  text: string;
+  subtext?: string;
+  duration: number; // ms to show this message
+}
+
+const LOADING_MESSAGES: LoadingMessage[] = [
+  { 
+    text: "Creating your Future Self...", 
+    subtext: "The version of you that already won",
+    duration: 3000 
+  },
+  { 
+    text: "Learning your voice...", 
+    subtext: "So your Future Self sounds exactly like you",
+    duration: 4000 
+  },
+  { 
+    text: "Every champion was once a contender who refused to give up",
+    duration: 3500 
+  },
+  { 
+    text: "Mapping your transformation...", 
+    subtext: "From who you are to who you're becoming",
+    duration: 3000 
+  },
+  { 
+    text: "The best time to plant a tree was 20 years ago. The second best time is now.",
+    duration: 3500 
+  },
+  { 
+    text: "Building your accountability system...", 
+    subtext: "No more letting yourself off the hook",
+    duration: 3000 
+  },
+  { 
+    text: "You're not starting from scratch. You're starting from experience.",
+    duration: 3500 
+  },
+  { 
+    text: "Preparing your daily check-ins...", 
+    subtext: "Small promises kept → Big transformations",
+    duration: 3000 
+  },
+  { 
+    text: "The only person you are destined to become is the person you decide to be",
+    duration: 3500 
+  },
+  { 
+    text: "Almost there...", 
+    subtext: "Your Future Self is ready to meet you",
+    duration: 5000 
+  },
+];
+
+// Fun facts / micro-stories that appear and disappear
+const MICRO_STORIES = [
+  "Did you know? It takes 66 days on average to form a new habit.",
+  "The word 'discipline' comes from 'disciple' — someone who learns.",
+  "Navy SEALs say: 'When you think you're done, you're only 40% done.'",
+  "James Clear wrote Atomic Habits while working a day job.",
+  "Arnold visualized his success every single day for years.",
+  "Kobe Bryant started practicing at 4am. Every. Single. Day.",
+  "Your brain can't tell the difference between vivid imagination and reality.",
+  "The compound effect: 1% better daily = 37x better in a year.",
+  "Most people overestimate 1 year, underestimate 10 years.",
+  "Warren Buffett reads 500 pages a day. He calls it 'compound knowledge.'",
+];
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ENGAGING LOADER COMPONENT
+// ═══════════════════════════════════════════════════════════════════════════
+
+function EngagingLoader({ isProcessing }: { isProcessing: boolean }) {
+  const [messageIndex, setMessageIndex] = useState(0);
+  const [microStoryIndex, setMicroStoryIndex] = useState(0);
+  const [showMicroStory, setShowMicroStory] = useState(false);
+  const [fadeState, setFadeState] = useState<'in' | 'out'>('in');
+  const [microFadeState, setMicroFadeState] = useState<'in' | 'out'>('in');
+  const [dots, setDots] = useState('');
+
+  // Cycle through main messages
+  useEffect(() => {
+    if (!isProcessing) return;
+
+    const message = LOADING_MESSAGES[messageIndex];
+    const duration = message?.duration || 3000;
+
+    // Fade out before changing
+    const fadeOutTimer = setTimeout(() => {
+      setFadeState('out');
+    }, duration - 500);
+
+    // Change message
+    const changeTimer = setTimeout(() => {
+      setMessageIndex((prev) => (prev + 1) % LOADING_MESSAGES.length);
+      setFadeState('in');
+    }, duration);
+
+    return () => {
+      clearTimeout(fadeOutTimer);
+      clearTimeout(changeTimer);
+    };
+  }, [messageIndex, isProcessing]);
+
+  // Show micro stories periodically
+  useEffect(() => {
+    if (!isProcessing) return;
+
+    const showStory = () => {
+      setMicroStoryIndex(Math.floor(Math.random() * MICRO_STORIES.length));
+      setShowMicroStory(true);
+      setMicroFadeState('in');
+
+      // Hide after 4 seconds
+      setTimeout(() => {
+        setMicroFadeState('out');
+        setTimeout(() => setShowMicroStory(false), 500);
+      }, 4000);
+    };
+
+    // Show first story after 5 seconds, then every 8 seconds
+    const initialDelay = setTimeout(showStory, 5000);
+    const interval = setInterval(showStory, 8000);
+
+    return () => {
+      clearTimeout(initialDelay);
+      clearInterval(interval);
+    };
+  }, [isProcessing]);
+
+  // Animated dots
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setDots((prev) => (prev.length >= 3 ? '' : prev + '.'));
+    }, 400);
+    return () => clearInterval(interval);
+  }, []);
+
+  const currentMessage = LOADING_MESSAGES[messageIndex];
+
+  return (
+    <div className="min-h-screen bg-[#0A0A0A] flex flex-col items-center justify-center p-6 relative overflow-hidden">
+      {/* Background animated elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {/* Floating orbs */}
+        <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-[#F97316]/5 rounded-full blur-3xl animate-float-slow" />
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-[#F97316]/3 rounded-full blur-3xl animate-float-slower" />
+        <div className="absolute top-1/2 left-1/2 w-48 h-48 bg-white/5 rounded-full blur-2xl animate-pulse-slow" />
+      </div>
+
+      {/* Main content */}
+      <div className="relative z-10 max-w-lg w-full text-center">
+        {/* Animated logo/icon */}
+        <div className="mb-12 relative">
+          <div className="w-24 h-24 mx-auto relative">
+            {/* Outer ring - rotating */}
+            <div className="absolute inset-0 border-2 border-[#F97316]/30 rounded-full animate-spin-slow" />
+            {/* Middle ring - counter-rotating */}
+            <div className="absolute inset-2 border-2 border-[#F97316]/50 rounded-full animate-spin-reverse" />
+            {/* Inner circle - pulsing */}
+            <div className="absolute inset-4 bg-[#F97316] rounded-full animate-pulse flex items-center justify-center">
+              <span className="text-2xl font-bold text-black">Y+</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Main message */}
+        <div 
+          className={`transition-all duration-500 ${
+            fadeState === 'in' ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
+          }`}
+        >
+          <h1 className="text-2xl md:text-3xl font-bold text-white mb-3">
+            {currentMessage?.text}
+            {currentMessage?.text.endsWith('...') ? '' : dots}
+          </h1>
+          {currentMessage?.subtext && (
+            <p className="text-white/50 text-lg">
+              {currentMessage.subtext}
+            </p>
+          )}
+        </div>
+
+        {/* Progress bar */}
+        <div className="mt-12 w-full max-w-xs mx-auto">
+          <div className="h-1 bg-white/10 rounded-full overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-[#F97316] to-[#FB923C] rounded-full animate-progress" />
+          </div>
+        </div>
+
+        {/* Micro story popup */}
+        {showMicroStory && (
+          <div 
+            className={`mt-12 p-4 bg-white/5 border border-white/10 rounded-lg transition-all duration-500 ${
+              microFadeState === 'in' ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
+            }`}
+          >
+            <p className="text-white/70 text-sm italic">
+              "{MICRO_STORIES[microStoryIndex]}"
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Bottom decoration */}
+      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-2">
+        {[0, 1, 2, 3, 4].map((i) => (
+          <div
+            key={i}
+            className="w-2 h-2 bg-[#F97316] rounded-full animate-bounce"
+            style={{ animationDelay: `${i * 0.1}s` }}
+          />
+        ))}
+      </div>
+
+      <style jsx>{`
+        @keyframes float-slow {
+          0%, 100% { transform: translate(0, 0) scale(1); }
+          50% { transform: translate(30px, -30px) scale(1.1); }
+        }
+        @keyframes float-slower {
+          0%, 100% { transform: translate(0, 0) scale(1); }
+          50% { transform: translate(-40px, 20px) scale(0.9); }
+        }
+        @keyframes pulse-slow {
+          0%, 100% { opacity: 0.3; transform: scale(1); }
+          50% { opacity: 0.6; transform: scale(1.2); }
+        }
+        @keyframes spin-slow {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        @keyframes spin-reverse {
+          from { transform: rotate(360deg); }
+          to { transform: rotate(0deg); }
+        }
+        @keyframes progress {
+          0% { width: 0%; }
+          10% { width: 15%; }
+          30% { width: 35%; }
+          50% { width: 55%; }
+          70% { width: 70%; }
+          90% { width: 85%; }
+          100% { width: 95%; }
+        }
+        .animate-float-slow {
+          animation: float-slow 8s ease-in-out infinite;
+        }
+        .animate-float-slower {
+          animation: float-slower 12s ease-in-out infinite;
+        }
+        .animate-pulse-slow {
+          animation: pulse-slow 4s ease-in-out infinite;
+        }
+        .animate-spin-slow {
+          animation: spin-slow 8s linear infinite;
+        }
+        .animate-spin-reverse {
+          animation: spin-reverse 6s linear infinite;
+        }
+        .animate-progress {
+          animation: progress 30s ease-out forwards;
+        }
+      `}</style>
+    </div>
+  );
+}
 
 export default function SetupPage() {
   const router = useRouter();
@@ -149,14 +422,18 @@ export default function SetupPage() {
   };
 
   // Loading states
-  if (authLoading || subLoading || step === 'checking' || step === 'pushing') {
+  if (authLoading || subLoading || step === 'checking') {
     const message =
       authLoading ? 'Checking authentication...' :
       subLoading ? 'Checking subscription...' :
-      step === 'pushing' ? 'Saving your data...' :
       'Setting up...';
 
     return <FullPageLoader message={message} />;
+  }
+
+  // Engaging loader for the 'pushing' step (voice cloning, transcription, etc.)
+  if (step === 'pushing') {
+    return <EngagingLoader isProcessing={true} />;
   }
 
   // Error state

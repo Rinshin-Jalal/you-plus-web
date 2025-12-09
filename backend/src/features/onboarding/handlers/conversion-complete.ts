@@ -2,6 +2,7 @@ import { Context } from "hono";
 import { createSupabaseClient } from "@/features/core/utils/database";
 import { Env } from "@/types/environment";
 import { getAuthenticatedUserId } from "@/middleware/auth";
+import { transcribeAudio, cloneVoice, uploadAudioToR2 } from "@/features/core/utils/transcription";
 
 export const postConversionOnboardingComplete = async (c: Context) => {
   console.log("🎯 === CONVERSION ONBOARDING: Complete Request Received ===");
@@ -12,13 +13,14 @@ export const postConversionOnboardingComplete = async (c: Context) => {
   const body = await c.req.json();
   console.log("📦 Request body keys:", Object.keys(body));
 
+  const env = c.env as Env;
+
   const {
     // Core identity
     name,
     times_tried,  // Not stored in DB yet, but collected
     core_identity,
     primary_pillar,
-    the_why,
     dark_future,
     
     // Patterns
@@ -31,7 +33,7 @@ export const postConversionOnboardingComplete = async (c: Context) => {
     
     // Voice recordings (base64 or R2 URLs)
     future_self_intro_recording,
-    why_recording,
+    why_recording,  // This will be transcribed to get the_why
     pledge_recording,
     
     // Call settings
@@ -42,13 +44,144 @@ export const postConversionOnboardingComplete = async (c: Context) => {
   if (!core_identity) {
     return c.json({ error: "Missing required field: core_identity" }, 400);
   }
-  
-  if (!the_why) {
-    return c.json({ error: "Missing required field: the_why" }, 400);
-  }
 
   if (!selected_pillars || !Array.isArray(selected_pillars) || selected_pillars.length === 0) {
     return c.json({ error: "Missing required field: selected_pillars (must be an array)" }, 400);
+  }
+
+  // Validate all 3 voice recordings are present (required for voice cloning)
+  if (!future_self_intro_recording) {
+    return c.json({ error: "Missing required field: future_self_intro_recording" }, 400);
+  }
+  if (!why_recording) {
+    return c.json({ error: "Missing required field: why_recording" }, 400);
+  }
+  if (!pledge_recording) {
+    return c.json({ error: "Missing required field: pledge_recording" }, 400);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // PROCESS VOICE RECORDINGS: Transcribe, Clone Voice, Upload to R2
+  // ═══════════════════════════════════════════════════════════════════════
+  let theWhy: string = "";
+  let futureSelftroUrl: string | null = null;
+  let whyRecordingUrl: string | null = null;
+  let pledgeRecordingUrl: string | null = null;
+  let cartesiaVoiceId: string | null = null;
+
+  console.log("\n🎤 === PROCESSING VOICE RECORDINGS ===");
+  
+  // Check if recordings are base64 (not already URLs)
+  const isBase64 = (s: string) => s.startsWith("data:") || !s.startsWith("http");
+  const introIsBase64 = isBase64(future_self_intro_recording);
+  const whyIsBase64 = isBase64(why_recording);
+  const pledgeIsBase64 = isBase64(pledge_recording);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // STEP 1: Transcribe why_recording ONLY to get the_why text
+  // ─────────────────────────────────────────────────────────────────────────
+  if (whyIsBase64) {
+    console.log("📝 [1/4] Transcribing why_recording...");
+    const transcriptionResult = await transcribeAudio(why_recording, env);
+    
+    if (transcriptionResult.success && transcriptionResult.text) {
+      theWhy = transcriptionResult.text;
+      console.log(`✅ Transcription successful: "${theWhy.substring(0, 100)}..."`);
+    } else {
+      console.warn(`⚠️ Transcription failed: ${transcriptionResult.error}`);
+      theWhy = "[Voice recording - transcription pending]";
+    }
+  } else {
+    console.log("📎 why_recording is already a URL, skipping transcription");
+    theWhy = body.the_why || "[Voice recording]";
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // STEP 2: Clone voice from ALL 3 recordings combined (better quality)
+  // ─────────────────────────────────────────────────────────────────────────
+  if (introIsBase64 && whyIsBase64 && pledgeIsBase64) {
+    console.log("🎭 [2/4] Cloning user's voice from all 3 recordings...");
+    
+    // Pass all 3 recordings to be combined for voice cloning
+    const cloneResult = await cloneVoice(
+      [future_self_intro_recording, why_recording, pledge_recording],
+      userId,
+      name || "User",
+      env
+    );
+    
+    if (cloneResult.success && cloneResult.voiceId) {
+      cartesiaVoiceId = cloneResult.voiceId;
+      console.log(`✅ Voice cloned successfully! Voice ID: ${cartesiaVoiceId}`);
+    } else {
+      console.warn(`⚠️ Voice cloning failed: ${cloneResult.error}`);
+      console.warn("⚠️ User will use default agent voice until cloning succeeds");
+    }
+  } else {
+    console.log("📎 Some recordings are already URLs, skipping voice cloning");
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // STEP 3 & 4: Upload ALL 3 recordings to R2 for future reference
+  // ─────────────────────────────────────────────────────────────────────────
+  if (env.AUDIO_BUCKET) {
+    console.log("📤 [3/4] Uploading all recordings to R2...");
+    
+    // Upload future_self_intro_recording
+    if (introIsBase64) {
+      futureSelftroUrl = await uploadAudioToR2(
+        future_self_intro_recording,
+        userId,
+        "future_self_intro",
+        env.AUDIO_BUCKET,
+        env
+      );
+      console.log(`   ✅ future_self_intro uploaded`);
+    } else {
+      futureSelftroUrl = future_self_intro_recording;
+    }
+
+    // Upload why_recording
+    if (whyIsBase64) {
+      whyRecordingUrl = await uploadAudioToR2(
+        why_recording,
+        userId,
+        "why",
+        env.AUDIO_BUCKET,
+        env
+      );
+      console.log(`   ✅ why_recording uploaded`);
+    } else {
+      whyRecordingUrl = why_recording;
+    }
+
+    // Upload pledge_recording
+    if (pledgeIsBase64) {
+      pledgeRecordingUrl = await uploadAudioToR2(
+        pledge_recording,
+        userId,
+        "pledge",
+        env.AUDIO_BUCKET,
+        env
+      );
+      console.log(`   ✅ pledge_recording uploaded`);
+    } else {
+      pledgeRecordingUrl = pledge_recording;
+    }
+
+    console.log("📤 [4/4] All recordings uploaded to R2");
+  } else {
+    console.warn("⚠️ AUDIO_BUCKET not configured, storing base64 directly (not recommended)");
+    futureSelftroUrl = future_self_intro_recording;
+    whyRecordingUrl = why_recording;
+    pledgeRecordingUrl = pledge_recording;
+  }
+
+  // Validate that we have the_why
+  if (!theWhy) {
+    return c.json({ 
+      error: "Failed to transcribe why_recording" 
+    }, 400);
   }
 
   // Use default call_time if not provided (21:00 = 9pm evening reflection)
@@ -60,7 +193,6 @@ export const postConversionOnboardingComplete = async (c: Context) => {
   console.log(`Primary Pillar: ${primary_pillar || selected_pillars[0]}`);
   console.log(`Call Time: ${finalCallTime}${!call_time ? ' (default)' : ''}`);
 
-  const env = c.env as Env;
   const supabase = createSupabaseClient(env);
 
   try {
@@ -129,14 +261,15 @@ export const postConversionOnboardingComplete = async (c: Context) => {
         user_id: userId,
         core_identity: core_identity,
         primary_pillar: mappedPrimaryPillar,
-        the_why: the_why,
+        the_why: theWhy,  // Transcribed text from why_recording
         dark_future: dark_future || null,
         quit_pattern: quit_pattern || null,
         favorite_excuse: favorite_excuse || null,
         who_disappointed: who_disappointed || [],
-        future_self_intro_url: future_self_intro_recording || null,
-        why_recording_url: why_recording || null,
-        pledge_recording_url: pledge_recording || null,
+        future_self_intro_url: futureSelftroUrl || null,  // R2 URL
+        why_recording_url: whyRecordingUrl || null,  // R2 URL
+        pledge_recording_url: pledgeRecordingUrl || null,  // R2 URL
+        cartesia_voice_id: cartesiaVoiceId || null,  // Cloned voice ID for Future Self agent
         supermemory_container_id: userId,
         selected_pillars: selected_pillars, // Store the array of selected pillar IDs
       }, { onConflict: 'user_id' })
@@ -248,6 +381,7 @@ export const postConversionOnboardingComplete = async (c: Context) => {
 
     console.log(`\n🎉 === CONVERSION ONBOARDING COMPLETE ===`);
     console.log(`Created ${createdPillars.length} pillars: ${createdPillars.join(', ')}`);
+    console.log(`Voice cloned: ${cartesiaVoiceId ? 'Yes' : 'No'}`);
 
     return c.json({
       success: true,
@@ -257,6 +391,7 @@ export const postConversionOnboardingComplete = async (c: Context) => {
         id: futureSelfId,
         pillars: createdPillars,
         primaryPillar: mappedPrimaryPillar,
+        voiceCloned: !!cartesiaVoiceId,
       },
     });
   } catch (error) {

@@ -1,30 +1,89 @@
 'use client';
 
-import { Suspense, useEffect } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
+import { useSubscription } from '@/hooks/useSubscription';
+import { storageService } from '@/services/storage';
 import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { GrainOverlay } from '@/components/onboarding/ui/GrainOverlay';
 import { WitnessLogo } from '@/components/ui/WitnessLogo';
 
+/**
+ * Smart Redirect Logic:
+ * 
+ * 1. Has onboarding data + NOT paid → /checkout/welcome (personalized checkout)
+ * 2. Has onboarding data + paid → /setup (push data, collect phone)
+ * 3. No onboarding data + paid → /dashboard (returning user)
+ * 4. No onboarding data + NOT paid → /checkout (generic checkout)
+ * 
+ * The `next` query param can override this for specific flows.
+ */
+
 function FinalizeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isAuthenticated, loading: authLoading } = useAuth();
+  const { isActive, loading: subLoading } = useSubscription();
+  const [statusMessage, setStatusMessage] = useState('Checking authentication...');
 
   useEffect(() => {
-    if (authLoading) return;
-
-    const next = searchParams.get('next') || '/dashboard';
+    if (authLoading) {
+      setStatusMessage('Checking authentication...');
+      return;
+    }
 
     if (!isAuthenticated) {
       router.replace('/auth/login');
       return;
     }
 
-    router.replace(next);
-  }, [isAuthenticated, authLoading, router, searchParams]);
+    // Wait for subscription check
+    if (subLoading) {
+      setStatusMessage('Checking subscription...');
+      return;
+    }
+
+    // Get the explicit next param (if any)
+    const explicitNext = searchParams.get('next');
+    
+    // Check if user has onboarding data in localStorage
+    const hasOnboardingData = storageService.hasOnboardingData();
+    
+    console.log('[Finalize] Smart redirect:', { 
+      hasOnboardingData, 
+      isActive, 
+      explicitNext 
+    });
+
+    // Determine the smart redirect destination
+    let destination: string;
+
+    if (explicitNext && explicitNext !== '/dashboard') {
+      // Honor explicit redirect (e.g., from specific flows)
+      destination = explicitNext;
+    } else if (hasOnboardingData && !isActive) {
+      // Has onboarding data but not paid → personalized checkout
+      destination = '/checkout/welcome';
+      setStatusMessage('Taking you to checkout...');
+    } else if (hasOnboardingData && isActive) {
+      // Has onboarding data and paid → setup (push data, collect phone)
+      destination = '/setup';
+      setStatusMessage('Setting up your account...');
+    } else if (!hasOnboardingData && isActive) {
+      // No onboarding data but paid → dashboard (returning user)
+      destination = '/dashboard';
+      setStatusMessage('Welcome back!');
+    } else {
+      // No onboarding data and not paid → generic checkout
+      destination = '/checkout';
+      setStatusMessage('Taking you to checkout...');
+    }
+
+    console.log('[Finalize] Redirecting to:', destination);
+    router.replace(destination);
+  }, [isAuthenticated, authLoading, subLoading, isActive, router, searchParams]);
 
   return (
     <div className="min-h-screen flex flex-col bg-[#0A0A0A] relative">
@@ -45,9 +104,12 @@ function FinalizeContent() {
           <p className="text-xs font-mono uppercase tracking-[0.2em] text-[#F97316] mb-2">
             Almost there
           </p>
-          <h1 className="text-2xl font-black text-white">
+          <h1 className="text-2xl font-black text-white mb-2">
             FINALIZING SIGN-IN
           </h1>
+          <p className="text-sm text-white/50">
+            {statusMessage}
+          </p>
         </div>
       </div>
     </div>

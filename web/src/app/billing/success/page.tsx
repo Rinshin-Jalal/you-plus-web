@@ -5,23 +5,42 @@ import { useRouter } from 'next/navigation';
 import { storageService } from '@/services/storage';
 import { useAuth } from '@/hooks/useAuth';
 
+/**
+ * Billing Success Page
+ * 
+ * After successful payment, this page:
+ * 1. Pushes onboarding data to backend (if exists)
+ * 2. Clears temporary checkout data
+ * 3. Redirects to /setup for phone collection
+ */
+
 export default function BillingSuccessPage() {
   const router = useRouter();
   const { isAuthenticated, loading: authLoading } = useAuth();
   const [processing, setProcessing] = useState(false);
+  const [statusMessage, setStatusMessage] = useState('Processing payment...');
 
   const processAndRedirect = useCallback(async () => {
     setProcessing(true);
 
     try {
+      // Push onboarding data if exists
       if (storageService.hasOnboardingData()) {
+        setStatusMessage('Saving your profile...');
         await storageService.pushOnboardingData();
       }
 
+      // Clear temporary checkout data
       localStorage.removeItem('youplus_guest_checkout_id');
       localStorage.removeItem('youplus_pending_plan_id');
+      
+      setStatusMessage('Redirecting to setup...');
+      
+      // Always go to setup after successful payment
+      // Setup will handle phone collection and then redirect to dashboard
       router.replace('/setup');
     } catch {
+      // Even on error, redirect to setup - it will handle any issues
       router.replace('/setup');
     }
   }, [router]);
@@ -38,7 +57,7 @@ export default function BillingSuccessPage() {
   }, [isAuthenticated, authLoading, router, processAndRedirect]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0D0D0D] text-white">
+    <div className="min-h-screen flex items-center justify-center bg-[#0A0A0A] text-white">
       <div className="text-center space-y-4">
         <div className="flex justify-center">
           <svg
@@ -57,8 +76,9 @@ export default function BillingSuccessPage() {
           </svg>
         </div>
         <h1 className="text-2xl font-bold">Payment Successful!</h1>
+        <p className="text-white/50 text-sm">{statusMessage}</p>
         {processing && (
-          <div className="animate-spin rounded h-8 w-8 border-2 border-white border-t-transparent mx-auto" />
+          <div className="animate-spin rounded h-8 w-8 border-2 border-[#F97316] border-t-transparent mx-auto" />
         )}
       </div>
     </div>
