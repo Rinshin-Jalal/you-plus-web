@@ -107,13 +107,23 @@ class StorageService {
     const dataToSend: Record<string, unknown> = { ...formData };
 
     // Merge voice data (stored by field name)
+    // Voice recordings are stored with keys like 'future_self_intro_recording', 'why_recording', 'pledge_recording'
+    console.log('[Storage] Voice data keys:', Object.keys(voiceData));
     for (const [fieldName, voiceInfo] of Object.entries(voiceData)) {
       if (voiceInfo.data) {
         dataToSend[fieldName] = voiceInfo.data;
+        console.log(`[Storage] Added voice field: ${fieldName} (${voiceInfo.size} bytes)`);
       }
     }
 
-    console.log('[Storage] Onboarding data fields:', Object.keys(dataToSend));
+    console.log('[Storage] Onboarding data fields being sent:', Object.keys(dataToSend));
+    
+    // Validate required voice recordings
+    const requiredVoiceFields = ['future_self_intro_recording', 'why_recording', 'pledge_recording'];
+    const missingVoice = requiredVoiceFields.filter(field => !dataToSend[field]);
+    if (missingVoice.length > 0) {
+      console.warn('[Storage] Missing required voice recordings:', missingVoice);
+    }
 
     try {
       // Send to backend API (needs /api prefix)

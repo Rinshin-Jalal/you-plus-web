@@ -11,21 +11,31 @@ import { GrainOverlay } from '@/components/onboarding/ui/GrainOverlay';
 import { WitnessLogo } from '@/components/ui/WitnessLogo';
 
 /**
- * Smart Redirect Logic:
+ * Smart Redirect Logic after authentication:
  * 
- * 1. Has onboarding data + NOT paid → /checkout/welcome (personalized checkout)
- * 2. Has onboarding data + paid → /setup (push data, collect phone)
- * 3. No onboarding data + paid → /dashboard (returning user)
- * 4. No onboarding data + NOT paid → /checkout (generic checkout)
+ * Check THREE sources:
+ * 1. localStorage for onboarding data (hasLocalData)
+ * 2. Backend for onboarding_completed flag (onboardingCompleted)
+ * 3. Subscription status (isActive)
  * 
- * The `next` query param can override this for specific flows.
+ * Decision matrix:
+ * 
+ * | Local Data | Backend Onboarded | Subscribed | Destination         |
+ * |------------|-------------------|------------|---------------------|
+ * | Yes        | -                 | No         | /checkout/welcome   |
+ * | Yes        | -                 | Yes        | /setup              |
+ * | No         | Yes               | Yes        | /dashboard          |
+ * | No         | Yes               | No         | /checkout           |
+ * | No         | No                | -          | /onboarding         |
+ * 
+ * The `next` query param can override for specific flows.
  */
 
 function FinalizeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isAuthenticated, loading: authLoading } = useAuth();
-  const { isActive, loading: subLoading } = useSubscription();
+  const { isActive, onboardingCompleted, loading: subLoading } = useSubscription();
   const [statusMessage, setStatusMessage] = useState('Checking authentication...');
 
   useEffect(() => {
@@ -39,9 +49,9 @@ function FinalizeContent() {
       return;
     }
 
-    // Wait for subscription check
+    // Wait for subscription/onboarding check
     if (subLoading) {
-      setStatusMessage('Checking subscription...');
+      setStatusMessage('Checking your account...');
       return;
     }
 
@@ -49,10 +59,11 @@ function FinalizeContent() {
     const explicitNext = searchParams.get('next');
     
     // Check if user has onboarding data in localStorage
-    const hasOnboardingData = storageService.hasOnboardingData();
+    const hasLocalData = storageService.hasOnboardingData();
     
     console.log('[Finalize] Smart redirect:', { 
-      hasOnboardingData, 
+      hasLocalData,
+      onboardingCompleted,
       isActive, 
       explicitNext 
     });
@@ -60,30 +71,39 @@ function FinalizeContent() {
     // Determine the smart redirect destination
     let destination: string;
 
-    if (explicitNext && explicitNext !== '/dashboard') {
+    if (explicitNext && explicitNext !== '/dashboard' && explicitNext !== '/') {
       // Honor explicit redirect (e.g., from specific flows)
       destination = explicitNext;
-    } else if (hasOnboardingData && !isActive) {
-      // Has onboarding data but not paid → personalized checkout
+      setStatusMessage('Redirecting...');
+    } else if (hasLocalData && !isActive) {
+      // Has local onboarding data but not paid → personalized checkout
       destination = '/checkout/welcome';
       setStatusMessage('Taking you to checkout...');
-    } else if (hasOnboardingData && isActive) {
-      // Has onboarding data and paid → setup (push data, collect phone)
+    } else if (hasLocalData && isActive) {
+      // Has local onboarding data and paid → setup (push data, collect phone)
       destination = '/setup';
       setStatusMessage('Setting up your account...');
-    } else if (!hasOnboardingData && isActive) {
-      // No onboarding data but paid → dashboard (returning user)
+    } else if (!hasLocalData && onboardingCompleted && isActive) {
+      // No local data, but backend says onboarded + paid → dashboard (returning user)
       destination = '/dashboard';
       setStatusMessage('Welcome back!');
-    } else {
-      // No onboarding data and not paid → generic checkout
+    } else if (!hasLocalData && onboardingCompleted && !isActive) {
+      // Onboarded but subscription lapsed → checkout
       destination = '/checkout';
-      setStatusMessage('Taking you to checkout...');
+      setStatusMessage('Renew your subscription...');
+    } else if (!hasLocalData && !onboardingCompleted) {
+      // Not onboarded yet → start onboarding
+      destination = '/onboarding';
+      setStatusMessage('Let\'s get started...');
+    } else {
+      // Fallback to dashboard
+      destination = '/dashboard';
+      setStatusMessage('Welcome!');
     }
 
     console.log('[Finalize] Redirecting to:', destination);
     router.replace(destination);
-  }, [isAuthenticated, authLoading, subLoading, isActive, router, searchParams]);
+  }, [isAuthenticated, authLoading, subLoading, isActive, onboardingCompleted, router, searchParams]);
 
   return (
     <div className="min-h-screen flex flex-col bg-[#0A0A0A] relative">

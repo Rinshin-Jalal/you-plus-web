@@ -431,14 +431,14 @@ export const STEP_FIELD_MAP: Record<string | number, string> = {
   17: 'primary_fear',
   18: 'hidden_fear',
   19: 'dark_future',
-  20: 'dark_future_recording',
+  20: 'future_self_intro_recording',  // Voice: dark future scenario (used for voice cloning)
   21: 'core_identity',
-  23: 'why_recording_url',
-  24: 'check_in_time',
+  23: 'why_recording',  // Voice: why this matters (transcribed to the_why)
+  24: 'call_time',  // Renamed from check_in_time to match backend
   25: 'allow_interruptions',
   26: 'strikes_allowed',
   27: 'belief_score',
-  29: 'pledge_recording_url'
+  29: 'pledge_recording'  // Voice: the pledge (used for voice cloning)
 };
 
 /**

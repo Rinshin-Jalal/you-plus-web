@@ -3,8 +3,18 @@
 import React from 'react';
 import Dashboard from '@/components/dashboard/Dashboard';
 import { authService } from '@/services/auth';
-import { AuthGuard } from '@/components/shared/AuthGuard';
+import { ActiveUserGuard } from '@/components/shared/AuthGuard';
 
+/**
+ * Dashboard Page - Protected by ActiveUserGuard
+ * 
+ * User must meet ALL 3 conditions to access:
+ * 1. Authenticated
+ * 2. Onboarded
+ * 3. Subscribed
+ * 
+ * If any condition is missing, redirects to the appropriate step.
+ */
 export default function DashboardPage() {
     const handleLogout = async () => {
         try {
@@ -17,8 +27,8 @@ export default function DashboardPage() {
     };
 
     return (
-        <AuthGuard>
+        <ActiveUserGuard>
             <Dashboard onLogout={handleLogout} />
-        </AuthGuard>
+        </ActiveUserGuard>
     );
 }

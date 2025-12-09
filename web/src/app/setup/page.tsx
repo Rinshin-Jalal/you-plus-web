@@ -36,51 +36,51 @@ interface LoadingMessage {
 }
 
 const LOADING_MESSAGES: LoadingMessage[] = [
-  { 
-    text: "Creating your Future Self...", 
+  {
+    text: "Creating your Future Self...",
     subtext: "The version of you that already won",
-    duration: 3000 
+    duration: 3000
   },
-  { 
-    text: "Learning your voice...", 
+  {
+    text: "Learning your voice...",
     subtext: "So your Future Self sounds exactly like you",
-    duration: 4000 
+    duration: 4000
   },
-  { 
+  {
     text: "Every champion was once a contender who refused to give up",
-    duration: 3500 
+    duration: 3500
   },
-  { 
-    text: "Mapping your transformation...", 
+  {
+    text: "Mapping your transformation...",
     subtext: "From who you are to who you're becoming",
-    duration: 3000 
+    duration: 3000
   },
-  { 
+  {
     text: "The best time to plant a tree was 20 years ago. The second best time is now.",
-    duration: 3500 
+    duration: 3500
   },
-  { 
-    text: "Building your accountability system...", 
+  {
+    text: "Building your accountability system...",
     subtext: "No more letting yourself off the hook",
-    duration: 3000 
+    duration: 3000
   },
-  { 
+  {
     text: "You're not starting from scratch. You're starting from experience.",
-    duration: 3500 
+    duration: 3500
   },
-  { 
-    text: "Preparing your daily check-ins...", 
+  {
+    text: "Preparing your daily check-ins...",
     subtext: "Small promises kept → Big transformations",
-    duration: 3000 
+    duration: 3000
   },
-  { 
+  {
     text: "The only person you are destined to become is the person you decide to be",
-    duration: 3500 
+    duration: 3500
   },
-  { 
-    text: "Almost there...", 
+  {
+    text: "Almost there...",
     subtext: "Your Future Self is ready to meet you",
-    duration: 5000 
+    duration: 5000
   },
 ];
 
@@ -197,10 +197,9 @@ function EngagingLoader({ isProcessing }: { isProcessing: boolean }) {
         </div>
 
         {/* Main message */}
-        <div 
-          className={`transition-all duration-500 ${
-            fadeState === 'in' ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
-          }`}
+        <div
+          className={`transition-all duration-500 ${fadeState === 'in' ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
+            }`}
         >
           <h1 className="text-2xl md:text-3xl font-bold text-white mb-3">
             {currentMessage?.text}
@@ -222,10 +221,9 @@ function EngagingLoader({ isProcessing }: { isProcessing: boolean }) {
 
         {/* Micro story popup */}
         {showMicroStory && (
-          <div 
-            className={`mt-12 p-4 bg-white/5 border border-white/10 rounded-lg transition-all duration-500 ${
-              microFadeState === 'in' ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
-            }`}
+          <div
+            className={`mt-12 p-4 bg-white/5 border border-white/10 rounded-lg transition-all duration-500 ${microFadeState === 'in' ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
+              }`}
           >
             <p className="text-white/70 text-sm italic">
               "{MICRO_STORIES[microStoryIndex]}"
@@ -301,8 +299,8 @@ function EngagingLoader({ isProcessing }: { isProcessing: boolean }) {
 export default function SetupPage() {
   const router = useRouter();
   const { isAuthenticated, loading: authLoading, user } = useAuth();
-  const { subscription, loading: subLoading, isActive } = useSubscription();
-  
+  const { subscription, loading: subLoading, isActive, onboardingCompleted } = useSubscription();
+
   const [step, setStep] = useState<SetupStep>('checking');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [phoneError, setPhoneError] = useState<string | null>(null);
@@ -313,7 +311,7 @@ export default function SetupPage() {
   // Step 1: Check authentication
   useEffect(() => {
     if (authLoading) return; // Still loading auth
-    
+
     if (!isAuthenticated) {
       // Not logged in → redirect to auth with return URL
       const returnUrl = encodeURIComponent('/setup');
@@ -322,48 +320,62 @@ export default function SetupPage() {
     }
   }, [isAuthenticated, authLoading, router]);
 
-  // Step 2: Check subscription (only after auth is confirmed)
+  // Step 2: Check subscription and onboarding status (only after auth is confirmed)
   useEffect(() => {
     if (authLoading || subLoading) return; // Still loading
     if (!isAuthenticated) return; // Not authenticated, will redirect above
-    
-    if (!isActive) {
-      // Not subscribed → redirect to checkout
-      router.replace('/checkout');
+
+    const hasLocalData = storageService.hasOnboardingData();
+
+    // If already onboarded on backend and no local data, go straight to dashboard
+    if (onboardingCompleted && !hasLocalData && isActive) {
+      console.log('[Setup] Already onboarded and subscribed, redirecting to dashboard');
+      router.replace('/dashboard');
       return;
     }
-    
+
+    if (!isActive) {
+      // Not subscribed → redirect to checkout
+      // If they have onboarding data locally (mid-progress), send to personalized welcome
+      if (hasLocalData) {
+        router.replace('/checkout/welcome');
+      } else {
+        router.replace('/checkout');
+      }
+      return;
+    }
+
     // Auth + subscription confirmed → proceed to push data
     if (step === 'checking') {
       setStep('pushing');
     }
-  }, [isAuthenticated, authLoading, subLoading, isActive, step, router]);
+  }, [isAuthenticated, authLoading, subLoading, isActive, onboardingCompleted, step, router]);
 
   // Step 3: Push onboarding data to backend
   useEffect(() => {
     if (step !== 'pushing' || pushAttempted) return;
-    
+
     const pushData = async () => {
       setPushAttempted(true);
-      
+
       try {
         // Check if there's onboarding data to push
         if (storageService.hasOnboardingData()) {
           console.log('[Setup] Pushing onboarding data to backend...');
           const result = await storageService.pushOnboardingData();
-          
+
           if (!result.success) {
             console.error('[Setup] Failed to push onboarding data:', result.error);
             setError(result.error || 'Failed to save your data. Please try again.');
             setStep('error');
             return;
           }
-          
+
           console.log('[Setup] Onboarding data pushed successfully');
         } else {
           console.log('[Setup] No onboarding data to push');
         }
-        
+
         // Move to phone collection
         setStep('phone');
       } catch (err) {
@@ -372,7 +384,7 @@ export default function SetupPage() {
         setStep('error');
       }
     };
-    
+
     pushData();
   }, [step, pushAttempted]);
 
@@ -410,11 +422,6 @@ export default function SetupPage() {
     }
   };
 
-  const handleSkip = () => {
-    // Allow skipping phone number (they can add it later in settings)
-    router.replace('/dashboard');
-  };
-
   const handleRetry = () => {
     setError(null);
     setPushAttempted(false);
@@ -425,8 +432,8 @@ export default function SetupPage() {
   if (authLoading || subLoading || step === 'checking') {
     const message =
       authLoading ? 'Checking authentication...' :
-      subLoading ? 'Checking subscription...' :
-      'Setting up...';
+        subLoading ? 'Checking subscription...' :
+          'Setting up...';
 
     return <FullPageLoader message={message} />;
   }
@@ -454,12 +461,6 @@ export default function SetupPage() {
             <Button onClick={handleRetry} className="w-full bg-[#F97316] hover:bg-[#EA580C] text-white">
               Try Again
             </Button>
-            <button
-              onClick={() => router.replace('/dashboard')}
-              className="w-full py-2 text-white/50 hover:text-white/70 text-sm transition-colors"
-            >
-              Skip and go to dashboard
-            </button>
           </div>
         </div>
       </div>
@@ -475,13 +476,12 @@ export default function SetupPage() {
           {['phone', 'complete'].map((s, idx) => (
             <div
               key={s}
-              className={`h-2 w-16 rounded transition-colors ${
-                step === s
+              className={`h-2 w-16 rounded transition-colors ${step === s
                   ? 'bg-[#F97316]'
                   : ['phone', 'complete'].indexOf(step) > idx
-                  ? 'bg-[#F97316]/50'
-                  : 'bg-white/20'
-              }`}
+                    ? 'bg-[#F97316]/50'
+                    : 'bg-white/20'
+                }`}
             />
           ))}
         </div>
@@ -490,7 +490,7 @@ export default function SetupPage() {
         {step === 'phone' && (
           <div className="animate-fade-in">
             <div className="text-center mb-8">
-              <div className="w-20 h-20 bg-[#F97316]/20 rounded-md flex items-center justify-center mx-auto mb-6">
+              <div className="w-20 h-20 border-2 border-[#F97316] flex items-center justify-center mx-auto mb-6">
                 <Phone className="w-10 h-10 text-[#F97316]" />
               </div>
               <h1 className="text-3xl font-bold text-white mb-4">
@@ -541,12 +541,6 @@ export default function SetupPage() {
                 )}
               </Button>
 
-              <button
-                onClick={handleSkip}
-                className="w-full py-2 text-white/50 hover:text-white/70 text-sm transition-colors"
-              >
-                Skip for now (add later in settings)
-              </button>
             </div>
 
             <p className="mt-6 text-center text-xs text-white/40">

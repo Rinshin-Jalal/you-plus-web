@@ -94,42 +94,65 @@ export async function proxy(request: NextRequest) {
     }
 
     // For protected routes, check subscription via backend API (which calls DodoPayments directly)
+    // For protected routes, check subscription AND onboarding via backend API
     try {
         const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8787'
-        
+
         if (!accessToken) {
             console.log(`[MIDDLEWARE] ${pathname} - No access token, redirecting to login`)
             const loginUrl = new URL('/auth/login', request.url)
             return NextResponse.redirect(loginUrl)
         }
-        
-        // Call our backend API which checks DodoPayments directly
+
+        // Call our backend API which checks DodoPayments directly AND returns onboarding status
         const subResponse = await fetch(`${backendUrl}/api/billing/subscription`, {
             headers: {
                 'Authorization': `Bearer ${accessToken}`,
                 'Content-Type': 'application/json',
             },
         })
-        
+
         if (!subResponse.ok) {
-            console.error(`[MIDDLEWARE] ${pathname} - Failed to check subscription: ${subResponse.status}`)
+            console.error(`[MIDDLEWARE] ${pathname} - Failed to check status: ${subResponse.status}`)
             // On error, allow through (fail open) - page will handle redirect
             return supabaseResponse
         }
-        
-        const { subscription } = await subResponse.json()
-        
+
+        const { subscription, onboardingCompleted } = await subResponse.json()
+
+        // 1. Check Onboarding Status
+        const isOnboardingRoute = pathname.startsWith('/onboarding')
+
+        if (!onboardingCompleted) {
+            // User is NOT onboarded
+            // Allow access to /onboarding, /setup, and /checkout (for subscription flow)
+            if (!isOnboardingRoute && !pathname.startsWith('/setup') && !pathname.startsWith('/checkout')) {
+                console.log(`[MIDDLEWARE] ${pathname} - User not onboarded, redirecting to /onboarding`)
+                const onboardingUrl = new URL('/onboarding', request.url)
+                return NextResponse.redirect(onboardingUrl)
+            }
+            return supabaseResponse
+        } else {
+            // User IS onboarded
+            if (isOnboardingRoute) {
+                console.log(`[MIDDLEWARE] ${pathname} - User already onboarded, redirecting to /dashboard`)
+                const dashboardUrl = new URL('/dashboard', request.url)
+                return NextResponse.redirect(dashboardUrl)
+            }
+        }
+
+        // 2. Check Subscription Status (Only if onboarded)
         if (!subscription?.hasActiveSubscription) {
             console.log(`[MIDDLEWARE] ${pathname} - No active subscription (DodoPayments check), redirecting to /checkout`)
             const checkoutUrl = new URL('/checkout', request.url)
             return NextResponse.redirect(checkoutUrl)
         }
-        
-        console.log(`[MIDDLEWARE] ${pathname} - Subscription active (DodoPayments verified)`)
+
+        console.log(`[MIDDLEWARE] ${pathname} - Subscription active & Onboarding complete`)
         return supabaseResponse
-        
+
     } catch (error) {
-        console.error(`[MIDDLEWARE] ${pathname} - Subscription check error:`, error)
+        console.error(`[MIDDLEWARE] ${pathname} - Status check error:`, error)
         // Fail open - let the page handle it
         return supabaseResponse
     }

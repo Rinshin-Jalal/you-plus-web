@@ -157,12 +157,6 @@ export default function ReturningUserOnboardingPage() {
                         </div>
                     )}
                 </div>
-                <button 
-                    onClick={() => router.push('/dashboard')} 
-                    className="text-sm font-medium text-white/40 hover:text-white transition-colors"
-                >
-                    Skip
-                </button>
             </div>
 
             {/* Main Content */}

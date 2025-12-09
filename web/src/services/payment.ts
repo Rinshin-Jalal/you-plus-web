@@ -18,6 +18,12 @@ export interface SubscriptionStatus {
   productId?: string | null;
 }
 
+// Response from backend includes both subscription and onboarding status
+export interface SubscriptionResponse {
+  subscription: SubscriptionStatus;
+  onboardingCompleted: boolean;
+}
+
 export interface BillingHistoryItem {
   id: string;
   event_type: string;
@@ -71,7 +77,7 @@ class PaymentService {
 
   async getSubscriptionStatus(): Promise<SubscriptionStatus> {
     try {
-      const response = await apiClient.get<{ subscription: SubscriptionStatus }>('/api/billing/subscription');
+      const response = await apiClient.get<SubscriptionResponse>('/api/billing/subscription');
 
       console.log('Subscription status response:', response);
       return response.subscription;
@@ -89,6 +95,32 @@ class PaymentService {
         amountCents: null,
         currency: 'USD',
         subscriptionId: null,
+      };
+    }
+  }
+
+  // Get full subscription response including onboarding status
+  async getFullSubscriptionStatus(): Promise<SubscriptionResponse> {
+    try {
+      const response = await apiClient.get<SubscriptionResponse>('/api/billing/subscription');
+      console.log('Full subscription status response:', response);
+      return response;
+    } catch (error) {
+      console.error('Error fetching full subscription status:', error);
+      return {
+        subscription: {
+          hasActiveSubscription: false,
+          status: 'inactive',
+          paymentProvider: this.platform === 'web' ? 'dodopayments' : 'revenuecat',
+          planId: null,
+          planName: null,
+          currentPeriodEnd: null,
+          cancelledAt: null,
+          amountCents: null,
+          currency: 'USD',
+          subscriptionId: null,
+        },
+        onboardingCompleted: false,
       };
     }
   }

@@ -27,7 +27,7 @@ export function PhoneInput({
 
   const focusStyles = error
     ? 'border-red-500 focus:ring-2 focus:ring-red-200'
-    : 'border-gray-300 focus:ring-2 focus:ring-teal-200 focus:border-teal-500';
+    : 'border-white/20 focus:ring-2 focus:ring-white/20 focus:border-white/40';
 
   return (
     <div className={`space-y-2 ${className}`}>
@@ -46,8 +46,8 @@ export function PhoneInput({
         numberInputProps={{
           name: 'phone',
           'aria-label': 'Phone number',
-          className: `w-full rounded-lg border px-4 py-3 bg-white placeholder-gray-400 focus:outline-none ${focusStyles} ${
-            disabled ? 'bg-gray-100 opacity-60 cursor-not-allowed' : ''
+          className: `w-full border px-4 py-3 bg-[#1A1A1A] text-white placeholder-white/40 focus:outline-none ${focusStyles} ${
+            disabled ? 'bg-[#1A1A1A]/50 opacity-60 cursor-not-allowed' : ''
           }`,
         }}
       />

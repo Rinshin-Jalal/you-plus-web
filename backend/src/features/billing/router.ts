@@ -21,7 +21,7 @@ billing.post('/link-guest-checkout', requireAuth, async (c) => {
   try {
     const body = await c.req.json();
     const { guestId, onboardingData } = body;
-    
+
     console.log('[link-guest-checkout] Linking guest checkout:', { userId, guestId, hasOnboardingData: !!onboardingData });
 
     const supabase = createSupabaseClient(env);
@@ -49,7 +49,7 @@ billing.post('/link-guest-checkout', requireAuth, async (c) => {
 
     if (onboardingData && Object.keys(onboardingData).length > 0) {
       console.log('[link-guest-checkout] Saving onboarding data...');
-      
+
       const { error: updateError } = await supabase
         .from('users')
         .update({
@@ -140,7 +140,7 @@ billing.get('/subscription', requireAuth, async (c) => {
 
     const { data: userData } = await supabase
       .from('users')
-      .select('dodo_customer_id')
+      .select('dodo_customer_id, onboarding_completed')
       .eq('id', userId)
       .single();
 
@@ -161,6 +161,7 @@ billing.get('/subscription', requireAuth, async (c) => {
           currency: 'USD',
           subscriptionId: null,
         },
+        onboardingCompleted: userData?.onboarding_completed || false,
       });
     }
 
@@ -197,6 +198,7 @@ billing.get('/subscription', requireAuth, async (c) => {
             currency: pendingProduct?.currency || 'USD',
             subscriptionId: pendingSubscription.subscription_id,
           },
+          onboardingCompleted: userData?.onboarding_completed || false,
         });
       }
 
@@ -213,6 +215,7 @@ billing.get('/subscription', requireAuth, async (c) => {
           currency: 'USD',
           subscriptionId: null,
         },
+        onboardingCompleted: userData?.onboarding_completed || false,
       });
     }
 
@@ -236,6 +239,7 @@ billing.get('/subscription', requireAuth, async (c) => {
           currency: 'USD',
           subscriptionId: null,
         },
+        onboardingCompleted: userData?.onboarding_completed || false,
       });
     }
 
@@ -252,9 +256,9 @@ billing.get('/subscription', requireAuth, async (c) => {
         currentPeriodEnd: activeSubscription.current_period_end,
         cancelledAt: activeSubscription.cancel_at_period_end ? activeSubscription.current_period_end : null,
         amountCents: product?.price_cents || null,
-        currency: product?.currency || 'USD',
         subscriptionId: activeSubscription.subscription_id,
       },
+      onboardingCompleted: userData?.onboarding_completed || false,
     });
   } catch (error) {
     console.error('Error fetching subscription:', error);

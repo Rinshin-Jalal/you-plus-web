@@ -9,6 +9,8 @@ interface VoiceVisualizerProps {
     recordingTime?: number;
     minDuration?: number;
     canStop?: boolean;
+    fieldName?: string; // The field name to save the voice recording as (e.g., 'future_self_intro_recording')
+    onRecordingComplete?: (blob: Blob) => void; // Callback when recording is complete
 }
 
 export const VoiceVisualizer = ({ 
@@ -16,7 +18,9 @@ export const VoiceVisualizer = ({
     onToggle, 
     recordingTime = 0, 
     minDuration = 15, 
-    canStop = true 
+    canStop = true,
+    fieldName,
+    onRecordingComplete
 }: VoiceVisualizerProps) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const animationRef = useRef<number | null>(null);
@@ -79,9 +83,14 @@ export const VoiceVisualizer = ({
                     };
                     mediaRecorder.onstop = () => {
                         const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
-                        const id = `recording_${Date.now()}`;
-                        storageService.saveVoice(blob, id);
-                        console.log("Voice recorded and saved:", id);
+                        // Use the provided fieldName if available, otherwise generate a unique ID
+                        const saveId = fieldName || `recording_${Date.now()}`;
+                        storageService.saveVoice(blob, saveId);
+                        console.log("Voice recorded and saved:", saveId);
+                        // Notify parent component
+                        if (onRecordingComplete) {
+                            onRecordingComplete(blob);
+                        }
                     };
                     mediaRecorder.start();
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { paymentService, SubscriptionStatus } from '@/services/payment';
+import { paymentService, SubscriptionStatus, SubscriptionResponse } from '@/services/payment';
 import { useAuth } from './useAuth';
 
 export interface SubscriptionInfo {
@@ -17,7 +17,7 @@ export interface SubscriptionInfo {
 }
 
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-let cachedSubscription: SubscriptionStatus | null = null;
+let cachedResponse: SubscriptionResponse | null = null;
 let cacheTimestamp: number = 0;
 
 export function useSubscription() {
@@ -33,6 +33,7 @@ export function useSubscription() {
     willRenew: false,
     productId: null,
   });
+  const [onboardingCompleted, setOnboardingCompleted] = useState<boolean>(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -49,22 +50,24 @@ export function useSubscription() {
         willRenew: false,
         productId: null,
       });
+      setOnboardingCompleted(false);
       setLoading(false);
       return;
     }
 
     try {
       const now = Date.now();
-      if (!forceRefresh && cachedSubscription && (now - cacheTimestamp) < CACHE_DURATION) {
+      if (!forceRefresh && cachedResponse && (now - cacheTimestamp) < CACHE_DURATION) {
         const info = await paymentService.getSubscriptionInfo();
         setSubscription({
           ...info,
-          hasActiveSubscription: cachedSubscription.hasActiveSubscription,
-          isTrial: cachedSubscription.isTrial ?? false,
-          entitlement: cachedSubscription.entitlement ?? null,
-          willRenew: cachedSubscription.willRenew ?? false,
-          productId: cachedSubscription.productId ?? null,
+          hasActiveSubscription: cachedResponse.subscription.hasActiveSubscription,
+          isTrial: cachedResponse.subscription.isTrial ?? false,
+          entitlement: cachedResponse.subscription.entitlement ?? null,
+          willRenew: cachedResponse.subscription.willRenew ?? false,
+          productId: cachedResponse.subscription.productId ?? null,
         });
+        setOnboardingCompleted(cachedResponse.onboardingCompleted);
         setLoading(false);
         setError(null);
         return;
@@ -73,22 +76,24 @@ export function useSubscription() {
       setLoading(true);
       setError(null);
 
-      const [status, info] = await Promise.all([
-        paymentService.getSubscriptionStatus(),
+      // Use the new method that returns both subscription and onboarding status
+      const [fullResponse, info] = await Promise.all([
+        paymentService.getFullSubscriptionStatus(),
         paymentService.getSubscriptionInfo(),
       ]);
 
-      cachedSubscription = status;
+      cachedResponse = fullResponse;
       cacheTimestamp = now;
 
       setSubscription({
         ...info,
-        hasActiveSubscription: status.hasActiveSubscription,
-        isTrial: status.isTrial ?? false,
-        entitlement: status.entitlement ?? null,
-        willRenew: status.willRenew ?? false,
-        productId: status.productId ?? null,
+        hasActiveSubscription: fullResponse.subscription.hasActiveSubscription,
+        isTrial: fullResponse.subscription.isTrial ?? false,
+        entitlement: fullResponse.subscription.entitlement ?? null,
+        willRenew: fullResponse.subscription.willRenew ?? false,
+        productId: fullResponse.subscription.productId ?? null,
       });
+      setOnboardingCompleted(fullResponse.onboardingCompleted);
     } catch (err) {
       console.error('Error fetching subscription:', err);
       setError('Failed to load subscription status');
@@ -103,6 +108,7 @@ export function useSubscription() {
         willRenew: false,
         productId: null,
       });
+      setOnboardingCompleted(false);
     } finally {
       setLoading(false);
     }
@@ -113,7 +119,7 @@ export function useSubscription() {
   }, [fetchSubscription]);
 
   const clearCache = useCallback(() => {
-    cachedSubscription = null;
+    cachedResponse = null;
     cacheTimestamp = 0;
     return refresh();
   }, [refresh]);
@@ -141,6 +147,7 @@ export function useSubscription() {
     isActive: subscription.hasActiveSubscription,
     needsPayment: subscription.needsAction,
     isTrial: subscription.isTrial,
+    onboardingCompleted, // NEW: expose backend onboarding status
   };
 }
 

@@ -313,12 +313,6 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
             {inPillarQuestions ? 'Pillars' : `${stepIndex + 1}/${allSteps.length}`}
           </span>
         </div>
-        <button 
-          onClick={onFinish} 
-          className="text-xs font-mono font-bold text-white/30 hover:text-white uppercase tracking-widest transition-colors"
-        >
-          Exit
-        </button>
       </div>
 
       {/* Main Stage */}
@@ -409,6 +403,7 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
                 recordingTime={recordingTime}
                 minDuration={MIN_VOICE_DURATION}
                 canStop={canStopRecording}
+                fieldName={getFieldName(currentStep.id)}
               />
             </div>
           )}
