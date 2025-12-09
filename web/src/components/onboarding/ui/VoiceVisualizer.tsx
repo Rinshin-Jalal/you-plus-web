@@ -2,6 +2,7 @@
 import React, { useRef, useEffect } from 'react';
 import { Mic, Square } from 'lucide-react';
 import { storageService } from '../../../services/storage';
+import { audioService } from '../../../services/audio';
 
 interface VoiceVisualizerProps {
     isRecording: boolean;
@@ -29,6 +30,10 @@ export const VoiceVisualizer = ({
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const chunksRef = useRef<BlobPart[]>([]);
     const analyserRef = useRef<AnalyserNode | null>(null);
+    
+    // Store fieldName in a ref so the onstop callback always has the latest value
+    const fieldNameRef = useRef(fieldName);
+    const onRecordingCompleteRef = useRef(onRecordingComplete);
 
     // Calculate progress percentage toward minimum duration
     const progress = Math.min((recordingTime / minDuration) * 100, 100);
@@ -42,20 +47,22 @@ export const VoiceVisualizer = ({
     useEffect(() => {
       progressRef.current = progress;
       canStopRef.current = canStop;
-    }, [progress, canStop]);
+      fieldNameRef.current = fieldName;
+      onRecordingCompleteRef.current = onRecordingComplete;
+    }, [progress, canStop, fieldName, onRecordingComplete]);
 
     useEffect(() => {
         const canvas = canvasRef.current;
         const ctx = canvas?.getContext('2d');
         
-        // Initial Idle State - Dark theme
+        // Initial Idle State - Dark theme (pure black)
         if (canvas && ctx && !isRecording) {
-            ctx.fillStyle = '#1A1A1A'; // Dark background
+            ctx.fillStyle = '#0A0A0A'; // Pure black background
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             ctx.beginPath();
             ctx.moveTo(0, canvas.height / 2);
             ctx.lineTo(canvas.width, canvas.height / 2);
-            ctx.strokeStyle = '#333333'; // Subtle gray line
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)'; // White line with opacity
             ctx.lineWidth = 2;
             ctx.stroke();
         }
@@ -83,13 +90,13 @@ export const VoiceVisualizer = ({
                     };
                     mediaRecorder.onstop = () => {
                         const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
-                        // Use the provided fieldName if available, otherwise generate a unique ID
-                        const saveId = fieldName || `recording_${Date.now()}`;
+                        // Use refs to get latest values (avoids stale closure bug)
+                        const saveId = fieldNameRef.current || `recording_${Date.now()}`;
                         storageService.saveVoice(blob, saveId);
                         console.log("Voice recorded and saved:", saveId);
-                        // Notify parent component
-                        if (onRecordingComplete) {
-                            onRecordingComplete(blob);
+                        // Notify parent component using ref
+                        if (onRecordingCompleteRef.current) {
+                            onRecordingCompleteRef.current(blob);
                         }
                     };
                     mediaRecorder.start();
@@ -104,8 +111,8 @@ export const VoiceVisualizer = ({
                         
                         analyser.getByteTimeDomainData(dataArray);
                         
-                        // Clear canvas with dark background
-                        ctx.fillStyle = '#1A1A1A';
+                        // Clear canvas with pure black background
+                        ctx.fillStyle = '#0A0A0A';
                         ctx.fillRect(0, 0, canvas.width, canvas.height);
                         
                         // Calculate progress line position
@@ -145,7 +152,7 @@ export const VoiceVisualizer = ({
                         ctx.strokeStyle = canStopRef.current ? '#22c55e' : '#F97316'; // green when ready, orange otherwise
                         ctx.stroke();
                         
-                        // Second pass: draw the "remaining" portion in gray
+                        // Second pass: draw the "remaining" portion in white with low opacity
                         ctx.beginPath();
                         let started = false;
                         
@@ -164,7 +171,7 @@ export const VoiceVisualizer = ({
                             }
                         }
                         
-                        ctx.strokeStyle = '#444444'; // dark gray for remaining
+                        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)'; // white with opacity for remaining
                         ctx.stroke();
                         
                         // Draw progress line marker (vertical line at progress point)
@@ -204,7 +211,7 @@ export const VoiceVisualizer = ({
 
     return (
         <div className="flex flex-col items-center gap-10 animate-in fade-in duration-1000 w-full max-w-md">
-            <div className="w-full bg-[#1A1A1A] border-2 border-white/20 relative overflow-hidden">
+            <div className="w-full bg-[#0A0A0A] border-2 border-white/20 relative overflow-hidden">
                 <div className="absolute top-3 left-3 flex gap-1.5 z-10">
                     <div className="w-2 h-2 bg-white/20" />
                     <div className="w-2 h-2 bg-white/20" />
@@ -229,13 +236,20 @@ export const VoiceVisualizer = ({
             </div>
             
             <button 
-                onClick={onToggle}
+                onClick={() => {
+                    if (!isRecording) {
+                        audioService.playDeepTone();
+                    } else if (canStop) {
+                        audioService.playMilestone();
+                    }
+                    onToggle();
+                }}
                 disabled={isRecording && !canStop}
                 className={`group relative flex items-center justify-center w-24 h-24 border-2 transition-all duration-300 
                     ${isRecording 
                         ? canStop 
-                            ? 'border-green-500 bg-green-500 text-black scale-110 shadow-[0_10px_20px_rgba(34,197,94,0.3)] cursor-pointer' 
-                            : 'border-[#F97316] bg-[#F97316]/20 text-[#F97316] scale-105 cursor-not-allowed'
+                            ? 'border-[#22c55e] bg-[#22c55e] text-black scale-110 cursor-pointer' 
+                            : 'border-[#F97316] bg-transparent text-[#F97316] scale-105 cursor-not-allowed'
                         : 'border-white/30 text-white/70 hover:bg-[#F97316] hover:border-[#F97316] hover:text-black cursor-pointer'
                     }`}
             >

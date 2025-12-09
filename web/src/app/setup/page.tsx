@@ -11,6 +11,7 @@ import { apiClient } from '@/services/api';
 import { useDashboardStore } from '@/stores/dashboardStore';
 import { Phone, X, Check } from 'lucide-react';
 import { FullPageLoader, SavingOverlay } from '@/components/ui/Loaders';
+import { OnboardingMascot } from '@/components/onboarding/ui/OnboardingMascot';
 
 /**
  * Setup Page - The gateway after onboarding
@@ -182,18 +183,13 @@ function EngagingLoader({ isProcessing }: { isProcessing: boolean }) {
 
       {/* Main content */}
       <div className="relative z-10 max-w-lg w-full text-center">
-        {/* Animated logo/icon */}
-        <div className="mb-12 relative">
-          <div className="w-24 h-24 mx-auto relative">
-            {/* Outer ring - rotating */}
-            <div className="absolute inset-0 border-2 border-[#F97316]/30 rounded-full animate-spin-slow" />
-            {/* Middle ring - counter-rotating */}
-            <div className="absolute inset-2 border-2 border-[#F97316]/50 rounded-full animate-spin-reverse" />
-            {/* Inner circle - pulsing */}
-            <div className="absolute inset-4 bg-[#F97316] rounded-full animate-pulse flex items-center justify-center">
-              <span className="text-2xl font-bold text-black">Y+</span>
-            </div>
-          </div>
+        {/* Animated mascot */}
+        <div className="mb-12 relative flex justify-center">
+          <OnboardingMascot
+            expression="encouraging"
+            size="xl"
+            animate={true}
+          />
         </div>
 
         {/* Main message */}
@@ -299,7 +295,7 @@ function EngagingLoader({ isProcessing }: { isProcessing: boolean }) {
 export default function SetupPage() {
   const router = useRouter();
   const { isAuthenticated, loading: authLoading, user } = useAuth();
-  const { subscription, loading: subLoading, isActive, onboardingCompleted } = useSubscription();
+  const { loading: subLoading, isActive, onboardingCompleted } = useSubscription();
 
   const [step, setStep] = useState<SetupStep>('checking');
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -334,16 +330,27 @@ export default function SetupPage() {
       return;
     }
 
+    console.log('Is active:', isActive);
+    console.log('Is onboarding completed:', onboardingCompleted);
+    console.log('Has local data:', hasLocalData);
+
+
     if (!isActive) {
-      // Not subscribed → redirect to checkout
-      // If they have onboarding data locally (mid-progress), send to personalized welcome
-      if (hasLocalData) {
-        router.replace('/checkout/welcome');
-      } else {
-        router.replace('/checkout');
-      }
+      console.log('[Setup] Not subscribed, redirecting to checkout');
+      // router.replace('/checkout');
       return;
     }
+
+    // if (!isActive) {
+    //   // Not subscribed → redirect to checkout
+    //   // If they have onboarding data locally (mid-progress), send to personalized welcome
+    //   if (hasLocalData) {
+    //     router.replace('/checkout/welcome');
+    //   } else {
+    //     router.replace('/checkout');
+    //   }
+    //   return;
+    // }
 
     // Auth + subscription confirmed → proceed to push data
     if (step === 'checking') {
@@ -448,8 +455,8 @@ export default function SetupPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#0D0D0D] p-4">
         <div className="max-w-md w-full text-center">
-          <div className="w-20 h-20 bg-red-900/30 rounded-md flex items-center justify-center mx-auto mb-6">
-            <X className="w-10 h-10 text-red-400" />
+          <div className="w-20 h-20 border border-white/30 flex items-center justify-center mx-auto mb-6">
+            <X className="w-10 h-10 text-white" />
           </div>
           <h1 className="text-2xl font-bold text-white mb-4">
             Something went wrong
@@ -477,10 +484,10 @@ export default function SetupPage() {
             <div
               key={s}
               className={`h-2 w-16 rounded transition-colors ${step === s
-                  ? 'bg-[#F97316]'
-                  : ['phone', 'complete'].indexOf(step) > idx
-                    ? 'bg-[#F97316]/50'
-                    : 'bg-white/20'
+                ? 'bg-[#F97316]'
+                : ['phone', 'complete'].indexOf(step) > idx
+                  ? 'bg-[#F97316]/50'
+                  : 'bg-white/20'
                 }`}
             />
           ))}
@@ -490,8 +497,12 @@ export default function SetupPage() {
         {step === 'phone' && (
           <div className="animate-fade-in">
             <div className="text-center mb-8">
-              <div className="w-20 h-20 border-2 border-[#F97316] flex items-center justify-center mx-auto mb-6">
-                <Phone className="w-10 h-10 text-[#F97316]" />
+              <div className="flex justify-center mb-6">
+                <OnboardingMascot
+                  expression="listening"
+                  size="lg"
+                  animate={true}
+                />
               </div>
               <h1 className="text-3xl font-bold text-white mb-4">
                 Almost There!
@@ -553,20 +564,12 @@ export default function SetupPage() {
         {step === 'complete' && (
           <div className="text-center animate-fade-in">
             <div className="mb-8">
-              <div className="w-20 h-20 bg-[#F97316]/20 rounded-md flex items-center justify-center mx-auto mb-6">
-                <svg
-                  className="w-10 h-10 text-[#F97316]"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
+              <div className="flex justify-center mb-6">
+                <OnboardingMascot
+                  expression="proud"
+                  size="lg"
+                  animate={true}
+                />
               </div>
               <h1 className="text-3xl font-bold text-white mb-4">
                 You're All Set!
@@ -580,7 +583,7 @@ export default function SetupPage() {
             </div>
 
             <div className="animate-pulse">
-              <div className="h-1 w-32 bg-[#F97316]/30 rounded mx-auto"></div>
+              <div className="h-1 w-32 bg-white/20 mx-auto"></div>
             </div>
           </div>
         )}

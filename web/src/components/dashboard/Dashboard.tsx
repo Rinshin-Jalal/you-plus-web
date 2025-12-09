@@ -153,7 +153,7 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
         {/* Welcome */}
         <section className="px-6 py-12 md:py-16">
           <div className="max-w-[1200px] mx-auto">
-            <div className="inline-block border border-[#F97316]/50 bg-[#F97316]/10 px-4 py-2 text-xs font-mono uppercase tracking-[0.2em] text-[#F97316] mb-4">
+            <div className="inline-block border border-white/30 px-4 py-2 text-xs font-mono uppercase tracking-[0.2em] text-white mb-4">
               WELCOME BACK
             </div>
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-black leading-[0.95] tracking-tight">

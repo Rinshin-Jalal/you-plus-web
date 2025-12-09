@@ -140,8 +140,8 @@ export default function TermsOfServicePage() {
               7. Important Disclaimers
             </h2>
             
-            <div className="p-4 bg-[#F97316]/10 border border-[#F97316]/50 mb-4">
-              <h3 className="text-lg font-bold mb-2 uppercase text-[#F97316]">Not Medical or Therapeutic Advice</h3>
+            <div className="p-4 border border-white/30 mb-4">
+              <h3 className="text-lg font-bold mb-2 uppercase text-white">Not Medical or Therapeutic Advice</h3>
               <p className="text-white/70">
                 You+ is a <strong className="text-white">productivity and accountability tool</strong>. It is NOT a substitute for professional medical advice, diagnosis, treatment, therapy, or counseling. If you are experiencing mental health issues, please consult a qualified healthcare professional.
               </p>

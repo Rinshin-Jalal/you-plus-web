@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Check, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { getPillarById, createCustomPillar } from '@/data/pillarPresets';
+import { audioService } from '@/services/audio';
 
 interface CommitmentCardProps {
   data: Record<string, unknown>;
@@ -12,6 +13,19 @@ interface CommitmentCardProps {
 
 export const CommitmentCard = ({ data, onAccept }: CommitmentCardProps) => {
   const [agreed, setAgreed] = useState(false);
+
+  const handleAccept = () => {
+    if (!agreed) return;
+    audioService.playMilestone();
+    onAccept();
+  };
+
+  const handleAgreeToggle = (checked: boolean) => {
+    if (checked) {
+      audioService.playTick();
+    }
+    setAgreed(checked);
+  };
 
   // Get pillar info
   const getPillarInfo = (pillarId: string) => {
@@ -55,7 +69,7 @@ export const CommitmentCard = ({ data, onAccept }: CommitmentCardProps) => {
       </div>
 
       {/* Core Identity - Main Focus */}
-      <div className="bg-[#F97316]/10 border-2 border-[#F97316] p-6 mb-6 text-center">
+      <div className="border-2 border-[#F97316] p-6 mb-6 text-center">
         <p className="font-mono text-white/50 text-xs mb-2 uppercase tracking-wide">I am becoming</p>
         <p className="font-mono text-[#FAFAFA] text-xl md:text-2xl font-bold">
           &ldquo;{coreIdentity}&rdquo;
@@ -86,7 +100,7 @@ export const CommitmentCard = ({ data, onAccept }: CommitmentCardProps) => {
       {primaryPillar && (
         <div className="mb-6">
           <p className="font-mono text-white/40 text-xs mb-3 uppercase tracking-wide">Primary Focus</p>
-          <div className="bg-[#F97316]/10 border border-[#F97316]/30 p-4">
+          <div className="border border-[#F97316] p-4">
             {(() => {
               const info = getPillarInfo(primaryPillar);
               const identity = getPillarIdentity(primaryPillar);
@@ -151,31 +165,31 @@ export const CommitmentCard = ({ data, onAccept }: CommitmentCardProps) => {
       {/* The Pledge */}
       <div className="border-2 border-white/20 p-5 mb-6 space-y-3">
         <div className="flex items-start gap-3">
-          <div className="w-5 h-5 border-2 border-[#F97316]/50 flex items-center justify-center flex-shrink-0 mt-0.5">
-            <Check size={10} className="text-[#F97316]/70" />
+          <div className="w-5 h-5 border-2 border-white/30 flex items-center justify-center flex-shrink-0 mt-0.5">
+            <Check size={10} className="text-[#F97316]" />
           </div>
           <p className="font-mono text-white/70 text-sm">I will show up every single day.</p>
         </div>
         <div className="flex items-start gap-3">
-          <div className="w-5 h-5 border-2 border-[#F97316]/50 flex items-center justify-center flex-shrink-0 mt-0.5">
-            <Check size={10} className="text-[#F97316]/70" />
+          <div className="w-5 h-5 border-2 border-white/30 flex items-center justify-center flex-shrink-0 mt-0.5">
+            <Check size={10} className="text-[#F97316]" />
           </div>
           <p className="font-mono text-white/70 text-sm">I will be radically honest with myself.</p>
         </div>
         <div className="flex items-start gap-3">
-          <div className="w-5 h-5 border-2 border-[#F97316]/50 flex items-center justify-center flex-shrink-0 mt-0.5">
-            <Check size={10} className="text-[#F97316]/70" />
+          <div className="w-5 h-5 border-2 border-white/30 flex items-center justify-center flex-shrink-0 mt-0.5">
+            <Check size={10} className="text-[#F97316]" />
           </div>
           <p className="font-mono text-white/70 text-sm">I will not negotiate with my weaker self.</p>
         </div>
       </div>
 
       {/* Agreement Checkbox */}
-      <label className="flex items-start gap-4 p-5 border-2 border-white/10 cursor-pointer hover:border-[#F97316]/50 transition-colors mb-6">
+      <label className="flex items-start gap-4 p-5 border-2 border-white/10 cursor-pointer hover:border-[#F97316] transition-colors mb-6">
         <input 
           type="checkbox" 
           checked={agreed}
-          onChange={(e) => setAgreed(e.target.checked)}
+          onChange={(e) => handleAgreeToggle(e.target.checked)}
           className="w-5 h-5 mt-0.5 accent-[#F97316] cursor-pointer"
         />
         <span className="font-mono text-[#FAFAFA] text-sm leading-relaxed">
@@ -188,7 +202,7 @@ export const CommitmentCard = ({ data, onAccept }: CommitmentCardProps) => {
         size="lg" 
         variant="accent" 
         className={`w-full transition-all duration-300 ${!agreed ? 'opacity-50 cursor-not-allowed' : ''}`}
-        onClick={() => agreed && onAccept()}
+        onClick={handleAccept}
         disabled={!agreed}
       >
         I Accept This Commitment

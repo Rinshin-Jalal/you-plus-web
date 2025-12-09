@@ -1,5 +1,6 @@
 
-import React from 'react';
+import React, { useRef } from 'react';
+import { audioService } from '@/services/audio';
 
 interface MinimalSliderProps {
   value?: number;
@@ -10,6 +11,18 @@ interface MinimalSliderProps {
 }
 
 export const MinimalSlider = ({ value = 5, onChange, min = 1, max = 10, label }: MinimalSliderProps) => {
+    const lastSoundTime = useRef(0);
+
+    const handleChange = (newValue: number) => {
+      // Play tick sound but throttle it
+      const now = Date.now();
+      if (now - lastSoundTime.current > 100) {
+        audioService.playClick();
+        lastSoundTime.current = now;
+      }
+      onChange(newValue);
+    };
+
     return (
         <div className="w-full max-w-xl space-y-12 animate-in fade-in duration-700">
             <div className="text-center">
@@ -23,7 +36,7 @@ export const MinimalSlider = ({ value = 5, onChange, min = 1, max = 10, label }:
                 min={min} 
                 max={max} 
                 value={value} 
-                onChange={(e) => onChange(Number(e.target.value))}
+                onChange={(e) => handleChange(Number(e.target.value))}
                 className="w-full h-2 bg-white/10 appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-8 [&::-webkit-slider-thumb]:h-8 [&::-webkit-slider-thumb]:bg-[#F97316] hover:[&::-webkit-slider-thumb]:scale-125 transition-all"
             />
             <div className="flex justify-between font-mono text-xs text-white/40 uppercase tracking-wide">

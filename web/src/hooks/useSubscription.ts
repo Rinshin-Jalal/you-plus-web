@@ -22,6 +22,7 @@ let cacheTimestamp: number = 0;
 
 export function useSubscription() {
   const { isAuthenticated, user } = useAuth();
+  const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
   const [subscription, setSubscription] = useState<SubscriptionInfo>({
     status: 'loading',
     displayText: 'Loading subscription...',
@@ -37,117 +38,105 @@ export function useSubscription() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchSubscription = useCallback(async (forceRefresh: boolean = false) => {
-    if (!isAuthenticated) {
-      setSubscription({
-        status: 'none',
-        displayText: 'Not authenticated',
-        expiresAt: null,
-        needsAction: true,
-        hasActiveSubscription: false,
-        isTrial: false,
-        entitlement: null,
-        willRenew: false,
-        productId: null,
-      });
+  const fetchSubscription = useCallback(async () => {
+    if (!isAuthenticated || !user) {
+      setSubscription(prev => ({ ...prev, status: 'none', hasActiveSubscription: false }));
       setOnboardingCompleted(false);
       setLoading(false);
+      setLoadedUserId(null);
       return;
     }
 
+    setLoading(true);
     try {
-      const now = Date.now();
-      if (!forceRefresh && cachedResponse && (now - cacheTimestamp) < CACHE_DURATION) {
-        const info = await paymentService.getSubscriptionInfo();
-        setSubscription({
-          ...info,
-          hasActiveSubscription: cachedResponse.subscription.hasActiveSubscription,
-          isTrial: cachedResponse.subscription.isTrial ?? false,
-          entitlement: cachedResponse.subscription.entitlement ?? null,
-          willRenew: cachedResponse.subscription.willRenew ?? false,
-          productId: cachedResponse.subscription.productId ?? null,
-        });
-        setOnboardingCompleted(cachedResponse.onboardingCompleted);
-        setLoading(false);
-        setError(null);
-        return;
+      // Use getFullSubscriptionStatus to get both pieces of info in one call
+      const fullResponse = await paymentService.getFullSubscriptionStatus();
+
+      const sub = fullResponse.subscription;
+      const isOnboarded = fullResponse.onboardingCompleted;
+
+      // Map to SubscriptionInfo format
+      let status: 'active' | 'expired' | 'none' = 'none';
+      let displayText = 'No Active Subscription';
+      let needsAction = true;
+
+      console.log('Subscription status:', sub);
+      console.log('Is onboarding completed:', isOnboarded);
+      console.log('Is active:', sub.hasActiveSubscription === true);
+      console.log("Is hasActiveSubscription", sub.status === "active");
+      console.log('Is past due:', sub.status === 'past_due');
+      console.log('Is cancelled:', sub.status === 'cancelled');
+
+      if (sub.hasActiveSubscription && sub.status === 'active') {
+        status = 'active';
+        displayText = 'Subscription Active';
+        needsAction = false;
+
+        console.log('Subscription is active');
+      } else if (sub.status === 'past_due') {
+        status = 'expired';
+        displayText = 'Payment Failed - Update Required';
+        needsAction = true;
+      } else if (sub.status === 'cancelled') {
+        status = 'expired';
+        displayText = 'Subscription Cancelled';
+        needsAction = true;
       }
 
-      setLoading(true);
-      setError(null);
-
-      // Use the new method that returns both subscription and onboarding status
-      const [fullResponse, info] = await Promise.all([
-        paymentService.getFullSubscriptionStatus(),
-        paymentService.getSubscriptionInfo(),
-      ]);
-
-      cachedResponse = fullResponse;
-      cacheTimestamp = now;
-
       setSubscription({
-        ...info,
-        hasActiveSubscription: fullResponse.subscription.hasActiveSubscription,
-        isTrial: fullResponse.subscription.isTrial ?? false,
-        entitlement: fullResponse.subscription.entitlement ?? null,
-        willRenew: fullResponse.subscription.willRenew ?? false,
-        productId: fullResponse.subscription.productId ?? null,
+        status,
+        displayText,
+        expiresAt: sub.currentPeriodEnd,
+        needsAction,
+        hasActiveSubscription: sub.hasActiveSubscription,
+        isTrial: sub.isTrial ?? false,
+        entitlement: sub.entitlement ?? null,
+        willRenew: sub.willRenew ?? false,
+        productId: sub.productId ?? null,
       });
-      setOnboardingCompleted(fullResponse.onboardingCompleted);
+      setOnboardingCompleted(isOnboarded);
+      setLoadedUserId(user.id);
+      setError(null);
     } catch (err) {
       console.error('Error fetching subscription:', err);
       setError('Failed to load subscription status');
-      setSubscription({
-        status: 'none',
-        displayText: 'Unable to load subscription',
-        expiresAt: null,
-        needsAction: false,
-        hasActiveSubscription: false,
-        isTrial: false,
-        entitlement: null,
-        willRenew: false,
-        productId: null,
-      });
-      setOnboardingCompleted(false);
+      // Keep previous state or set to error state if needed
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, user]);
 
-  const refresh = useCallback(() => {
-    return fetchSubscription(true);
+  // Initial fetch
+  useEffect(() => {
+    fetchSubscription();
   }, [fetchSubscription]);
 
+  // Refresh function
+  const refresh = useCallback(() => {
+    return fetchSubscription();
+  }, [fetchSubscription]);
+
+  // Clear cache (noop now, but kept for API compatibility)
   const clearCache = useCallback(() => {
-    cachedResponse = null;
-    cacheTimestamp = 0;
     return refresh();
   }, [refresh]);
 
-  useEffect(() => {
-    fetchSubscription();
-  }, [fetchSubscription, user?.id]);
-
-  useEffect(() => {
-    if (!subscription.hasActiveSubscription) return;
-
-    const interval = setInterval(() => {
-      fetchSubscription();
-    }, CACHE_DURATION);
-
-    return () => clearInterval(interval);
-  }, [subscription.hasActiveSubscription, fetchSubscription]);
+  // Determine effective loading state
+  // We are loading if:
+  // 1. The internal loading state is true
+  // 2. We are authenticated but haven't loaded data for THIS user yet
+  const effectiveLoading = loading || (isAuthenticated && !!user && loadedUserId !== user.id);
 
   return {
     subscription,
-    loading,
+    loading: effectiveLoading,
     error,
     refresh,
     clearCache,
     isActive: subscription.hasActiveSubscription,
     needsPayment: subscription.needsAction,
     isTrial: subscription.isTrial,
-    onboardingCompleted, // NEW: expose backend onboarding status
+    onboardingCompleted,
   };
 }
 

@@ -39,7 +39,7 @@ export function createDodoPaymentsClient(env: Env): DodoPayments {
   if (envValue === 'live' || envValue === 'live_mode' || envValue === 'production') {
     environment = 'live_mode';
   }
-  
+
   return new DodoPayments({
     bearerToken: env.DODO_PAYMENTS_API_KEY,
     environment: environment,
@@ -138,11 +138,11 @@ export class DodoPaymentsService {
       });
 
       console.log('[dodo] Raw checkout session response:', JSON.stringify(session, null, 2));
-      
+
       const sessionId = (session as any).session_id ?? (session as any).id;
       // DodoPayments may return checkout_url instead of url
       const checkoutUrl = (session as any).url ?? (session as any).checkout_url ?? (session as any).payment_link;
-      
+
       return {
         session_id: sessionId,
         url: checkoutUrl,
@@ -170,7 +170,6 @@ export class DodoPaymentsService {
         page_size: 100,
       });
 
-      console.log('DodoPayments getCustomerSubscriptions:', JSON.stringify(res, null, 2));
 
       const collected: any[] = [];
       if (res?.items) {
@@ -183,7 +182,7 @@ export class DodoPaymentsService {
           for await (const s of (this.client as any).subscriptions.list({ customer_id: customerId })) {
             collected.push(s);
           }
-        } catch {}
+        } catch { }
       }
 
       return collected.map((sub: any) => ({
@@ -274,7 +273,7 @@ export class DodoPaymentsService {
         for await (const p of (this.client as any).products.list({ recurring: true })) {
           items.push(p);
         }
-      } catch {}
+      } catch { }
       return items;
     } catch (error) {
       console.error('Error listing products:', error);
@@ -297,7 +296,7 @@ export class DodoPaymentsService {
   }>> {
     try {
       const rawProducts = await this.listProducts();
-      
+
       return rawProducts.map((product: any) => {
         // Extract price - can be integer (list) or object (detail)
         let priceCents = 0;
@@ -314,7 +313,7 @@ export class DodoPaymentsService {
           priceCents = product.price.price || 0;
           currency = product.price.currency || 'USD';
           taxInclusive = product.price.tax_inclusive || false;
-          
+
           // Extract interval from recurring price
           if (product.price.payment_frequency_interval) {
             interval = product.price.payment_frequency_interval.toLowerCase() as any;

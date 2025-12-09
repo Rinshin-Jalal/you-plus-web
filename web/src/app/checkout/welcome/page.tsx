@@ -325,7 +325,7 @@ function WelcomeCheckoutContent() {
                     key={pillar.id}
                     className={`flex items-center gap-2 px-4 py-2 border ${
                       pillar.id === onboardingData.primary_pillar 
-                        ? 'border-[#F97316] bg-[#F97316]/10' 
+                        ? 'border-[#F97316] bg-white/5' 
                         : 'border-white/20 bg-white/5'
                     }`}
                   >

@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { getPillarById, createCustomPillar, PillarPreset } from '@/data/pillarPresets';
+import { audioService } from '@/services/audio';
 
 interface PillarPrimaryProps {
   selectedPillars: string[];
@@ -30,6 +31,11 @@ export const PillarPrimary = ({ selectedPillars, onSelect }: PillarPrimaryProps)
     };
   });
 
+  const handleSelect = (pillarId: string) => {
+    audioService.playMilestone();
+    onSelect(pillarId);
+  };
+
   return (
     <div className="w-full max-w-2xl mx-auto animate-in slide-in-from-bottom-8 duration-500">
       {/* Header */}
@@ -47,9 +53,9 @@ export const PillarPrimary = ({ selectedPillars, onSelect }: PillarPrimaryProps)
         {pillars.map((pillar) => (
           <button
             key={pillar.id}
-            onClick={() => onSelect(pillar.id)}
+            onClick={() => handleSelect(pillar.id)}
             className="w-full p-6 border-2 border-white/10 bg-white/5 
-                       hover:border-[#F97316] hover:bg-[#F97316]/10 
+                       hover:border-white/30 hover:bg-white/10 
                        transition-all duration-200 text-left group"
           >
             <div className="flex items-center gap-4">

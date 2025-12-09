@@ -138,7 +138,7 @@ export const STEPS: OnboardingStep[] = [
   {
     id: 3,
     type: 'commentary',
-    dynamicLines: (data) => getHookResponse(String(data[2] || data['change_attempts'] || ''))
+    dynamicLines: (data) => getHookResponse(String(data['change_attempts'] || ''))
   },
 
   // ==========================================================================
@@ -171,7 +171,7 @@ export const STEPS: OnboardingStep[] = [
     id: 7,
     type: 'commentary',
     dynamicLines: (data) => {
-      const name = String(data[4] || data['name'] || 'friend');
+      const name = String(data['name'] || 'friend');
       return [
         `Good to meet you, ${name}.`,
         "Life isn't one battle.",
@@ -206,7 +206,7 @@ export const STEPS: OnboardingStep[] = [
     id: 10,
     type: 'commentary',
     dynamicLines: (data) => {
-      const pillars = (Array.isArray(data['selected_pillars']) ? data['selected_pillars'] : (Array.isArray(data[8]) ? data[8] : [])) as string[];
+      const pillars = (Array.isArray(data['selected_pillars']) ? data['selected_pillars'] : []) as string[];
       return [
         `So you want to fix your ${formatPillars(pillars)}.`,
         "Let's see why it hasn't worked before."
@@ -257,9 +257,9 @@ export const STEPS: OnboardingStep[] = [
     id: 15,
     type: 'commentary',
     dynamicLines: (data) => {
-      const name = String(data[4] || data['name'] || '');
-      const quitPattern = String(data[13] || data['quit_pattern'] || 'early');
-      const excuse = String(data[14] || data['favorite_excuse'] || 'excuses');
+      const name = String(data['name'] || '');
+      const quitPattern = String(data['quit_pattern'] || 'early');
+      const excuse = String(data['favorite_excuse'] || 'excuses');
       return [
         `You quit at "${quitPattern}".`,
         `Your excuse is always "${excuse}".`,
@@ -330,7 +330,7 @@ export const STEPS: OnboardingStep[] = [
     id: 22,
     type: 'commentary',
     dynamicLines: (data) => {
-      const identity = String(data[21] || data['core_identity'] || 'someone new');
+      const identity = String(data['core_identity'] || 'someone new');
       return [
         `"${identity}"`,
         "That's who you're becoming.",
@@ -384,8 +384,8 @@ export const STEPS: OnboardingStep[] = [
     id: 28,
     type: 'commentary',
     dynamicLines: (data) => {
-      const score = data[27] || data['belief_score'] || 5;
-      const name = String(data[4] || data['name'] || '');
+      const score = data['belief_score'] || 5;
+      const name = String(data['name'] || '');
       return getBeliefResponse(Number(score), name);
     }
   },

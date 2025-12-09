@@ -36,7 +36,7 @@ const StatBox = ({
   const iconColors = {
     default: 'text-white/50 bg-white/10',
     positive: 'text-white bg-white/20',
-    negative: 'text-[#F97316] bg-[#F97316]/20',
+    negative: 'text-[#F97316] bg-white/10',
   };
 
   const valueColors = {

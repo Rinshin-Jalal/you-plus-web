@@ -327,7 +327,7 @@ function CheckoutContent() {
         {message && (
           <div className={`max-w-lg mx-auto mb-8 p-4 border ${
             message.type === 'success' 
-              ? 'border-[#F97316]/50 bg-[#F97316]/10' 
+              ? 'border-white/30 bg-white/5' 
               : 'border-red-500/50 bg-red-500/10'
           }`}>
             <p className={message.type === 'success' ? 'text-white' : 'text-red-400'}>

@@ -439,7 +439,7 @@ export const PillarQuestions = ({
               />
             ))}
           </div>
-          <span className="font-mono text-xs text-[#F97316]/70 uppercase tracking-widest">
+          <span className="font-mono text-xs text-[#F97316] uppercase tracking-widest">
             {questionsAnswered >= 9 ? 'On Fire' : questionsAnswered >= 6 ? 'Locked In' : 'Building Momentum'}
           </span>
         </div>
@@ -483,12 +483,12 @@ export const PillarQuestions = ({
                 disabled={isTransitioning}
                 className={`w-full p-4 border-2 text-left font-mono transition-all duration-200
                   ${index === 0 
-                    ? 'border-red-500/30 hover:border-red-500 hover:bg-red-500/10' 
+                    ? 'border-white/10 hover:border-[#F97316] hover:bg-[#F97316] hover:text-black' 
                     : index === 3 
-                      ? 'border-green-500/30 hover:border-green-500 hover:bg-green-500/10'
-                      : 'border-white/10 hover:border-[#F97316] hover:bg-[#F97316]/10'
+                      ? 'border-white/10 hover:border-[#22c55e] hover:bg-[#22c55e] hover:text-black'
+                      : 'border-white/10 hover:border-[#F97316] hover:bg-[#F97316] hover:text-black'
                   }
-                  ${selectedOptionIndex === index ? 'border-[#F97316] bg-[#F97316]/20 scale-[1.02]' : ''}
+                  ${selectedOptionIndex === index ? 'border-[#F97316] bg-[#F97316] text-black scale-[1.02]' : ''}
                 `}
               >
                 <div className="flex items-center gap-3">
@@ -544,7 +544,7 @@ export const PillarQuestions = ({
       {questionType === 'identity_statement' && (
         <div className="animate-in slide-in-from-right-8 duration-500">
           <div className="text-center mb-6">
-            <div className="inline-block p-4 bg-[#F97316]/20 border-2 border-[#F97316]">
+            <div className="inline-block p-4 border-2 border-[#F97316]">
               <span className="text-4xl">{currentPillar.icon}</span>
             </div>
           </div>
@@ -601,7 +601,7 @@ export const PillarQuestions = ({
                 isComplete 
                   ? 'bg-[#F97316] text-black' 
                   : isCurrent 
-                    ? 'bg-[#F97316]/30 border-2 border-[#F97316] text-white'
+                    ? 'border-2 border-[#F97316] text-white'
                     : 'bg-white/10 text-white/30'
               }`}
               title={pillar.label}

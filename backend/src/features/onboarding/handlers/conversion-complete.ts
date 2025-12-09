@@ -22,20 +22,20 @@ export const postConversionOnboardingComplete = async (c: Context) => {
     core_identity,
     primary_pillar,
     dark_future,
-    
+
     // Patterns
     quit_pattern,
     favorite_excuse,
     who_disappointed,  // Array
-    
+
     // Dynamic pillars - array of pillar IDs the user selected
     selected_pillars,
-    
+
     // Voice recordings (base64 or R2 URLs)
     future_self_intro_recording,
     why_recording,  // This will be transcribed to get the_why
     pledge_recording,
-    
+
     // Call settings
     call_time,
   } = body;
@@ -70,7 +70,7 @@ export const postConversionOnboardingComplete = async (c: Context) => {
   let cartesiaVoiceId: string | null = null;
 
   console.log("\n🎤 === PROCESSING VOICE RECORDINGS ===");
-  
+
   // Check if recordings are base64 (not already URLs)
   const isBase64 = (s: string) => s.startsWith("data:") || !s.startsWith("http");
   const introIsBase64 = isBase64(future_self_intro_recording);
@@ -83,7 +83,7 @@ export const postConversionOnboardingComplete = async (c: Context) => {
   if (whyIsBase64) {
     console.log("📝 [1/4] Transcribing why_recording...");
     const transcriptionResult = await transcribeAudio(why_recording, env);
-    
+
     if (transcriptionResult.success && transcriptionResult.text) {
       theWhy = transcriptionResult.text;
       console.log(`✅ Transcription successful: "${theWhy.substring(0, 100)}..."`);
@@ -101,7 +101,7 @@ export const postConversionOnboardingComplete = async (c: Context) => {
   // ─────────────────────────────────────────────────────────────────────────
   if (introIsBase64 && whyIsBase64 && pledgeIsBase64) {
     console.log("🎭 [2/4] Cloning user's voice from all 3 recordings...");
-    
+
     // Pass all 3 recordings to be combined for voice cloning
     const cloneResult = await cloneVoice(
       [future_self_intro_recording, why_recording, pledge_recording],
@@ -109,7 +109,7 @@ export const postConversionOnboardingComplete = async (c: Context) => {
       name || "User",
       env
     );
-    
+
     if (cloneResult.success && cloneResult.voiceId) {
       cartesiaVoiceId = cloneResult.voiceId;
       console.log(`✅ Voice cloned successfully! Voice ID: ${cartesiaVoiceId}`);
@@ -126,7 +126,7 @@ export const postConversionOnboardingComplete = async (c: Context) => {
   // ─────────────────────────────────────────────────────────────────────────
   if (env.AUDIO_BUCKET) {
     console.log("📤 [3/4] Uploading all recordings to R2...");
-    
+
     // Upload future_self_intro_recording
     if (introIsBase64) {
       futureSelftroUrl = await uploadAudioToR2(
@@ -179,8 +179,8 @@ export const postConversionOnboardingComplete = async (c: Context) => {
 
   // Validate that we have the_why
   if (!theWhy) {
-    return c.json({ 
-      error: "Failed to transcribe why_recording" 
+    return c.json({
+      error: "Failed to transcribe why_recording"
     }, 400);
   }
 
@@ -228,7 +228,7 @@ export const postConversionOnboardingComplete = async (c: Context) => {
       console.warn(`⚠️ callTime is not a string: ${finalCallTime}, using default 21:00:00`);
       callTimeString = '21:00:00';
     }
-    
+
     console.log(`📅 Parsed callTime: ${finalCallTime} -> ${callTimeString}`);
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -245,9 +245,9 @@ export const postConversionOnboardingComplete = async (c: Context) => {
         // Check if primary_pillar contains this pillar ID or related text
         const pillarLower = pillarId.toLowerCase();
         const primaryLower = primary_pillar.toLowerCase();
-        if (primaryLower.includes(pillarLower) || 
-            primaryLower.includes(pillarLower.replace('_', ' ')) ||
-            primaryLower.includes(pillarLower.replace('custom_', ''))) {
+        if (primaryLower.includes(pillarLower) ||
+          primaryLower.includes(pillarLower.replace('_', ' ')) ||
+          primaryLower.includes(pillarLower.replace('custom_', ''))) {
           mappedPrimaryPillar = pillarId;
           break;
         }
@@ -265,7 +265,7 @@ export const postConversionOnboardingComplete = async (c: Context) => {
         dark_future: dark_future || null,
         quit_pattern: quit_pattern || null,
         favorite_excuse: favorite_excuse || null,
-        who_disappointed: who_disappointed || [],
+        who_disappointed: Array.isArray(who_disappointed) ? who_disappointed : (who_disappointed ? [who_disappointed] : []),
         future_self_intro_url: futureSelftroUrl || null,  // R2 URL
         why_recording_url: whyRecordingUrl || null,  // R2 URL
         pledge_recording_url: pledgeRecordingUrl || null,  // R2 URL
@@ -299,28 +299,28 @@ export const postConversionOnboardingComplete = async (c: Context) => {
     // 3. Create pillar records for each selected pillar
     // Dynamic pillar data comes in as: {pillar_id}_current, {pillar_id}_goal, {pillar_id}_future
     const createdPillars: string[] = [];
-    
+
     for (let i = 0; i < selected_pillars.length; i++) {
       const pillarId = selected_pillars[i];
-      
+
       // Extract pillar data from body using dynamic field names
       const currentState = body[`${pillarId}_current`];
       const goal = body[`${pillarId}_goal`];
       const futureState = body[`${pillarId}_future`];
-      
+
       // Skip if we don't have the required data
       if (!currentState || !futureState) {
         console.warn(`⚠️ Skipping pillar ${pillarId} - missing required fields`);
         continue;
       }
-      
+
       // Calculate priority - primary pillar gets 100, others get decreasing priority
       const isPrimary = pillarId === mappedPrimaryPillar;
       const priority = isPrimary ? 100 : Math.max(50, 90 - (i * 10));
-      
+
       // Identity statement is derived from future state or core identity
       const identityStatement = `I am someone who ${futureState.toLowerCase().startsWith('i ') ? futureState.slice(2) : futureState}`;
-      
+
       const { error: pillarError } = await supabase
         .from("future_self_pillars")
         .insert({

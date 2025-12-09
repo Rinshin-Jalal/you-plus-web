@@ -79,7 +79,6 @@ class PaymentService {
     try {
       const response = await apiClient.get<SubscriptionResponse>('/api/billing/subscription');
 
-      console.log('Subscription status response:', response);
       return response.subscription;
     } catch (error) {
       console.error('Error fetching subscription status:', error);
@@ -103,7 +102,6 @@ class PaymentService {
   async getFullSubscriptionStatus(): Promise<SubscriptionResponse> {
     try {
       const response = await apiClient.get<SubscriptionResponse>('/api/billing/subscription');
-      console.log('Full subscription status response:', response);
       return response;
     } catch (error) {
       console.error('Error fetching full subscription status:', error);

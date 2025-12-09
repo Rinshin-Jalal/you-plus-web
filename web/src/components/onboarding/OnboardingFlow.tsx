@@ -41,11 +41,11 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
   const [inputError, setInputError] = useState<string | null>(null);
   const [showSavingOverlay, setShowSavingOverlay] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
-  
+
   // Pillar questions state
   const [inPillarQuestions, setInPillarQuestions] = useState(false);
   const [pillarQuestionsComplete, setPillarQuestionsComplete] = useState(false);
-  
+
   // Voice recording state
   const [voiceState, setVoiceState] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
@@ -58,13 +58,36 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
       setData(savedData);
     }
     setIsHydrated(true);
+
+    // Initialize audio on mount (will wait for user gesture)
+    audioService.init();
+  }, []);
+
+  // Initialize audio on first user interaction
+  useEffect(() => {
+    const initAudio = () => {
+      audioService.init();
+      document.removeEventListener('click', initAudio);
+      document.removeEventListener('touchstart', initAudio);
+      document.removeEventListener('keydown', initAudio);
+    };
+
+    document.addEventListener('click', initAudio);
+    document.addEventListener('touchstart', initAudio);
+    document.addEventListener('keydown', initAudio);
+
+    return () => {
+      document.removeEventListener('click', initAudio);
+      document.removeEventListener('touchstart', initAudio);
+      document.removeEventListener('keydown', initAudio);
+    };
   }, []);
 
   // Build the complete step list dynamically
   const allSteps = useMemo(() => {
     const beforePillars = getStepsBeforePillars();
     const afterPillars = getStepsAfterPillars();
-    
+
     // The pillar_questions step is a placeholder - we handle it specially
     // It's inserted between beforePillars and afterPillars in the STEPS array
     return [...beforePillars, { id: 'pillar_questions', type: 'pillar_questions' as const }, ...afterPillars];
@@ -79,10 +102,10 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
   }, [stepIndex, allSteps, inPillarQuestions, pillarQuestionsComplete]);
 
   // Calculate progress - round to avoid hydration mismatch from floating-point precision
-  const selectedPillars: string[] = Array.isArray(data.selected_pillars) ? data.selected_pillars : (Array.isArray(data[8]) ? data[8] : []);
+  const selectedPillars: string[] = Array.isArray(data.selected_pillars) ? data.selected_pillars : [];
   const pillarQuestionCount = selectedPillars.length * 3;
   const totalSteps = allSteps.length + pillarQuestionCount - 1; // -1 because pillar_questions placeholder is replaced
-  
+
   const progress = useMemo(() => {
     if (inPillarQuestions) {
       // Find pillar_questions index
@@ -111,7 +134,7 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
 
   const next = useCallback((val?: string | number | string[]) => {
     if (isTransitioning) return;
-    
+
     setInputError(null);
     setIsTransitioning(true);
     setIsVisible(false);
@@ -119,10 +142,10 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
     // Play audio feedback
     audioService.playBinauralBurst();
 
-    // Save data if value provided
+    // Save data if value provided - ONLY use field names, not numeric step IDs
     if (val !== undefined && currentStep) {
       const fieldName = getFieldName(currentStep.id);
-      const newData = { ...data, [fieldName]: val, [currentStep.id]: val };
+      const newData = { ...data, [fieldName]: val };
       setData(newData);
     }
 
@@ -178,15 +201,15 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
   // ============================================================================
 
   const handlePillarSelect = (pillars: string[]) => {
-    setData((prev: Record<string, unknown>) => ({ ...prev, selected_pillars: pillars, 8: pillars }));
+    setData((prev: Record<string, unknown>) => ({ ...prev, selected_pillars: pillars }));
   };
 
   const handlePillarContinue = () => {
-    next(Array.isArray(data.selected_pillars) ? data.selected_pillars : (Array.isArray(data[8]) ? data[8] : []));
+    next(Array.isArray(data.selected_pillars) ? data.selected_pillars : []);
   };
 
   const handlePrimaryPillarSelect = (pillarId: string) => {
-    setData((prev: Record<string, unknown>) => ({ ...prev, primary_pillar: pillarId, 9: pillarId }));
+    setData((prev: Record<string, unknown>) => ({ ...prev, primary_pillar: pillarId }));
     next(pillarId);
   };
 
@@ -200,13 +223,13 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
     setTimeout(() => {
       setIsTransitioning(true);
       setIsVisible(false);
-      
+
       setTimeout(() => {
         const pillarQIdx = allSteps.findIndex(s => s.type === 'pillar_questions');
         setStepIndex(pillarQIdx + 1);
         setInPillarQuestions(false);
         setPillarQuestionsComplete(false);
-        
+
         setTimeout(() => {
           setIsVisible(true);
           setIsTransitioning(false);
@@ -224,7 +247,7 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
       // Start recording
       setVoiceState(true);
       setRecordingTime(0);
-      
+
       const interval = setInterval(() => {
         setRecordingTime(prev => prev + 1);
       }, 1000);
@@ -234,7 +257,7 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
       if (recordingTime < MIN_VOICE_DURATION) {
         return; // Don't allow stopping before minimum time
       }
-      
+
       // Stop recording
       if (recordingInterval) {
         clearInterval(recordingInterval);
@@ -251,14 +274,14 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
   // ============================================================================
   // MASCOT EXPRESSION
   // ============================================================================
-  
+
   const mascotExpression = useMemo(() => {
     if (!currentStep) return 'neutral';
-    
+
     // Check for content-specific expressions first (heavy/emotional steps)
     const contentExpression = getExpressionForContent(currentStep.id);
     if (contentExpression) return contentExpression;
-    
+
     // Otherwise get expression based on step type
     return getExpressionForStep(currentStep.type, voiceState);
   }, [currentStep, voiceState]);
@@ -297,16 +320,16 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
       <div className="relative z-10 px-6 md:px-8 py-4 md:py-6 flex justify-between items-center bg-[#0A0A0A]/90 backdrop-blur-md border-b border-white/10">
         <div className="flex items-center gap-3 md:gap-4">
           {/* Mascot in header - reactive to current step */}
-          <OnboardingMascot 
+          <OnboardingMascot
             expression={mascotExpression}
             size="sm"
             speaking={currentStep?.type === 'commentary'}
             animate={true}
           />
           <div className="h-1 md:h-1.5 w-20 md:w-28 bg-white/10 overflow-hidden">
-            <div 
-              className="h-full bg-[#F97316] transition-all duration-500 ease-out" 
-              style={{ width: isHydrated ? `${Math.min(progress, 100)}%` : '0%' }} 
+            <div
+              className="h-full bg-[#F97316] transition-all duration-500 ease-out"
+              style={{ width: isHydrated ? `${Math.min(progress, 100)}%` : '0%' }}
             />
           </div>
           <span className="font-mono text-xs text-white/40" suppressHydrationWarning>
@@ -318,12 +341,12 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
       {/* Main Stage */}
       <div className={`relative z-10 flex-grow overflow-y-auto flex flex-col items-center px-4 md:px-6 max-w-5xl mx-auto w-full transition-all duration-500 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
         <div className="flex-grow flex flex-col items-center justify-center w-full py-6 md:py-8">
-          
+
           {/* COMMENTARY */}
           {currentStep.type === 'commentary' && (
-            <CommentarySection 
-              key={currentStep.id} 
-              lines={getCommentaryLines(currentStep)} 
+            <CommentarySection
+              key={currentStep.id}
+              lines={getCommentaryLines(currentStep)}
               onNext={() => next()}
               showMascot={false}
             />
@@ -335,18 +358,18 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
               <h2 className="font-mono text-[#FAFAFA] text-xl md:text-2xl lg:text-3xl leading-relaxed font-medium mb-8 md:mb-12 px-4">
                 {currentStep.label}
               </h2>
-              <MegaInput 
-                placeholder={currentStep.placeholder} 
-                value={(data[currentStep.id] as string) || ''}
-                onChange={(val: string) => setData({ ...data, [currentStep.id]: val })}
-                onEnter={() => !isTransitioning && data[currentStep.id] && next(data[currentStep.id] as string)}
+              <MegaInput
+                placeholder={currentStep.placeholder}
+                value={(data[getFieldName(currentStep.id)] as string) || ''}
+                onChange={(val: string) => setData({ ...data, [getFieldName(currentStep.id)]: val })}
+                onEnter={() => !isTransitioning && data[getFieldName(currentStep.id)] && next(data[getFieldName(currentStep.id)] as string)}
               />
               {inputError && <p className="mt-4 text-sm text-[#F97316]">{inputError}</p>}
-              <Button 
-                className="mt-12 md:mt-16 w-full max-w-xs" 
+              <Button
+                className="mt-12 md:mt-16 w-full max-w-xs"
                 variant="accent"
-                onClick={() => next(data[currentStep.id] as string)}
-                disabled={isTransitioning || !data[currentStep.id]}
+                onClick={() => next(data[getFieldName(currentStep.id)] as string)}
+                disabled={isTransitioning || !data[getFieldName(currentStep.id)]}
               >
                 {isTransitioning ? 'Processing...' : 'Continue'}
               </Button>
@@ -359,10 +382,10 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
               <h2 className="font-mono text-[#FAFAFA] text-xl md:text-2xl lg:text-3xl leading-relaxed font-medium mb-8 md:mb-12 px-4">
                 {currentStep.label}
               </h2>
-              <BrutalChoice 
-                options={currentStep.choices} 
-                onSelect={(val) => next(val)} 
-                disabled={isTransitioning} 
+              <BrutalChoice
+                options={currentStep.choices}
+                onSelect={(val) => next(val)}
+                disabled={isTransitioning}
               />
             </div>
           )}
@@ -370,17 +393,17 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
           {/* SLIDER */}
           {currentStep.type === 'slider' && (
             <div key={currentStep.id} className="w-full flex flex-col items-center">
-              <MinimalSlider 
-                min={currentStep.min || 1} 
-                max={currentStep.max || 10} 
-                value={(data[currentStep.id] as number) ?? Math.floor(((currentStep.min || 1) + (currentStep.max || 10)) / 2)} 
-                onChange={(val: number) => setData({ ...data, [currentStep.id]: val })}
+              <MinimalSlider
+                min={currentStep.min || 1}
+                max={currentStep.max || 10}
+                value={(data[getFieldName(currentStep.id)] as number) ?? Math.floor(((currentStep.min || 1) + (currentStep.max || 10)) / 2)}
+                onChange={(val: number) => setData({ ...data, [getFieldName(currentStep.id)]: val })}
                 label={currentStep.label}
               />
-              <Button 
-                className="mt-16 md:mt-20 w-full max-w-xs" 
-                variant="accent" 
-                onClick={() => next((data[currentStep.id] as number) ?? Math.floor(((currentStep.min || 1) + (currentStep.max || 10)) / 2))}
+              <Button
+                className="mt-16 md:mt-20 w-full max-w-xs"
+                variant="accent"
+                onClick={() => next((data[getFieldName(currentStep.id)] as number) ?? Math.floor(((currentStep.min || 1) + (currentStep.max || 10)) / 2))}
                 disabled={isTransitioning}
               >
                 {isTransitioning ? 'Processing...' : 'Continue'}
@@ -397,8 +420,8 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
               <p className="font-mono text-white/40 text-sm md:text-base mb-8 md:mb-12 px-4">
                 {currentStep.subtext}
               </p>
-              <VoiceVisualizer 
-                isRecording={voiceState} 
+              <VoiceVisualizer
+                isRecording={voiceState}
                 onToggle={handleVoiceToggle}
                 recordingTime={recordingTime}
                 minDuration={MIN_VOICE_DURATION}
@@ -414,16 +437,16 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
               <h2 className="font-mono text-[#FAFAFA] text-xl md:text-2xl lg:text-3xl leading-relaxed font-medium mb-8 md:mb-12 px-4">
                 {currentStep.label}
               </h2>
-              <input 
-                type="time" 
-                value={(data[currentStep.id] as string) || '21:00'}
+              <input
+                type="time"
+                value={(data[getFieldName(currentStep.id)] as string) || '21:00'}
                 className="w-full max-w-xs bg-transparent border-b-4 border-white/10 py-6 md:py-8 text-3xl md:text-4xl lg:text-5xl font-mono font-medium text-[#FAFAFA] focus:outline-none focus:border-[#F97316] tracking-tight text-center"
-                onChange={(e) => setData({ ...data, [currentStep.id]: e.target.value })}
+                onChange={(e) => setData({ ...data, [getFieldName(currentStep.id)]: e.target.value })}
               />
-              <Button 
-                className="mt-12 md:mt-16 w-full max-w-xs" 
-                variant="accent" 
-                onClick={() => next((data[currentStep.id] as string) || '21:00')}
+              <Button
+                className="mt-12 md:mt-16 w-full max-w-xs"
+                variant="accent"
+                onClick={() => next((data[getFieldName(currentStep.id)] as string) || '21:00')}
                 disabled={isTransitioning}
               >
                 {isTransitioning ? 'Processing...' : 'Set Time'}
@@ -435,7 +458,7 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
           {currentStep.type === 'pillar_selection' && (
             <PillarSelection
               key={currentStep.id}
-              selected={Array.isArray(data.selected_pillars) ? data.selected_pillars : (Array.isArray(data[8]) ? data[8] : [])}
+              selected={Array.isArray(data.selected_pillars) ? data.selected_pillars : []}
               onSelect={handlePillarSelect}
               onContinue={handlePillarContinue}
             />
@@ -445,7 +468,7 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
           {currentStep.type === 'pillar_primary' && (
             <PillarPrimary
               key={currentStep.id}
-              selectedPillars={Array.isArray(data.selected_pillars) ? data.selected_pillars : (Array.isArray(data[8]) ? data[8] : [])}
+              selectedPillars={Array.isArray(data.selected_pillars) ? data.selected_pillars : []}
               onSelect={handlePrimaryPillarSelect}
             />
           )}
@@ -454,7 +477,7 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
           {currentStep.type === 'pillar_questions' && inPillarQuestions && (
             <PillarQuestions
               key="pillar_questions"
-              selectedPillars={Array.isArray(data.selected_pillars) ? data.selected_pillars : (Array.isArray(data[8]) ? data[8] : [])}
+              selectedPillars={Array.isArray(data.selected_pillars) ? data.selected_pillars : []}
               data={data}
               onUpdate={handlePillarQuestionsUpdate}
               onComplete={handlePillarQuestionsComplete}
@@ -463,7 +486,7 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
 
           {/* COMMITMENT CARD */}
           {currentStep.type === 'card' && (
-            <CommitmentCard 
+            <CommitmentCard
               key={currentStep.id}
               data={data}
               onAccept={() => next()}
@@ -476,10 +499,8 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
               key={currentStep.id}
               data={data}
               onComplete={() => {
-                // After auth, redirect to checkout
-                if (typeof window !== 'undefined') {
-                  window.location.href = '/checkout';
-                }
+                // After auth, complete the flow (redirects to /setup via onFinish)
+                onFinish();
               }}
             />
           )}

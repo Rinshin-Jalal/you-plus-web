@@ -119,36 +119,60 @@ export async function proxy(request: NextRequest) {
         }
 
         const { subscription, onboardingCompleted } = await subResponse.json()
+        const hasActiveSubscription = subscription?.hasActiveSubscription
 
-        // 1. Check Onboarding Status
-        const isOnboardingRoute = pathname.startsWith('/onboarding')
+        // ═══════════════════════════════════════════════════════════════════════════
+        // 4-STATE USER FLOW LOGIC
+        // ═══════════════════════════════════════════════════════════════════════════
 
-        if (!onboardingCompleted) {
-            // User is NOT onboarded
-            // Allow access to /onboarding, /setup, and /checkout (for subscription flow)
-            if (!isOnboardingRoute && !pathname.startsWith('/setup') && !pathname.startsWith('/checkout')) {
-                console.log(`[MIDDLEWARE] ${pathname} - User not onboarded, redirecting to /onboarding`)
-                const onboardingUrl = new URL('/onboarding', request.url)
-                return NextResponse.redirect(onboardingUrl)
+        // State 1: Fully Complete (Subscribed + Onboarded)
+        // -> Goal: Dashboard
+        if (onboardingCompleted && hasActiveSubscription) {
+            // Block access to onboarding and checkout welcome (already done)
+            if (pathname.startsWith('/onboarding') || pathname.startsWith('/checkout/welcome')) {
+                console.log(`[MIDDLEWARE] ${pathname} - Fully complete, redirecting to /dashboard`)
+                return NextResponse.redirect(new URL('/dashboard', request.url))
             }
+            // Allow /checkout for subscription management, allow /dashboard, etc.
             return supabaseResponse
-        } else {
-            // User IS onboarded
-            if (isOnboardingRoute) {
-                console.log(`[MIDDLEWARE] ${pathname} - User already onboarded, redirecting to /dashboard`)
-                const dashboardUrl = new URL('/dashboard', request.url)
-                return NextResponse.redirect(dashboardUrl)
+        }
+
+        // State 2: Subscribed Only (Missing Onboarding)
+        // -> Goal: Onboarding / Setup
+        if (!onboardingCompleted && hasActiveSubscription) {
+            // Must go to onboarding or setup
+            if (!pathname.startsWith('/onboarding') && !pathname.startsWith('/setup')) {
+                console.log(`[MIDDLEWARE] ${pathname} - Subscribed but not onboarded, redirecting to /onboarding`)
+                return NextResponse.redirect(new URL('/onboarding', request.url))
             }
+            // Allow /onboarding and /setup
+            return supabaseResponse
         }
 
-        // 2. Check Subscription Status (Only if onboarded)
-        if (!subscription?.hasActiveSubscription) {
-            console.log(`[MIDDLEWARE] ${pathname} - No active subscription (DodoPayments check), redirecting to /checkout`)
-            const checkoutUrl = new URL('/checkout', request.url)
-            return NextResponse.redirect(checkoutUrl)
+        // State 3: Onboarded Only (Missing Subscription)
+        // -> Goal: Checkout
+        if (onboardingCompleted && !hasActiveSubscription) {
+            // Must go to checkout
+            if (!pathname.startsWith('/checkout')) {
+                console.log(`[MIDDLEWARE] ${pathname} - Onboarded but not subscribed, redirecting to /checkout`)
+                return NextResponse.redirect(new URL('/checkout', request.url))
+            }
+            // Allow /checkout
+            return supabaseResponse
         }
 
-        console.log(`[MIDDLEWARE] ${pathname} - Subscription active & Onboarding complete`)
+        // State 4: Nothing Complete (Missing Both)
+        // -> Goal: Flexible (Onboarding OR Checkout)
+        if (!onboardingCompleted && !hasActiveSubscription) {
+            // Allow access to both flows
+            if (pathname.startsWith('/onboarding') || pathname.startsWith('/setup') || pathname.startsWith('/checkout')) {
+                return supabaseResponse
+            }
+            // Default entry point: Onboarding
+            console.log(`[MIDDLEWARE] ${pathname} - Nothing complete, redirecting to /onboarding`)
+            return NextResponse.redirect(new URL('/onboarding', request.url))
+        }
+
         return supabaseResponse
 
     } catch (error) {

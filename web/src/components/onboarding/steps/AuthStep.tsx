@@ -77,7 +77,7 @@ export const AuthStep = ({ data, onComplete }: AuthStepProps) => {
           onClick={handleGoogleSignIn}
           disabled={isLoading !== null}
           className={`w-full p-4 border-2 border-white/10 bg-white/5 
-                     hover:border-[#F97316] hover:bg-[#F97316]/10 
+                     hover:border-white/30 hover:bg-white/10 
                      transition-all duration-200 
                      flex items-center justify-center gap-3
                      disabled:opacity-50 disabled:cursor-not-allowed
@@ -122,7 +122,7 @@ export const AuthStep = ({ data, onComplete }: AuthStepProps) => {
           onClick={handleAppleSignIn}
           disabled={isLoading !== null}
           className={`w-full p-4 border-2 border-white/10 bg-white/5 
-                     hover:border-[#F97316] hover:bg-[#F97316]/10 
+                     hover:border-white/30 hover:bg-white/10 
                      transition-all duration-200 
                      flex items-center justify-center gap-3
                      disabled:opacity-50 disabled:cursor-not-allowed
@@ -146,7 +146,7 @@ export const AuthStep = ({ data, onComplete }: AuthStepProps) => {
 
       {/* Error Message */}
       {error && (
-        <div className="mt-6 p-4 border-2 border-red-500/50 bg-red-500/10">
+        <div className="mt-6 p-4 border-2 border-red-500">
           <p className="font-mono text-sm text-red-400 text-center">{error}</p>
         </div>
       )}

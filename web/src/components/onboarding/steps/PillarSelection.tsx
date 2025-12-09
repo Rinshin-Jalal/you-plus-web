@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Check, Plus, X } from 'lucide-react';
 import { PILLAR_PRESETS, MIN_PILLARS, MAX_PILLARS, getCategories, getPillarsByCategory } from '@/data/pillarPresets';
+import { audioService } from '@/services/audio';
 
 interface PillarSelectionProps {
   selected: string[];
@@ -25,19 +26,27 @@ export const PillarSelection = ({ selected, onSelect, onContinue }: PillarSelect
 
   const togglePillar = (pillarId: string) => {
     if (selected.includes(pillarId)) {
+      audioService.playClick();
       onSelect(selected.filter(id => id !== pillarId));
     } else if (selected.length < MAX_PILLARS) {
+      audioService.playTick();
       onSelect([...selected, pillarId]);
     }
   };
 
   const addCustomPillar = () => {
     if (customPillar.trim() && selected.length < MAX_PILLARS) {
+      audioService.playTick();
       const customId = `custom_${customPillar.toLowerCase().replace(/\s+/g, '_')}`;
       onSelect([...selected, customId]);
       setCustomPillar('');
       setShowCustomInput(false);
     }
+  };
+
+  const handleContinue = () => {
+    audioService.playPillarComplete();
+    onContinue();
   };
 
   const canContinue = selected.length >= MIN_PILLARS;
@@ -114,10 +123,10 @@ export const PillarSelection = ({ selected, onSelect, onContinue }: PillarSelect
               disabled={isDisabled}
               className={`relative p-3 border-2 transition-all duration-200 text-left
                 ${isSelected 
-                  ? 'border-[#F97316] bg-[#F97316]/20 text-white' 
+                  ? 'border-[#F97316] bg-white/10 text-white' 
                   : isDisabled
                     ? 'border-white/5 bg-white/5 opacity-40 cursor-not-allowed'
-                    : 'border-white/10 bg-white/5 hover:border-[#F97316]/50 cursor-pointer'
+                    : 'border-white/10 bg-white/5 hover:border-[#F97316] cursor-pointer'
                 }`}
             >
               {isSelected && (
@@ -146,7 +155,7 @@ export const PillarSelection = ({ selected, onSelect, onContinue }: PillarSelect
             className={`p-3 border-2 border-dashed transition-all duration-200 text-left
               ${selected.length >= MAX_PILLARS
                 ? 'border-white/5 bg-white/5 opacity-40 cursor-not-allowed'
-                : 'border-white/20 bg-white/5 hover:border-[#F97316]/50 cursor-pointer'
+                : 'border-white/20 bg-white/5 hover:border-[#F97316] cursor-pointer'
               }`}
           >
             <Plus className="w-5 h-5 text-white/40 mb-1" />
@@ -205,7 +214,7 @@ export const PillarSelection = ({ selected, onSelect, onContinue }: PillarSelect
               <button
                 key={pillarId}
                 onClick={() => togglePillar(pillarId)}
-                className="flex items-center gap-1 px-2 py-1 bg-[#F97316]/20 text-[#F97316] border border-[#F97316]/30 font-mono text-xs hover:bg-[#F97316]/30 transition-colors"
+                className="flex items-center gap-1 px-2 py-1 bg-white/10 text-[#F97316] border border-[#F97316] font-mono text-xs hover:bg-white/20 transition-colors"
               >
                 <span>{icon}</span>
                 <span>{label}</span>
@@ -219,7 +228,7 @@ export const PillarSelection = ({ selected, onSelect, onContinue }: PillarSelect
       {/* Continue Button */}
       <div className="flex justify-center">
         <button
-          onClick={onContinue}
+          onClick={handleContinue}
           disabled={!canContinue}
           className={`px-8 py-4 font-mono font-bold text-lg uppercase tracking-wide transition-all duration-300
             ${canContinue

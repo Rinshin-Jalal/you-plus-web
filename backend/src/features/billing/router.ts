@@ -165,7 +165,6 @@ billing.get('/subscription', requireAuth, async (c) => {
       });
     }
 
-    console.log('userData.dodo_customer_id:', userData.dodo_customer_id);
 
     const dodo = createDodoPaymentsService(env);
     const subscriptions = await dodo.getCustomerSubscriptions(userData.dodo_customer_id);
