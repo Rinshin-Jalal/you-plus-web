@@ -1,0 +1,316 @@
+# Gamification API: Challenges & Leaderboard
+# OpenAPI 3.0 Contract
+
+openapi: 3.0.3
+info:
+  title: Gamification API - Challenges & Leaderboard
+  version: 1.0.0
+  description: Daily challenges and weekly leaderboard
+
+servers:
+  - url: /api/gamification
+    description: Gamification API base path
+
+paths:
+  /challenges/today:
+    get:
+      operationId: getTodayChallenge
+      summary: Get today's daily challenge
+      description: Returns the user's challenge for today
+      tags:
+        - Challenges
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Today's challenge
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChallengeResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+
+  /challenges/{id}/complete:
+    post:
+      operationId: completeChallenge
+      summary: Mark challenge as complete
+      description: Completes the challenge and awards XP
+      tags:
+        - Challenges
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Challenge completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  xp_earned:
+                    type: integer
+                    example: 75
+                  challenge:
+                    $ref: '#/components/schemas/Challenge'
+        '400':
+          description: Challenge already completed or expired
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Challenge already completed"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Challenge not found
+
+  /challenges/history:
+    get:
+      operationId: getChallengeHistory
+      summary: Get past challenges
+      description: Returns paginated history of daily challenges
+      tags:
+        - Challenges
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 7
+            maximum: 30
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: Challenge history
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  challenges:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Challenge'
+                  stats:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                      completed:
+                        type: integer
+                      completion_rate:
+                        type: number
+                        format: float
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /leaderboard:
+    get:
+      operationId: getLeaderboard
+      summary: Get weekly leaderboard
+      description: Returns top 100 users and requesting user's rank
+      tags:
+        - Leaderboard
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: week
+          in: query
+          description: Week start date (defaults to current week)
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Weekly leaderboard
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LeaderboardResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid authentication
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: "Unauthorized"
+
+    PaymentRequired:
+      description: Active subscription required
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: "Subscription required"
+              redirectToPaywall:
+                type: boolean
+                example: true
+
+  schemas:
+    ChallengeResponse:
+      type: object
+      required:
+        - challenge
+      properties:
+        challenge:
+          $ref: '#/components/schemas/Challenge'
+        no_challenge_reason:
+          type: string
+          description: Why there's no challenge (if challenge is null)
+          example: "Challenge not yet generated"
+
+    Challenge:
+      type: object
+      required:
+        - id
+        - challenge_date
+        - challenge_type
+        - description
+        - xp_reward
+        - completed
+        - expires_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        challenge_date:
+          type: string
+          format: date
+          example: "2025-12-09"
+        challenge_type:
+          type: string
+          enum: [pillar_focus, all_pillars, call_speed, no_excuse, reflection, streak_protect]
+          example: "pillar_focus"
+        challenge_config:
+          type: object
+          description: Type-specific configuration
+          example:
+            pillar: "body"
+        description:
+          type: string
+          example: "Complete all Body pillar check-ins today"
+        xp_reward:
+          type: integer
+          example: 75
+        completed:
+          type: boolean
+          example: false
+        completed_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+          example: "2025-12-09T23:59:59-05:00"
+        time_remaining:
+          type: string
+          description: Human-readable time until expiration
+          example: "8 hours"
+
+    LeaderboardResponse:
+      type: object
+      required:
+        - week_start
+        - user
+        - top_100
+      properties:
+        week_start:
+          type: string
+          format: date
+          example: "2025-12-02"
+        week_end:
+          type: string
+          format: date
+          example: "2025-12-08"
+        user:
+          type: object
+          required:
+            - rank
+            - xp_earned
+          properties:
+            rank:
+              type: integer
+              example: 47
+              description: User's rank this week (null if not on leaderboard)
+            xp_earned:
+              type: integer
+              example: 450
+            percentile:
+              type: integer
+              example: 85
+              description: Top X% of users
+        top_100:
+          type: array
+          items:
+            $ref: '#/components/schemas/LeaderboardEntry'
+        total_participants:
+          type: integer
+          example: 1250
+          description: Total users with XP this week
+
+    LeaderboardEntry:
+      type: object
+      required:
+        - rank
+        - xp_earned
+        - mascot_stage
+        - level
+      properties:
+        rank:
+          type: integer
+          example: 1
+        xp_earned:
+          type: integer
+          example: 1250
+        mascot_stage:
+          type: integer
+          example: 4
+          minimum: 1
+          maximum: 5
+        level:
+          type: integer
+          example: 35
+        is_you:
+          type: boolean
+          description: Whether this entry is the requesting user
+          example: false

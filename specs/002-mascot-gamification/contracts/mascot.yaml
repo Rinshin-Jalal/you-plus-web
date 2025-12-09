@@ -1,0 +1,357 @@
+# Gamification API: Mascot
+# OpenAPI 3.0 Contract
+
+openapi: 3.0.3
+info:
+  title: Gamification API - Mascot
+  version: 1.0.0
+  description: Mascot state, customization, and accessories
+
+servers:
+  - url: /api/gamification
+    description: Gamification API base path
+
+paths:
+  /mascot:
+    get:
+      operationId: getMascot
+      summary: Get mascot state and equipped accessories
+      description: Returns full mascot state including evolution, mood, energy, and equipped items
+      tags:
+        - Mascot
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Mascot state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MascotResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+
+  /mascot/customize:
+    put:
+      operationId: customizeMascot
+      summary: Equip or unequip accessories
+      description: Update which accessories are equipped on the mascot
+      tags:
+        - Mascot
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomizeRequest'
+      responses:
+        '200':
+          description: Updated mascot state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MascotResponse'
+        '400':
+          description: Invalid request (accessory not unlocked, etc.)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Accessory not unlocked"
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /accessories:
+    get:
+      operationId: getAccessories
+      summary: Get all accessories with unlock status
+      description: Returns all available accessories and user's unlock/equip status
+      tags:
+        - Mascot
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: category
+          in: query
+          description: Filter by category
+          schema:
+            type: string
+            enum: [headwear, eyewear, effects, backgrounds, props]
+      responses:
+        '200':
+          description: All accessories with status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccessoriesResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+
+  /accessories/{key}/equip:
+    post:
+      operationId: equipAccessory
+      summary: Equip a specific accessory
+      description: Equips the accessory, unequipping any other in same category
+      tags:
+        - Mascot
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "sunglasses"
+      responses:
+        '200':
+          description: Accessory equipped
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  equipped:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/EquippedAccessory'
+        '400':
+          description: Accessory not unlocked
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Accessory not found
+
+  /accessories/{key}/unequip:
+    post:
+      operationId: unequipAccessory
+      summary: Unequip a specific accessory
+      description: Removes the accessory from mascot
+      tags:
+        - Mascot
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "sunglasses"
+      responses:
+        '200':
+          description: Accessory unequipped
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid authentication
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: "Unauthorized"
+
+    PaymentRequired:
+      description: Active subscription required
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: "Subscription required"
+              redirectToPaywall:
+                type: boolean
+                example: true
+
+  schemas:
+    MascotResponse:
+      type: object
+      required:
+        - stage
+        - stage_name
+        - mood
+        - energy
+        - equipped_accessories
+      properties:
+        stage:
+          type: integer
+          example: 2
+          minimum: 1
+          maximum: 5
+        stage_name:
+          type: string
+          example: "Ember"
+          enum: ["Spark", "Ember", "Flame", "Blaze", "Inferno"]
+        mood:
+          type: string
+          example: "proud"
+          enum: ["celebrating", "proud", "happy", "neutral", "concerned", "sad", "sleeping"]
+        energy:
+          type: integer
+          example: 85
+          minimum: 0
+          maximum: 100
+        equipped_accessories:
+          type: array
+          items:
+            $ref: '#/components/schemas/EquippedAccessory'
+        next_evolution:
+          type: object
+          description: Info about next evolution (if not at max)
+          properties:
+            stage:
+              type: integer
+              example: 3
+            name:
+              type: string
+              example: "Flame"
+            level_required:
+              type: integer
+              example: 26
+            levels_away:
+              type: integer
+              example: 14
+
+    EquippedAccessory:
+      type: object
+      required:
+        - key
+        - name
+        - category
+        - asset_key
+        - z_index
+      properties:
+        key:
+          type: string
+          example: "sunglasses"
+        name:
+          type: string
+          example: "Cool Shades"
+        category:
+          type: string
+          enum: [headwear, eyewear, effects, backgrounds, props]
+        asset_key:
+          type: string
+          example: "accessories/eyewear/sunglasses.svg"
+        z_index:
+          type: integer
+          example: 30
+
+    CustomizeRequest:
+      type: object
+      properties:
+        equip:
+          type: array
+          description: Accessory keys to equip
+          items:
+            type: string
+          example: ["sunglasses", "party_hat"]
+        unequip:
+          type: array
+          description: Accessory keys to unequip
+          items:
+            type: string
+          example: ["crown"]
+
+    AccessoriesResponse:
+      type: object
+      required:
+        - accessories
+        - stats
+      properties:
+        accessories:
+          type: array
+          items:
+            $ref: '#/components/schemas/Accessory'
+        stats:
+          type: object
+          properties:
+            total:
+              type: integer
+              example: 25
+            unlocked:
+              type: integer
+              example: 8
+            equipped:
+              type: integer
+              example: 2
+
+    Accessory:
+      type: object
+      required:
+        - id
+        - key
+        - name
+        - category
+        - rarity
+        - unlocked
+      properties:
+        id:
+          type: string
+          format: uuid
+        key:
+          type: string
+          example: "sunglasses"
+        name:
+          type: string
+          example: "Cool Shades"
+        description:
+          type: string
+          example: "For when your future is bright"
+        category:
+          type: string
+          enum: [headwear, eyewear, effects, backgrounds, props]
+        rarity:
+          type: string
+          enum: [common, rare, epic, legendary]
+        unlock_method:
+          type: string
+          enum: [achievement, level, streak, special, default]
+        unlock_requirement:
+          type: string
+          description: Achievement key, level number, or streak days
+          example: "week_warrior"
+        asset_key:
+          type: string
+          example: "accessories/eyewear/sunglasses.svg"
+        unlocked:
+          type: boolean
+          example: true
+        equipped:
+          type: boolean
+          example: false
+        unlocked_at:
+          type: string
+          format: date-time

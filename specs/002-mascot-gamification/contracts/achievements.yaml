@@ -1,0 +1,251 @@
+# Gamification API: Achievements
+# OpenAPI 3.0 Contract
+
+openapi: 3.0.3
+info:
+  title: Gamification API - Achievements
+  version: 1.0.0
+  description: Achievement listing and notification endpoints
+
+servers:
+  - url: /api/gamification
+    description: Gamification API base path
+
+paths:
+  /achievements:
+    get:
+      operationId: getAchievements
+      summary: Get all achievements with unlock status
+      description: Returns all available achievements and user's unlock status
+      tags:
+        - Achievements
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: category
+          in: query
+          description: Filter by category
+          schema:
+            type: string
+            enum: [streaks, calls, pillars, trust, levels, special]
+      responses:
+        '200':
+          description: All achievements with unlock status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AchievementsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+
+  /achievements/{id}/seen:
+    post:
+      operationId: markAchievementSeen
+      summary: Mark achievement notification as seen
+      description: Updates the achievement's notified status to true
+      tags:
+        - Achievements
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Achievement marked as seen
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: Achievement not found or not unlocked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Achievement not found"
+
+  /achievements/pending:
+    get:
+      operationId: getPendingAchievements
+      summary: Get unnotified achievement unlocks
+      description: Returns achievements unlocked but not yet shown to user
+      tags:
+        - Achievements
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Pending achievement notifications
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  achievements:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Achievement'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid authentication
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: "Unauthorized"
+
+    PaymentRequired:
+      description: Active subscription required
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: "Subscription required"
+              redirectToPaywall:
+                type: boolean
+                example: true
+
+  schemas:
+    AchievementsResponse:
+      type: object
+      required:
+        - achievements
+        - stats
+      properties:
+        achievements:
+          type: array
+          items:
+            $ref: '#/components/schemas/Achievement'
+        stats:
+          $ref: '#/components/schemas/AchievementStats'
+
+    Achievement:
+      type: object
+      required:
+        - id
+        - key
+        - name
+        - description
+        - rarity
+        - category
+        - xp_reward
+        - unlocked
+      properties:
+        id:
+          type: string
+          format: uuid
+        key:
+          type: string
+          example: "week_warrior"
+        name:
+          type: string
+          example: "Week Warrior"
+        description:
+          type: string
+          example: "Maintain a 7-day streak"
+        icon:
+          type: string
+          example: "🔥"
+        rarity:
+          type: string
+          enum: [common, rare, epic, legendary]
+          example: "common"
+        category:
+          type: string
+          enum: [streaks, calls, pillars, trust, levels, special]
+          example: "streaks"
+        xp_reward:
+          type: integer
+          example: 100
+        unlocked:
+          type: boolean
+          example: true
+        unlocked_at:
+          type: string
+          format: date-time
+          description: Only present if unlocked
+        notified:
+          type: boolean
+          description: Whether user has seen the unlock notification
+        accessory_unlock:
+          type: string
+          description: Key of accessory unlocked by this achievement
+          example: "sunglasses"
+        progress:
+          type: object
+          description: Progress toward unlocking (if not unlocked)
+          properties:
+            current:
+              type: integer
+              example: 5
+            target:
+              type: integer
+              example: 7
+            percent:
+              type: integer
+              example: 71
+
+    AchievementStats:
+      type: object
+      required:
+        - total
+        - unlocked
+        - by_rarity
+      properties:
+        total:
+          type: integer
+          example: 45
+        unlocked:
+          type: integer
+          example: 12
+        by_rarity:
+          type: object
+          properties:
+            common:
+              $ref: '#/components/schemas/RarityCount'
+            rare:
+              $ref: '#/components/schemas/RarityCount'
+            epic:
+              $ref: '#/components/schemas/RarityCount'
+            legendary:
+              $ref: '#/components/schemas/RarityCount'
+
+    RarityCount:
+      type: object
+      properties:
+        total:
+          type: integer
+        unlocked:
+          type: integer
