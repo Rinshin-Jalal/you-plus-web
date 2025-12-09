@@ -24,9 +24,11 @@ export const Button: React.FC<ButtonProps> = ({
   const variants = {
     primary: "border-black bg-black text-white hover:bg-white hover:text-black", // Inverts on hover
     secondary: "border-black bg-white text-black hover:bg-black hover:text-white",
+    accent: "border-[#F97316] bg-[#F97316] text-black hover:bg-[#FB923C] hover:border-[#FB923C]", // Orange brutalist
     danger: "border-neon-red bg-transparent text-neon-red hover:bg-neon-red hover:text-black", 
     success: "border-neon-teal bg-neon-teal text-black hover:bg-white",
     outline: "border-current bg-transparent hover:bg-white/10",
+    ghost: "border-white/20 bg-white/5 text-white hover:bg-white/10 hover:border-white/30", // Dark theme ghost
   };
 
   const sizes = {

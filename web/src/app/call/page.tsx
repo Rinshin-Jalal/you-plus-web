@@ -4,6 +4,7 @@ import React from 'react';
 import { useRouter } from 'next/navigation';
 import LiveCallInterface from '@/components/call/LiveCallInterface';
 import { audioService } from '@/services/audio';
+import { AuthGuard } from '@/components/shared/AuthGuard';
 
 export default function CallPage() {
     const router = useRouter();
@@ -16,5 +17,9 @@ export default function CallPage() {
         router.push('/dashboard');
     };
 
-    return <LiveCallInterface onEndCall={handleEndCall} />;
+    return (
+        <AuthGuard>
+            <LiveCallInterface onEndCall={handleEndCall} />
+        </AuthGuard>
+    );
 }

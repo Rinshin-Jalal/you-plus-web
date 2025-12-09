@@ -42,6 +42,6 @@ export const ACT_THEMES: Record<number, ActTheme> = {
 };
 
 // Get theme for current step (always returns default black/white)
-export const getThemeForStep = (step: { act?: number }): ActTheme => {
+export const getThemeForStep = (_step: { act?: number }): ActTheme => {
   return DEFAULT_THEME;
 };

@@ -19,6 +19,7 @@ export async function proxy(request: NextRequest) {
         '/api/auth/signout',
         '/legal',
         '/witness',
+        '/pitch',
     ]
 
     // Routes that should stay open to unauthenticated users
@@ -56,11 +57,20 @@ export async function proxy(request: NextRequest) {
 
     // Special handling for /checkout - accessible to all authenticated users
     // but subscribed users get redirected away
+    // EXCEPTION: /checkout/welcome requires authentication
     const isCheckoutRoute = pathname.startsWith('/checkout')
+    const isCheckoutWelcomeRoute = pathname.startsWith('/checkout/welcome')
 
     // Redirect to login if not authenticated (except checkout can be viewed)
     if (!user) {
-        // Allow unauthenticated users to VIEW checkout (see plans)
+        // /checkout/welcome requires auth - redirect to login
+        if (isCheckoutWelcomeRoute) {
+            console.log(`[MIDDLEWARE] ${pathname} - checkout/welcome requires auth, redirecting to /auth/login`)
+            const loginUrl = new URL('/auth/login', request.url)
+            loginUrl.searchParams.set('next', pathname)
+            return NextResponse.redirect(loginUrl)
+        }
+        // Allow unauthenticated users to VIEW regular checkout (see plans)
         if (isCheckoutRoute) {
             return supabaseResponse
         }

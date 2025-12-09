@@ -3,7 +3,7 @@
 // ============================================================================
 
 // Design System Types
-export type Variant = 'primary' | 'secondary' | 'danger' | 'success' | 'outline';
+export type Variant = 'primary' | 'secondary' | 'accent' | 'danger' | 'success' | 'outline' | 'ghost';
 export type Size = 'sm' | 'md' | 'lg';
 
 // API Response Types

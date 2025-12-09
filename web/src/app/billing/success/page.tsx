@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { storageService } from '@/services/storage';
 import { useAuth } from '@/hooks/useAuth';
@@ -10,18 +10,7 @@ export default function BillingSuccessPage() {
   const { isAuthenticated, loading: authLoading } = useAuth();
   const [processing, setProcessing] = useState(false);
 
-  useEffect(() => {
-    if (authLoading) return;
-
-    if (!isAuthenticated) {
-      router.replace('/auth/login?next=/billing/success');
-      return;
-    }
-
-    processAndRedirect();
-  }, [isAuthenticated, authLoading, router]);
-
-  const processAndRedirect = async () => {
+  const processAndRedirect = useCallback(async () => {
     setProcessing(true);
 
     try {
@@ -35,7 +24,18 @@ export default function BillingSuccessPage() {
     } catch {
       router.replace('/setup');
     }
-  };
+  }, [router]);
+
+  useEffect(() => {
+    if (authLoading) return;
+
+    if (!isAuthenticated) {
+      router.replace('/auth/login?next=/billing/success');
+      return;
+    }
+
+    processAndRedirect();
+  }, [isAuthenticated, authLoading, router, processAndRedirect]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0D0D0D] text-white">

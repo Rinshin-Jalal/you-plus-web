@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { AuthGuard } from '@/components/shared/AuthGuard';
 import { accountService, type UserProfile } from '@/services/account';
 import paymentService, { type SubscriptionStatus } from '@/services/payment';
 import { GrainOverlay } from '@/components/onboarding/ui/GrainOverlay';
-import { Loader2, ArrowLeft, Check } from 'lucide-react';
+import { Loader2, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { WitnessLogo } from '@/components/ui/WitnessLogo';
 
@@ -47,13 +47,7 @@ function SettingsContent() {
   const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('system');
   const [notifications, setNotifications] = useState(true);
 
-  useEffect(() => {
-    loadProfile();
-    loadPreferences();
-    loadSubscription();
-  }, []);
-
-  const loadProfile = async () => {
+  const loadProfile = useCallback(async () => {
     setIsLoading(true);
     const profileData = await accountService.getProfile();
     if (profileData) {
@@ -62,18 +56,24 @@ function SettingsContent() {
       setTimezone(profileData.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone);
     }
     setIsLoading(false);
-  };
+  }, []);
 
-  const loadPreferences = () => {
+  const loadPreferences = useCallback(() => {
     const prefs = accountService.getPreferences();
     setTheme(prefs.theme);
     setNotifications(prefs.notifications);
-  };
+  }, []);
 
-  const loadSubscription = async () => {
+  const loadSubscription = useCallback(async () => {
     const sub = await paymentService.getSubscriptionStatus();
     setSubscription(sub);
-  };
+  }, []);
+
+  useEffect(() => {
+    loadProfile();
+    loadPreferences();
+    loadSubscription();
+  }, [loadProfile, loadPreferences, loadSubscription]);
 
   const loadPlans = async () => {
     setIsLoadingPlans(true);

@@ -11,6 +11,12 @@ interface WitnessLogoProps {
   animate?: boolean;
 }
 
+interface LogoSvgProps {
+  width: number;
+  height: number;
+  animate: boolean;
+}
+
 const sizeMap: Record<LogoSize, number> = {
   xs: 24,
   sm: 32,
@@ -33,20 +39,10 @@ const wordmarkSizeMap: Record<LogoSize, string> = {
   '4xl': 'text-6xl',
 };
 
-export function WitnessLogo({ 
-  size = 'md', 
-  className = '',
-  showWordmark = false,
-  animate = true
-}: WitnessLogoProps) {
-  const pixelSize = sizeMap[size];
-  // Maintain aspect ratio from original (562x677)
-  const aspectRatio = 677 / 562;
-  const height = Math.round(pixelSize * aspectRatio);
-  
-  const LogoSvg = () => (
+function LogoSvg({ width, height, animate }: LogoSvgProps) {
+  return (
     <svg 
-      width={pixelSize} 
+      width={width} 
       height={height} 
       viewBox="0 0 562 677" 
       fill="none" 
@@ -106,11 +102,23 @@ export function WitnessLogo({
       </g>
     </svg>
   );
+}
+
+export function WitnessLogo({ 
+  size = 'md', 
+  className = '',
+  showWordmark = false,
+  animate = true
+}: WitnessLogoProps) {
+  const pixelSize = sizeMap[size];
+  // Maintain aspect ratio from original (562x677)
+  const aspectRatio = 677 / 562;
+  const height = Math.round(pixelSize * aspectRatio);
 
   if (showWordmark) {
     return (
       <div className={`flex items-center gap-2 ${className}`}>
-        <LogoSvg />
+        <LogoSvg width={pixelSize} height={height} animate={animate} />
         <span className={`font-black tracking-tighter ${wordmarkSizeMap[size]}`}>
           YOU<span className="text-[#F2721B]">+</span>
         </span>
@@ -120,7 +128,7 @@ export function WitnessLogo({
 
   return (
     <div className={className}>
-      <LogoSvg />
+      <LogoSvg width={pixelSize} height={height} animate={animate} />
     </div>
   );
 }

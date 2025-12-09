@@ -39,9 +39,9 @@ function getPlatform(): 'web' | 'mobile' {
 
   const userAgent = window.navigator.userAgent.toLowerCase();
   const isMobileApp =
-    // @ts-ignore
+    // @ts-expect-error - Capacitor global may exist in mobile context
     window.Capacitor !== undefined ||
-    // @ts-ignore
+    // @ts-expect-error - ReactNativeWebView global may exist in mobile context
     window.ReactNativeWebView !== undefined ||
     userAgent.includes('wv');
 

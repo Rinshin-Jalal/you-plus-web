@@ -1,17 +1,14 @@
 // Simple personalization for onboarding AI messages
 // Uses field names directly (not step IDs)
 
-type OnboardingData = Record<string, any>;
+type OnboardingData = Record<string, string | number | string[] | undefined>;
 
 export function getPersonalizedLines(stepId: number, data: OnboardingData): string[] | null {
   // Extract data using field names
-  const name = data.name || "friend";
-  const timesTried = data.times_tried || 0;
-  const coreIdentity = data.core_identity;
-  const primaryPillar = data.primary_pillar;
-  const quitPattern = data.quit_pattern;
-  const favoriteExcuse = data.favorite_excuse;
-  const whoDisappointed = data.who_disappointed;
+  const name = (data.name as string) || "friend";
+  const timesTried = (data.times_tried as number) || 0;
+  const quitPattern = data.quit_pattern as string | undefined;
+  const favoriteExcuse = data.favorite_excuse as string | undefined;
 
   switch (stepId) {
     // After name input - Step 6 commentary "2 years from now..."
@@ -26,16 +23,19 @@ export function getPersonalizedLines(stepId: number, data: OnboardingData): stri
 
     // After pillar questions - Step 30 act header for "Your Why"
     case 30:
-      if (primaryPillar) {
-        const pillarName = primaryPillar.includes('Health') ? 'health' :
-                          primaryPillar.includes('Work') ? 'work' :
-                          primaryPillar.includes('Money') ? 'money' : 'relationships';
-        return [
-          `${name}, your ${pillarName} is the keystone.`,
-          "Fix that, and everything else follows."
-        ];
+      {
+        const primaryPillar = data.primary_pillar as string | undefined;
+        if (primaryPillar) {
+          const pillarName = primaryPillar.includes('Health') ? 'health' :
+                            primaryPillar.includes('Work') ? 'work' :
+                            primaryPillar.includes('Money') ? 'money' : 'relationships';
+          return [
+            `${name}, your ${pillarName} is the keystone.`,
+            "Fix that, and everything else follows."
+          ];
+        }
+        return null;
       }
-      return null;
 
     // After patterns - Step 40 act header "Lock It In"
     case 40:
@@ -92,9 +92,7 @@ export function getPersonalizedLines(stepId: number, data: OnboardingData): stri
 
 // Get personalized label for input/choice steps
 export function getPersonalizedLabel(stepId: number, defaultLabel: string, data: OnboardingData): string {
-  const name = data.name || "";
-  const timesTried = data.times_tried || 0;
-  const primaryPillar = data.primary_pillar;
+  const name = (data.name as string) || "";
 
   switch (stepId) {
     // Core identity input - step 7
@@ -132,9 +130,8 @@ export function getPersonalizedLabel(stepId: number, defaultLabel: string, data:
 
 // Get personalized subtext for voice steps
 export function getPersonalizedSubtext(stepId: number, defaultSubtext: string, data: OnboardingData): string {
-  const name = data.name || "";
-  const coreIdentity = data.core_identity;
-  const theWhy = data.the_why;
+  const name = (data.name as string) || "";
+  const coreIdentity = data.core_identity as string | undefined;
 
   switch (stepId) {
     // Future self intro recording - step 8

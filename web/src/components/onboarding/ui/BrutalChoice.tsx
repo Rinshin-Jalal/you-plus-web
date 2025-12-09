@@ -15,18 +15,18 @@ export const BrutalChoice = ({ options, onSelect, disabled = false }: BrutalChoi
         key={i}
         onClick={() => !disabled && onSelect(opt)}
         disabled={disabled}
-        className={`group relative w-full text-left px-6 py-5 border border-black/10 rounded-lg transition-all duration-200
+        className={`group relative w-full text-left px-6 py-5 border transition-all duration-200
           ${disabled 
-            ? 'bg-gray-50 cursor-not-allowed opacity-50' 
-            : 'bg-white hover:bg-black hover:text-white cursor-pointer'
+            ? 'bg-white/5 border-white/10 cursor-not-allowed opacity-50' 
+            : 'bg-white/5 border-white/20 hover:bg-[#F97316] hover:border-[#F97316] hover:text-black cursor-pointer'
           }`}
       >
         <div className="flex justify-between items-center">
-            <span className={`font-mono text-lg md:text-xl font-medium transition-transform duration-300
+            <span className={`font-mono text-lg md:text-xl font-medium transition-transform duration-300 text-[#FAFAFA] group-hover:text-black
               ${!disabled && 'group-hover:translate-x-2'}`}>
             {opt}
             </span>
-            <ArrowRight className={`transition-all duration-300 w-5 h-5
+            <ArrowRight className={`transition-all duration-300 w-5 h-5 text-[#FAFAFA] group-hover:text-black
               ${disabled ? 'opacity-0' : 'opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0'}`} strokeWidth={2} />
         </div>
       </button>

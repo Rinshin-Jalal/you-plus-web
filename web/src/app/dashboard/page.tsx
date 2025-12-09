@@ -3,6 +3,7 @@
 import React from 'react';
 import Dashboard from '@/components/dashboard/Dashboard';
 import { authService } from '@/services/auth';
+import { AuthGuard } from '@/components/shared/AuthGuard';
 
 export default function DashboardPage() {
     const handleLogout = async () => {
@@ -15,5 +16,9 @@ export default function DashboardPage() {
         }
     };
 
-    return <Dashboard onLogout={handleLogout} />;
+    return (
+        <AuthGuard>
+            <Dashboard onLogout={handleLogout} />
+        </AuthGuard>
+    );
 }

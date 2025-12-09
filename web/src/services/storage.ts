@@ -8,8 +8,8 @@ class StorageService {
     if (typeof window === 'undefined') return;
     try {
       localStorage.setItem(this.STORAGE_KEY, JSON.stringify(data));
-    } catch (e) {
-      console.error('Failed to save data', e);
+    } catch {
+      console.error('Failed to save data');
     }
   }
 
@@ -18,7 +18,7 @@ class StorageService {
     try {
       const data = localStorage.getItem(this.STORAGE_KEY);
       return data ? JSON.parse(data) : {};
-    } catch (e) {
+    } catch {
       return {};
     }
   }
@@ -60,7 +60,7 @@ class StorageService {
     try {
       const data = localStorage.getItem(this.VOICE_KEY);
       return data ? JSON.parse(data) : {};
-    } catch (e) {
+    } catch {
       return {};
     }
   }

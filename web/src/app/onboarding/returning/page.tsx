@@ -191,7 +191,7 @@ export default function ReturningUserOnboardingPage() {
                         )}
 
                         <Button 
-                            variant="primary" 
+                            variant="accent" 
                             onClick={handleStartQuestions}
                         >
                             LET&apos;S GO
@@ -249,7 +249,7 @@ export default function ReturningUserOnboardingPage() {
                         )}
 
                         <Button 
-                            variant="primary" 
+                            variant="accent" 
                             onClick={handleNextQuestion}
                             className="mt-12 min-w-[200px]"
                             disabled={submitting}

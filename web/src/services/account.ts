@@ -30,7 +30,7 @@ class AccountService {
       try {
         const response = await apiClient.get<{ user: UserProfile }>('/api/core/profile');
         return response.user;
-      } catch (error) {
+      } catch {
         // If backend profile fetch fails, return basic info from Supabase
         return {
           id: user.id,
@@ -104,7 +104,7 @@ class AccountService {
       if (stored) {
         return JSON.parse(stored);
       }
-    } catch (e) {
+    } catch {
       // Ignore parsing errors
     }
 

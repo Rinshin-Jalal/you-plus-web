@@ -75,11 +75,15 @@ export const auth = {
   async signInWithGoogle(redirectTo?: string): Promise<{ error: Error | null }> {
     const client = getClient()
     const currentOrigin = window.location.origin
-    const callbackUrl = redirectTo || `${currentOrigin}/auth/callback`
+    // Always callback to /auth/callback, with optional next param for final destination
+    const callbackUrl = redirectTo 
+      ? `${currentOrigin}/auth/callback?next=${encodeURIComponent(redirectTo)}`
+      : `${currentOrigin}/auth/callback`
     
     // Log origin for debugging PKCE issues
     console.debug('[AUTH] Starting Google OAuth from origin:', currentOrigin)
-    console.debug('[AUTH] Redirect URL:', callbackUrl)
+    console.debug('[AUTH] Callback URL:', callbackUrl)
+    console.debug('[AUTH] Final redirect after auth:', redirectTo || '/dashboard')
     
     const { data, error } = await client.auth.signInWithOAuth({
       provider: 'google',
@@ -119,11 +123,15 @@ export const auth = {
   async signInWithApple(redirectTo?: string): Promise<{ error: Error | null }> {
     const client = getClient()
     const currentOrigin = window.location.origin
-    const callbackUrl = redirectTo || `${currentOrigin}/auth/callback`
+    // Always callback to /auth/callback, with optional next param for final destination
+    const callbackUrl = redirectTo 
+      ? `${currentOrigin}/auth/callback?next=${encodeURIComponent(redirectTo)}`
+      : `${currentOrigin}/auth/callback`
     
     // Log origin for debugging PKCE issues
     console.debug('[AUTH] Starting Apple OAuth from origin:', currentOrigin)
-    console.debug('[AUTH] Redirect URL:', callbackUrl)
+    console.debug('[AUTH] Callback URL:', callbackUrl)
+    console.debug('[AUTH] Final redirect after auth:', redirectTo || '/dashboard')
     
     const { data, error } = await client.auth.signInWithOAuth({
       provider: 'apple',

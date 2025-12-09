@@ -7,12 +7,30 @@ import Link from 'next/link';
 import { GrainOverlay } from '@/components/onboarding/ui/GrainOverlay';
 import { WitnessLogo } from '@/components/ui/WitnessLogo';
 import { LegalFooter } from '@/components/shared/LegalFooter';
+import { useAuth } from '@/hooks/useAuth';
 
 export default function LandingPage() {
   const router = useRouter();
+  const { user, isAuthenticated, loading } = useAuth();
 
   const startOnboarding = () => {
     router.push('/onboarding');
+  };
+
+  // Get user display info
+  const getUserDisplayName = () => {
+    if (!user) return '';
+    return user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'User';
+  };
+
+  const getUserAvatar = () => {
+    if (!user) return null;
+    return user.user_metadata?.avatar_url || user.user_metadata?.picture || null;
+  };
+
+  const getUserInitial = () => {
+    const name = getUserDisplayName();
+    return name.charAt(0).toUpperCase();
   };
 
   return (
@@ -32,15 +50,44 @@ export default function LandingPage() {
             <WitnessLogo size="sm" showWordmark />
           </Link>
           <div className="flex items-center gap-4">
-            <Link href="/auth/login" className="text-sm text-white/70 hover:text-white transition-colors">
-              Login
-            </Link>
-            <button 
-              onClick={startOnboarding} 
-              className="bg-[#F97316] text-black px-5 py-2 text-sm font-bold uppercase tracking-wide hover:bg-[#FB923C] transition-colors"
-            >
-              GET STARTED
-            </button>
+            {loading ? (
+              // Loading state
+              <div className="w-8 h-8 bg-white/10 animate-pulse" />
+            ) : isAuthenticated && user ? (
+              // Logged in - show user info
+              <Link 
+                href="/dashboard" 
+                className="flex items-center gap-3 hover:bg-white/5 px-3 py-2 transition-colors"
+              >
+                {getUserAvatar() ? (
+                  <img 
+                    src={getUserAvatar()!} 
+                    alt={getUserDisplayName()} 
+                    className="w-8 h-8 rounded-full object-cover border border-white/20"
+                  />
+                ) : (
+                  <div className="w-8 h-8 bg-[#F97316] flex items-center justify-center text-black font-bold text-sm">
+                    {getUserInitial()}
+                  </div>
+                )}
+                <span className="text-sm text-white/80 font-medium hidden sm:block">
+                  {getUserDisplayName()}
+                </span>
+              </Link>
+            ) : (
+              // Not logged in - show login/signup buttons
+              <>
+                <Link href="/auth/login" className="text-sm text-white/70 hover:text-white transition-colors">
+                  Login
+                </Link>
+                <button 
+                  onClick={startOnboarding} 
+                  className="bg-[#F97316] text-black px-5 py-2 text-sm font-bold uppercase tracking-wide hover:bg-[#FB923C] transition-colors"
+                >
+                  GET STARTED
+                </button>
+              </>
+            )}
           </div>
         </div>
       </nav>

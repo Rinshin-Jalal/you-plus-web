@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo, Suspense } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
+import { FullPageLoader } from '@/components/ui/Loaders';
 
 export interface AuthGuardProps {
   children: React.ReactNode;
@@ -10,22 +11,30 @@ export interface AuthGuardProps {
   fallback?: React.ReactNode;
 }
 
-export function AuthGuard({ children, redirectTo = '/auth/login', fallback }: AuthGuardProps) {
+function AuthGuardInner({ children, redirectTo = '/auth/login', fallback }: AuthGuardProps) {
   const { isAuthenticated, loading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const targetPath = useMemo(() => {
+    const query = searchParams?.toString();
+    return query ? `${pathname}?${query}` : pathname;
+  }, [pathname, searchParams]);
+
+  const redirectUrl = useMemo(() => {
+    const separator = redirectTo.includes('?') ? '&' : '?';
+    return `${redirectTo}${separator}next=${encodeURIComponent(targetPath)}`;
+  }, [redirectTo, targetPath]);
 
   useEffect(() => {
     if (!loading && !isAuthenticated) {
-      router.push(redirectTo);
+      router.push(redirectUrl);
     }
-  }, [isAuthenticated, loading, redirectTo, router]);
+  }, [isAuthenticated, loading, redirectUrl, router]);
 
   if (loading) {
-    return fallback || (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-600"></div>
-      </div>
-    );
+    return fallback || <FullPageLoader message="Checking authentication…" />;
   }
 
   if (!isAuthenticated) {
@@ -33,4 +42,12 @@ export function AuthGuard({ children, redirectTo = '/auth/login', fallback }: Au
   }
 
   return <>{children}</>;
+}
+
+export function AuthGuard(props: AuthGuardProps) {
+  return (
+    <Suspense fallback={props.fallback || <FullPageLoader message="Loading…" />}>
+      <AuthGuardInner {...props} />
+    </Suspense>
+  );
 }

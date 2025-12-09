@@ -10,6 +10,7 @@ import { PhoneInput, isValidE164 } from '@/components/shared/PhoneInput';
 import { apiClient } from '@/services/api';
 import { useDashboardStore } from '@/stores/dashboardStore';
 import { Phone, X, Check } from 'lucide-react';
+import { FullPageLoader, SavingOverlay } from '@/components/ui/Loaders';
 
 /**
  * Setup Page - The gateway after onboarding
@@ -149,17 +150,13 @@ export default function SetupPage() {
 
   // Loading states
   if (authLoading || subLoading || step === 'checking' || step === 'pushing') {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-[#0D0D0D] p-4">
-        <div className="animate-spin rounded h-12 w-12 border-2 border-white border-t-transparent mb-4"></div>
-        <p className="text-white/60 font-mono text-sm">
-          {authLoading && 'Checking authentication...'}
-          {!authLoading && subLoading && 'Checking subscription...'}
-          {step === 'pushing' && 'Saving your data...'}
-          {step === 'checking' && !authLoading && !subLoading && 'Setting up...'}
-        </p>
-      </div>
-    );
+    const message =
+      authLoading ? 'Checking authentication...' :
+      subLoading ? 'Checking subscription...' :
+      step === 'pushing' ? 'Saving your data...' :
+      'Setting up...';
+
+    return <FullPageLoader message={message} />;
   }
 
   // Error state
@@ -194,6 +191,7 @@ export default function SetupPage() {
 
   return (
     <div className="min-h-screen bg-[#0D0D0D] flex items-center justify-center p-4">
+      {saving && <SavingOverlay message="Saving your phone..." />}
       <div className="max-w-md w-full">
         {/* Progress Indicator */}
         <div className="flex justify-center gap-2 mb-8">

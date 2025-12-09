@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Space_Grotesk, JetBrains_Mono } from "next/font/google";
-import { AuthProvider } from "@/hooks/useAuth";
+import Providers from "./providers";
 import "./globals.css";
 
 const spaceGrotesk = Space_Grotesk({
@@ -34,9 +34,9 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${spaceGrotesk.variable} ${jetbrainsMono.variable}`} suppressHydrationWarning>
       <body className="bg-[#0D0D0D] text-[#FAFAFA] antialiased" style={{ fontFamily: 'var(--font-space-grotesk), system-ui, sans-serif' }}>
-        <AuthProvider>
+        <Providers>
           {children}
-        </AuthProvider>
+        </Providers>
       </body>
     </html>
   );

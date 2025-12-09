@@ -3,10 +3,12 @@
 import React from 'react';
 import { Check, X, Target, Clock } from 'lucide-react';
 import type { DashboardStats } from '@/types';
+import { SectionLoader } from '@/components/ui/Loaders';
 
 interface StatsGridProps {
   stats: DashboardStats;
   hasCompletedFirstCall?: boolean;
+  isLoading?: boolean;
 }
 
 const StatBox = ({ 
@@ -73,7 +75,10 @@ const StatBox = ({
   );
 };
 
-export const StatsGrid = ({ stats, hasCompletedFirstCall = true }: StatsGridProps) => {
+export const StatsGrid = ({ stats, hasCompletedFirstCall = true, isLoading = false }: StatsGridProps) => {
+  if (isLoading) {
+    return <SectionLoader message="Loading stats" />;
+  }
   const total = stats.promisesKeptTotal + stats.promisesBrokenTotal;
   const keepRate = total > 0 ? Math.round((stats.promisesKeptTotal / total) * 100) : 0;
 

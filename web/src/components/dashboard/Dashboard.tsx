@@ -8,11 +8,11 @@ import { HeroTimer } from '@/components/dashboard/HeroTimer';
 import { AssessmentCard } from '@/components/dashboard/AssessmentCard';
 import { StatsGrid } from '@/components/dashboard/StatsGrid';
 import { PillarGrid } from '@/components/dashboard/PillarGrid';
-import { MascotLoader } from '@/components/ui/MascotLoader';
 import { WitnessLogo } from '@/components/ui/WitnessLogo';
 import { GrainOverlay } from '@/components/onboarding/ui/GrainOverlay';
 import { LogOut, Settings, Flame, Compass, Trophy, ArrowRight } from 'lucide-react';
 import { paymentService, type SubscriptionStatus } from '@/services/payment';
+import { FullPageLoader } from '@/components/ui/Loaders';
 
 export default function Dashboard({ onLogout }: { onLogout: () => void }) {
   const router = useRouter();
@@ -34,8 +34,11 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
     fetchSubscription();
   }, []);
 
-  if (loading || subLoading) {
-    return <MascotLoader message="Preparing your dashboard" />;
+  const isPriming = !data && (loading || subLoading);
+  const isRefreshing = !!data && (loading || subLoading);
+
+  if (isPriming) {
+    return <FullPageLoader message="Preparing your dashboard" />;
   }
 
   if (!data) return null;
@@ -176,7 +179,7 @@ export default function Dashboard({ onLogout }: { onLogout: () => void }) {
                     <span className="text-xs font-mono uppercase tracking-[0.3em] text-[#F97316]">THE RECORD</span>
                     <div className="flex-1 h-px bg-white/10" />
                   </div>
-                  <StatsGrid stats={data.stats} hasCompletedFirstCall={hasCompletedFirstCall} />
+                  <StatsGrid stats={data.stats} hasCompletedFirstCall={hasCompletedFirstCall} isLoading={isRefreshing} />
                 </div>
                 
                 {/* Pillars Section */}

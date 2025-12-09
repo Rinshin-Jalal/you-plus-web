@@ -4,14 +4,6 @@ import { db, auth } from '@/services/supabase';
 import type {
   DashboardData,
   DashboardStats,
-  User,
-  Status,
-  CallMemory,
-  CallAnalytics,
-  Subscription,
-  FutureSelf,
-  FutureSelfPillar,
-  IdentityAlignment,
 } from '@/types';
 
 const DEFAULT_STATS: DashboardStats = {
