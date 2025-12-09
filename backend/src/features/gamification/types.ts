@@ -92,10 +92,12 @@ export interface UserProgression {
   mascot_stage: number;
   mascot_mood: MascotMood;
   mascot_energy: number;
+  days_absent: number; // Days since last activity - for abandonment visuals
   last_xp_earned_at: string | null;
   last_level_up_at: string | null;
   last_achievement_at: string | null;
   last_energy_decay_at: string | null;
+  last_activity_check_at: string | null; // Last date we checked days_absent
   created_at: string;
   updated_at: string;
 }

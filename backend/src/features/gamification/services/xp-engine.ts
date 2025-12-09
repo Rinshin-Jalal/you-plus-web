@@ -2,10 +2,21 @@
 // XP Engine Service
 // ============================================================================
 // Core XP awarding logic with multiplier support
+//
+// Philosophy: "The mascot is a mirror. It shows them what they did."
+// Mood is now calculated based on REAL pillar health, not just activity.
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { XPReason, XPAwardResult, UserProgression } from '../types';
+import type { XPReason, XPAwardResult, UserProgression, MascotMood } from '../types';
 import { XP_VALUES, MASCOT_STAGES } from '../types';
+import {
+  calculateMood,
+  getPillarHealth,
+  getDaysAbsent,
+  calculateEnergyDecay,
+  calculateEnergyRestore,
+  ENERGY_CONFIG,
+} from './mood-calculator';
 
 export interface AwardXPParams {
   userId: string;
@@ -214,38 +225,44 @@ export class XPEngine {
   }
 
   /**
-   * Update mascot mood based on user state
+   * Update mascot mood based on pillar health + activity
+   * 
+   * The mascot reflects REAL life progress (pillar health), not just activity.
+   * When users quit, they see the cost. When they show up, they earn joy.
+   * 
+   * Priority order:
+   * 1. celebrating (just leveled up)
+   * 2. sleeping (energy depleted - abandoned)
+   * 3. sad (streak broken OR pillars very low)
+   * 4. concerned (pillars declining OR returning after absence)
+   * 5. proud (high pillars + strong streak)
+   * 6. happy (good pillars + decent streak)
+   * 7. neutral (default)
    */
   async updateMascotMood(
     userId: string,
     context: {
       justLeveledUp?: boolean;
       streakDays?: number;
-      trustScore?: number;
       energy?: number;
       streakBroken?: boolean;
     }
   ): Promise<void> {
-    const { justLeveledUp, streakDays = 0, trustScore = 50, energy = 100, streakBroken } = context;
+    // Get pillar health (the real measure of life progress)
+    const pillarHealth = await getPillarHealth(this.supabase, userId);
+    
+    // Get days since last activity (for abandonment detection)
+    const daysAbsent = await getDaysAbsent(this.supabase, userId);
 
-    // Priority order for mood determination
-    let mood: string = 'neutral';
-
-    if (justLeveledUp) {
-      mood = 'celebrating';
-    } else if (energy <= 0) {
-      mood = 'sleeping';
-    } else if (streakBroken) {
-      mood = 'sad';
-    } else if (streakDays >= 7 && trustScore >= 70) {
-      mood = 'proud';
-    } else if (streakDays >= 3 || trustScore >= 60) {
-      mood = 'happy';
-    } else if (trustScore < 40) {
-      mood = 'concerned';
-    } else if (streakDays === 0 && trustScore < 50) {
-      mood = 'sad';
-    }
+    // Calculate mood using pillar-health-aware logic
+    const mood = calculateMood({
+      justLeveledUp: context.justLeveledUp,
+      streakDays: context.streakDays ?? 0,
+      energy: context.energy ?? 100,
+      streakBroken: context.streakBroken,
+      daysAbsent,
+      pillarHealth,
+    });
 
     const { error } = await this.supabase
       .from('user_progression')
@@ -259,11 +276,18 @@ export class XPEngine {
 
   /**
    * Decay mascot energy (called by nightly cron)
+   * 
+   * Uses ACCELERATED decay for absent users:
+   * - Days 1-2: -15 energy/day (standard)
+   * - Days 3+:  -25 energy/day (they're ghosting)
+   * 
+   * The mascot becomes dim, dusty, and eventually cobwebbed.
+   * This creates visual shame that motivates return.
    */
   async decayMascotEnergy(userId: string): Promise<void> {
     const { data, error } = await this.supabase
       .from('user_progression')
-      .select('mascot_energy, last_energy_decay_at')
+      .select('mascot_energy, last_energy_decay_at, days_absent')
       .eq('user_id', userId)
       .single();
 
@@ -273,20 +297,89 @@ export class XPEngine {
     const today = new Date().toISOString().split('T')[0];
     if (data.last_energy_decay_at === today) return;
 
-    const newEnergy = Math.max(0, data.mascot_energy - 15);
+    // Calculate days since last decay
+    const lastDecay = data.last_energy_decay_at 
+      ? new Date(data.last_energy_decay_at)
+      : new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const daysSinceLastDecay = Math.floor(
+      (Date.now() - lastDecay.getTime()) / (1000 * 60 * 60 * 24)
+    );
+
+    // Get current days absent
+    const daysAbsent = await getDaysAbsent(this.supabase, userId);
+
+    // Calculate new energy with accelerated decay
+    const newEnergy = calculateEnergyDecay(
+      data.mascot_energy,
+      daysAbsent,
+      daysSinceLastDecay
+    );
+
+    // Determine mood based on energy and absence
+    let newMood: MascotMood | undefined;
+    if (newEnergy <= 0) {
+      newMood = 'sleeping';
+    } else if (daysAbsent >= 3) {
+      newMood = 'sad';
+    }
 
     const { error: updateError } = await this.supabase
       .from('user_progression')
       .update({
         mascot_energy: newEnergy,
         last_energy_decay_at: today,
-        mascot_mood: newEnergy <= 0 ? 'sleeping' : undefined,
+        days_absent: daysAbsent,
+        ...(newMood ? { mascot_mood: newMood } : {}),
       })
       .eq('user_id', userId);
 
     if (updateError) {
       console.error('[XPEngine] Failed to decay mascot energy:', updateError);
     }
+  }
+
+  /**
+   * Restore mascot energy when user takes action
+   * 
+   * Recovery rates:
+   * - Complete a call: +25 energy
+   * - Pillar check-in: +10 energy
+   * 
+   * Recovery is SLOWER than decay (asymmetric by design).
+   * They have to earn back their happy mascot.
+   */
+  async restoreMascotEnergy(
+    userId: string,
+    action: 'call_completed' | 'call_answered' | 'pillar_checkin'
+  ): Promise<number> {
+    const { data, error } = await this.supabase
+      .from('user_progression')
+      .select('mascot_energy')
+      .eq('user_id', userId)
+      .single();
+
+    if (error || !data) return 0;
+
+    const newEnergy = calculateEnergyRestore(data.mascot_energy, action);
+
+    const { error: updateError } = await this.supabase
+      .from('user_progression')
+      .update({
+        mascot_energy: newEnergy,
+        days_absent: 0,  // Reset absence counter
+        last_xp_earned_at: new Date().toISOString(),
+      })
+      .eq('user_id', userId);
+
+    if (updateError) {
+      console.error('[XPEngine] Failed to restore mascot energy:', updateError);
+      return data.mascot_energy;
+    }
+
+    // Update mood now that they're back
+    await this.updateMascotMood(userId, { energy: newEnergy });
+
+    return newEnergy;
   }
 
   /**

@@ -82,6 +82,7 @@ export interface MascotState {
   stageName: string;
   mood: MascotMood;
   energy: number;
+  daysAbsent: number; // Days since last activity - controls abandonment visuals (dim, dust, cobwebs)
   equippedAccessories: Array<{
     key: string;
     category: AccessoryCategory;

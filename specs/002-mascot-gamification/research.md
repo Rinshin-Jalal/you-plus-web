@@ -335,3 +335,132 @@ These items are explicitly out of scope but noted for future work:
 4. **Guilds/Teams** - Group accountability with shared goals
 5. **Custom Challenges** - User-created challenges for others
 6. **Trading** - Exchange accessories with other users
+
+---
+
+## Decision 11: Pillar-Health-Based Mood with Shame System
+
+### Date
+2025-12-09
+
+### Decision
+The mascot mood reflects **real life progress** (pillar health), not just activity. 
+Additionally, the mascot visually deteriorates when abandoned, creating healthy shame 
+that motivates return and prevents the quitting cycle.
+
+### Philosophy
+> "The mascot is a mirror. It shows them what they did."
+
+This answers Christensen's question: "Does this make the user a better version of 
+themselves, or does this distract them from that goal?"
+
+A user who shows up every day but isn't improving their pillars should NOT have a 
+happy mascot. The mascot should be concerned — because it cares about the user, 
+not the streak.
+
+### Rationale
+- YOU+ exists to stop the quitting cycle
+- Users need to feel the cost of abandonment
+- Shame without redemption = churn; shame with clear path back = growth
+- The mascot's deteriorated state IS the accountability mechanism
+- Recovery must be earned through action, not given freely
+
+### Mood Priority Order (Updated)
+```
+1. Celebrating (highest) - just leveled up
+2. Sleeping            - energy = 0 (abandoned)
+3. Sad                 - streak broken OR avg pillar trust < 30
+4. Concerned           - pillars declining OR returning after 3+ days OR any pillar < 30
+5. Proud               - avg pillar trust >= 70 AND streak >= 7
+6. Happy               - avg pillar trust >= 55 AND streak >= 3
+7. Neutral (lowest)    - default state
+```
+
+### Key Change: Pillar Health > Activity
+| Old System | New System |
+|------------|------------|
+| Trust score from status table | Average trust across active pillars |
+| Streak determines mood | Streak + pillar health together |
+| No abandonment penalty | Visual degradation when absent |
+
+### Abandonment Visual System
+| Days Absent | Visual Effect |
+|-------------|---------------|
+| 0-2 days | Normal appearance |
+| 3-4 days | Colors dim (saturation decreases) |
+| 5-6 days | Dim + dust particles appear |
+| 7+ days | Dim + dust + cobwebs |
+
+### Energy Decay (Asymmetric)
+Degradation is FASTER than improvement. This creates healthy shame.
+
+| Direction | Rate |
+|-----------|------|
+| **Decay (absent)** | |
+| Days 1-2 | -15 energy/day |
+| Days 3+ | -25 energy/day (accelerated) |
+| **Restore (active)** | |
+| Complete call | +25 energy |
+| Pillar check-in | +10 energy |
+
+### Example: User Ghosts for 6 Days
+```
+Day 0: Energy 100, vibrant colors, happy mascot
+Day 1: Energy 85, normal
+Day 2: Energy 70, normal
+Day 3: Energy 45, colors dimming, mood = sad
+Day 4: Energy 20, more faded
+Day 5: Energy 0, sleeping mascot, dust particles
+Day 6: Energy 0, sleeping, dusty, nearly colorless
+
+User returns and completes a call:
+  Energy: 0 → 25
+  Mascot wakes up, mood = "sad" (not happy!)
+  Colors still dim
+  
+User completes another call:
+  Energy: 25 → 50
+  Mood improves to "concerned"
+  
+User shows consistent behavior over days:
+  Pillars improve → mood becomes "happy"
+  Colors restore
+  Dust/cobwebs disappear
+```
+
+### Why No "Welcome Back" Mood
+Initially considered a warm "welcome_back" mood for returning users. Rejected because:
+- It removes the cost of quitting
+- Users need to see the damage they caused
+- The mascot should look abandoned, not forgiving
+- Redemption must be earned
+
+### Configurable Thresholds
+All thresholds are in `mood-calculator.ts` for easy tuning:
+
+```typescript
+export const MOOD_THRESHOLDS = {
+  PILLAR_PROUD: 70,        // avg >= 70 can be proud
+  PILLAR_HAPPY: 55,        // avg >= 55 can be happy
+  PILLAR_CONCERNED: 40,    // avg < 40 = concerned
+  PILLAR_SAD: 30,          // avg < 30 = sad
+  LOWEST_PILLAR_ALERT: 30, // any pillar < 30 triggers concern
+  STREAK_PROUD: 7,         // days for proud
+  STREAK_HAPPY: 3,         // days for happy
+  DAYS_DUST: 5,            // days until dust appears
+  DAYS_COBWEBS: 7,         // days until cobwebs appear
+};
+
+export const ENERGY_CONFIG = {
+  DECAY_STANDARD: 15,      // days 1-2 of absence
+  DECAY_ACCELERATED: 25,   // days 3+ of absence
+  RESTORE_CALL: 25,        // completing a call
+  RESTORE_PILLAR: 10,      // pillar check-in
+};
+```
+
+### Files Involved
+- `migrations/013_mascot_abandonment.sql` - Database functions for decay/restore
+- `backend/src/features/gamification/services/mood-calculator.ts` - Core mood logic
+- `backend/src/features/gamification/services/xp-engine.ts` - Updated mood updates
+- `web/src/components/gamification/Mascot/MascotAvatar.tsx` - Abandonment visuals

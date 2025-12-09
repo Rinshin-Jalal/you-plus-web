@@ -194,15 +194,23 @@ gamification.get('/mascot', requireAuth, async (c) => {
   try {
     const supabase = createSupabaseClient(env);
 
-    // Get progression for mascot state
+    // Get progression for mascot state (including days_absent for abandonment visuals)
     const { data: progression, error: progressionError } = await supabase
       .from('user_progression')
-      .select('mascot_stage, mascot_mood, mascot_energy')
+      .select('mascot_stage, mascot_mood, mascot_energy, days_absent, last_xp_earned_at')
       .eq('user_id', userId)
       .single();
 
     if (progressionError) {
       return c.json({ error: 'Failed to fetch mascot state' }, 500);
+    }
+
+    // Calculate days absent if not cached
+    let daysAbsent = progression?.days_absent || 0;
+    if (progression?.last_xp_earned_at && daysAbsent === 0) {
+      const lastActivity = new Date(progression.last_xp_earned_at);
+      const now = new Date();
+      daysAbsent = Math.floor((now.getTime() - lastActivity.getTime()) / (1000 * 60 * 60 * 24));
     }
 
     // Get equipped accessories
@@ -221,6 +229,7 @@ gamification.get('/mascot', requireAuth, async (c) => {
       stageName: getMascotStageName(progression?.mascot_stage || 1),
       mood: progression?.mascot_mood || 'neutral',
       energy: progression?.mascot_energy || 100,
+      daysAbsent, // For abandonment visuals (dim, dust, cobwebs)
       equippedAccessories: (equipped || []).map((e) => {
         const acc = e.mascot_accessories as unknown as Record<string, unknown>;
         return {
