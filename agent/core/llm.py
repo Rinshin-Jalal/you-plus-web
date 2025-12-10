@@ -345,3 +345,115 @@ User just said: "{user_text}"
 Should we advance to the next stage?"""
 
     return await llm_json(prompt, STAGE_SYSTEM)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CALL SUMMARY GENERATION
+# ═══════════════════════════════════════════════════════════════════════════════
+
+SUMMARY_SYSTEM = """You generate concise, encouraging call summaries for an accountability app.
+
+Write a 2-3 sentence summary that:
+1. Acknowledges whether they kept their promise (if applicable)
+2. Highlights tomorrow's commitment (if they made one)
+3. Notes any standout moment (breakthrough, vulnerability, strong quote)
+4. Uses a supportive but direct tone - not cheesy or overly positive
+
+Keep it real and personal. Use "you" language. Max 150 words."""
+
+
+async def generate_call_summary(
+    promise_kept: Optional[bool],
+    tomorrow_commitment: Optional[str],
+    commitment_time: Optional[str],
+    excuses_detected: list[str],
+    quotes_captured: list[str],
+    sentiment_trajectory: list[str],
+    call_quality_score: float,
+    call_duration_seconds: int,
+) -> str:
+    """
+    Generate a human-readable summary of the accountability call.
+
+    Args:
+        promise_kept: True if user kept yesterday's promise, False if not, None if not applicable
+        tomorrow_commitment: What they committed to for tomorrow
+        commitment_time: When they'll do it (e.g., "7am", "after work")
+        excuses_detected: List of excuses they made during the call
+        quotes_captured: Memorable things they said
+        sentiment_trajectory: How their mood changed during call
+        call_quality_score: 0.0-1.0 quality rating
+        call_duration_seconds: How long the call lasted
+
+    Returns:
+        Human-readable summary string (2-3 sentences)
+    """
+    # Build context for the LLM
+    promise_status = "not applicable (first call or no prior commitment)"
+    if promise_kept is True:
+        promise_status = "YES - they kept their promise"
+    elif promise_kept is False:
+        promise_status = "NO - they didn't keep their promise"
+
+    commitment_info = "No specific commitment made"
+    if tomorrow_commitment:
+        if commitment_time:
+            commitment_info = (
+                f"Committed to: {tomorrow_commitment} at {commitment_time}"
+            )
+        else:
+            commitment_info = f"Committed to: {tomorrow_commitment} (no specific time)"
+
+    excuses_info = "None" if not excuses_detected else ", ".join(excuses_detected[:3])
+
+    quotes_info = "None captured"
+    if quotes_captured:
+        quotes_info = f'"{quotes_captured[0]}"'  # Use the best quote
+
+    mood_info = "Steady"
+    if sentiment_trajectory:
+        if len(sentiment_trajectory) >= 2:
+            mood_info = f"{sentiment_trajectory[0]} → {sentiment_trajectory[-1]}"
+        else:
+            mood_info = sentiment_trajectory[0]
+
+    duration_min = call_duration_seconds // 60
+
+    prompt = f"""Generate a call summary:
+
+CALL DATA:
+- Promise kept: {promise_status}
+- Tomorrow's plan: {commitment_info}
+- Excuses made: {excuses_info}
+- Standout quote: {quotes_info}
+- Mood trajectory: {mood_info}
+- Call quality: {call_quality_score:.0%}
+- Duration: {duration_min} minutes
+
+Write a 2-3 sentence summary for the user to see in their call history."""
+
+    result = await llm_analyze(
+        prompt=prompt,
+        system_prompt=SUMMARY_SYSTEM,
+        temperature=0.7,  # Slightly creative for natural language
+        max_tokens=200,
+    )
+
+    if result:
+        return result.strip()
+
+    # Fallback if LLM fails
+    if promise_kept is True:
+        base = "You showed up and kept your promise."
+    elif promise_kept is False:
+        base = "You were honest about missing your commitment."
+    else:
+        base = "Great first check-in."
+
+    if tomorrow_commitment:
+        base += f" Tomorrow: {tomorrow_commitment}"
+        if commitment_time:
+            base += f" at {commitment_time}"
+        base += "."
+
+    return base

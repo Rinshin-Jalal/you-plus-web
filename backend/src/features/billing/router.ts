@@ -138,13 +138,23 @@ billing.get('/subscription', requireAuth, async (c) => {
   try {
     const supabase = createSupabaseClient(env);
 
+    // Fetch user data (dodo_customer_id, onboarding_completed) and check if a futureself row exists for this user_id
     const { data: userData } = await supabase
       .from('users')
       .select('dodo_customer_id, onboarding_completed')
       .eq('id', userId)
       .single();
 
+    const { data: futureSelfExists } = await supabase
+      .from('futureself')
+      .select('id')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    const hasFutureSelf = !!futureSelfExists;
+
     console.log('userData:', userData);
+    console.log('hasFutureSelf:', hasFutureSelf);
     console.log('userId:', userId);
 
     if (!userData?.dodo_customer_id) {
@@ -161,7 +171,7 @@ billing.get('/subscription', requireAuth, async (c) => {
           currency: 'USD',
           subscriptionId: null,
         },
-        onboardingCompleted: userData?.onboarding_completed || false,
+        onboardingCompleted: hasFutureSelf || false,
       });
     }
 
@@ -197,8 +207,8 @@ billing.get('/subscription', requireAuth, async (c) => {
             currency: pendingProduct?.currency || 'USD',
             subscriptionId: pendingSubscription.subscription_id,
           },
-          onboardingCompleted: userData?.onboarding_completed || false,
-        });
+              onboardingCompleted: hasFutureSelf || false,
+            });
       }
 
       return c.json({
@@ -214,7 +224,7 @@ billing.get('/subscription', requireAuth, async (c) => {
           currency: 'USD',
           subscriptionId: null,
         },
-        onboardingCompleted: userData?.onboarding_completed || false,
+        onboardingCompleted: hasFutureSelf || false,
       });
     }
 
@@ -238,7 +248,7 @@ billing.get('/subscription', requireAuth, async (c) => {
           currency: 'USD',
           subscriptionId: null,
         },
-        onboardingCompleted: userData?.onboarding_completed || false,
+        onboardingCompleted: hasFutureSelf || false,
       });
     }
 
@@ -257,7 +267,7 @@ billing.get('/subscription', requireAuth, async (c) => {
         amountCents: product?.price_cents || null,
         subscriptionId: activeSubscription.subscription_id,
       },
-      onboardingCompleted: userData?.onboarding_completed || false,
+      onboardingCompleted: hasFutureSelf || false,
     });
   } catch (error) {
     console.error('Error fetching subscription:', error);

@@ -51,7 +51,7 @@ export function useSubscription() {
     try {
       // Use getFullSubscriptionStatus to get both pieces of info in one call
       const fullResponse = await paymentService.getFullSubscriptionStatus();
-
+      console.log('Full response:', fullResponse);
       const sub = fullResponse.subscription;
       const isOnboarded = fullResponse.onboardingCompleted;
 

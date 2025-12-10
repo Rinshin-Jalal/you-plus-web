@@ -12,7 +12,9 @@ import { WitnessLogo } from '@/components/ui/WitnessLogo';
 function LoginContent() {
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
-    const { signInWithGoogle, signInWithApple, isAuthenticated, loading: authLoading } = useAuth();
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const { signInWithGoogle, signInWithApple, signInWithPassword, isAuthenticated, loading: authLoading } = useAuth();
     const router = useRouter();
     const searchParams = useSearchParams();
     
@@ -43,6 +45,29 @@ function LoginContent() {
             if (result.error) {
                 setError(`${provider} error: ${result.error.message}`);
                 setLoading(false);
+            }
+        } catch (err: unknown) {
+            const errorMessage = err instanceof Error ? err.message : String(err);
+            setError(`Unexpected error: ${errorMessage}`);
+            setLoading(false);
+        }
+    };
+
+    const handleEmailPasswordLogin = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!email || !password) {
+            setError('Please enter both email and password');
+            return;
+        }
+        setLoading(true);
+        setError('');
+        try {
+            const result = await signInWithPassword(email, password);
+            if (result.error) {
+                setError(result.error.message);
+                setLoading(false);
+            } else {
+                router.replace(nextUrl);
             }
         } catch (err: unknown) {
             const errorMessage = err instanceof Error ? err.message : String(err);
@@ -121,6 +146,40 @@ function LoginContent() {
                             </svg>
                             {loading ? 'Signing in...' : 'Continue with Apple'}
                         </button>
+
+                        {/* Divider */}
+                        <div className="flex items-center gap-4 my-6">
+                            <div className="flex-1 h-px bg-white/10"></div>
+                            <span className="text-xs text-white/40 uppercase tracking-wide">or for testing</span>
+                            <div className="flex-1 h-px bg-white/10"></div>
+                        </div>
+
+                        {/* Email/Password Form - FOR TESTING */}
+                        <form onSubmit={handleEmailPasswordLogin} className="space-y-4">
+                            <input
+                                type="email"
+                                placeholder="Email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                disabled={loading}
+                                className="w-full bg-white/5 border border-white/20 text-white py-4 px-4 placeholder:text-white/40 focus:outline-none focus:border-[#F97316] transition-colors disabled:opacity-50"
+                            />
+                            <input
+                                type="password"
+                                placeholder="Password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                disabled={loading}
+                                className="w-full bg-white/5 border border-white/20 text-white py-4 px-4 placeholder:text-white/40 focus:outline-none focus:border-[#F97316] transition-colors disabled:opacity-50"
+                            />
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className="w-full bg-[#F97316] text-black py-5 font-bold uppercase tracking-wide hover:bg-[#FB923C] transition-colors disabled:opacity-50"
+                            >
+                                {loading ? 'Signing in...' : 'Sign in with Email'}
+                            </button>
+                        </form>
                     </div>
 
                     {/* Sign Up Link */}

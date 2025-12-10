@@ -47,6 +47,23 @@ class AuthService {
     }
   }
 
+  // FOR TESTING ONLY - Email/Password sign in
+  async signInWithPassword(email: string, password: string): Promise<{ error: Error | null }> {
+    try {
+      const result = await supabaseAuth.signInWithPassword(email, password);
+
+      if (result.error) {
+        console.error('Email/password sign-in error:', result.error);
+        return { error: result.error };
+      }
+
+      return { error: null };
+    } catch (error) {
+      console.error('Unexpected email/password sign-in error:', error);
+      return { error: error as Error };
+    }
+  }
+
   async signOut(): Promise<{ error: Error | null }> {
     try {
       await fetch('/api/auth/signout', {

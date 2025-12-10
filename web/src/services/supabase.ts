@@ -170,6 +170,24 @@ export const auth = {
     return { error: error || null }
   },
 
+  // FOR TESTING ONLY - Email/Password sign in
+  async signInWithPassword(email: string, password: string): Promise<{ error: Error | null }> {
+    const client = getClient()
+    console.debug('[AUTH] Signing in with email/password (TEST MODE)')
+    
+    const { error } = await client.auth.signInWithPassword({
+      email,
+      password,
+    })
+
+    if (error) {
+      console.error('[AUTH] Email/password sign-in error:', error)
+      return { error }
+    }
+
+    return { error: null }
+  },
+
   onAuthStateChange(callback: (user: SupabaseUser | null, session: Session | null) => void) {
     const client = getClient()
     return client.auth.onAuthStateChange((_event: string, session: Session | null) => {

@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import OnboardingFlow from '@/components/onboarding/OnboardingFlow';
+import { isOnboardingComplete } from '@/data/onboardingSteps';
 import { audioService } from '@/services/audio';
 import { storageService } from '@/services/storage';
 import { useAuth } from '@/hooks/useAuth';
@@ -35,14 +36,18 @@ export default function OnboardingPage() {
         if (authLoading) return;
 
         // Check localStorage first (works for everyone)
-        const hasLocalData = storageService.hasOnboardingData();
-        
-        if (hasLocalData) {
-            // User has partial/complete onboarding data in localStorage
+        const localData = storageService.getData();
+        // Import strictly typed function from data/onboardingSteps
+        const isComplete = isOnboardingComplete(localData);
+
+        if (isComplete) {
+            // User has COMPLETE onboarding data in localStorage
             // Redirect to setup which will handle auth/subscription checks
-            console.log('[Onboarding] Has local data, redirecting to /setup');
+            console.log('[Onboarding] Has complete local data, redirecting to /setup');
             router.replace('/setup');
             return;
+        } else if (Object.keys(localData).length > 0) {
+            console.log('[Onboarding] Has partial data, resuming flow...');
         }
 
         // If authenticated, also check backend onboarding status

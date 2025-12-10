@@ -19,6 +19,7 @@ from core.config import (
     save_call_analytics,
     save_excuse_pattern,
 )
+from core.llm import generate_call_summary
 from services.supermemory import supermemory_service
 
 # Persona system integration
@@ -67,7 +68,22 @@ async def handle_call_end(
     updated_memory["call_type_history"] = call_type_history[-10:]
 
     await upsert_call_memory(user_id, updated_memory)
-    await save_call_analytics(call_summary)
+
+    # Generate AI summary of the call
+    logger.info("🤖 Generating AI call summary...")
+    transcript_summary = await generate_call_summary(
+        promise_kept=call_summary.promise_kept,
+        tomorrow_commitment=call_summary.tomorrow_commitment,
+        commitment_time=call_summary.commitment_time,
+        excuses_detected=call_summary.excuses_detected,
+        quotes_captured=call_summary.quotes_captured,
+        sentiment_trajectory=call_summary.sentiment_trajectory,
+        call_quality_score=call_summary.call_quality_score,
+        call_duration_seconds=call_summary.call_duration_seconds,
+    )
+    logger.info(f"📝 Summary: {transcript_summary[:100]}...")
+
+    await save_call_analytics(call_summary, transcript_summary)
 
     await _update_trust_scores(
         user_id,

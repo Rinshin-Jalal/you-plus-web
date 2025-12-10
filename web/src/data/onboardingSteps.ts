@@ -17,17 +17,17 @@
 //
 // ============================================================================
 
-export type StepType = 
-  | 'commentary' 
-  | 'choice' 
-  | 'input' 
-  | 'slider' 
-  | 'voice' 
-  | 'time' 
-  | 'pillar_selection' 
+export type StepType =
+  | 'commentary'
+  | 'choice'
+  | 'input'
+  | 'slider'
+  | 'voice'
+  | 'time'
+  | 'pillar_selection'
   | 'pillar_primary'
   | 'pillar_questions'
-  | 'card' 
+  | 'card'
   | 'auth';
 
 export interface OnboardingStep {
@@ -469,4 +469,25 @@ export function getStepsBeforePillars(): OnboardingStep[] {
 export function getStepsAfterPillars(): OnboardingStep[] {
   const idx = STEPS.findIndex(s => s.type === 'pillar_questions');
   return STEPS.slice(idx + 1);
+}
+
+/**
+ * Check if onboarding is complete (all fields present)
+ */
+export function isOnboardingComplete(data: Record<string, unknown>): boolean {
+  // Get all required field names from the map
+  const requiredFields = Object.values(STEP_FIELD_MAP);
+
+  // Check if every required field exists in the data
+  const missingFields = requiredFields.filter(field => {
+    const value = data[field];
+    return value === undefined || value === null || value === '';
+  });
+
+  if (missingFields.length > 0) {
+    console.log('[OnboardingCheck] Missing fields:', missingFields);
+    return false;
+  }
+
+  return true;
 }

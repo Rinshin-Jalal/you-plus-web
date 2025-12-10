@@ -9,9 +9,11 @@ interface AuthStepProps {
 }
 
 export const AuthStep = ({ data, onComplete }: AuthStepProps) => {
-  const { signInWithGoogle, signInWithApple, isAuthenticated } = useAuth();
-  const [isLoading, setIsLoading] = useState<'google' | 'apple' | null>(null);
+  const { signInWithGoogle, signInWithApple, signInWithPassword, isAuthenticated } = useAuth();
+  const [isLoading, setIsLoading] = useState<'google' | 'apple' | 'email' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
   const name = (data?.name as string) || (data?.[4] as string) || 'there';
 
@@ -52,6 +54,28 @@ export const AuthStep = ({ data, onComplete }: AuthStepProps) => {
         setIsLoading(null);
       }
       // If successful, the page will redirect
+    } catch {
+      setError('Something went wrong. Please try again.');
+      setIsLoading(null);
+    }
+  };
+
+  const handleEmailPasswordSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !password) {
+      setError('Please enter both email and password');
+      return;
+    }
+    setIsLoading('email');
+    setError(null);
+
+    try {
+      const result = await signInWithPassword(email, password);
+      if (result.error) {
+        setError(result.error.message || 'Failed to sign in. Please try again.');
+        setIsLoading(null);
+      }
+      // If successful, the auth state change will trigger onComplete
     } catch {
       setError('Something went wrong. Please try again.');
       setIsLoading(null);
@@ -142,6 +166,44 @@ export const AuthStep = ({ data, onComplete }: AuthStepProps) => {
             </>
           )}
         </button>
+
+        {/* Divider */}
+        <div className="flex items-center gap-4 my-4">
+          <div className="flex-1 h-px bg-white/10"></div>
+          <span className="text-xs text-white/40 uppercase tracking-wide font-mono">or for testing</span>
+          <div className="flex-1 h-px bg-white/10"></div>
+        </div>
+
+        {/* Email/Password Form - FOR TESTING */}
+        <form onSubmit={handleEmailPasswordSignIn} className="space-y-3">
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            disabled={isLoading !== null}
+            className="w-full p-4 border-2 border-white/10 bg-white/5 text-white font-mono placeholder:text-white/40 focus:outline-none focus:border-[#F97316] transition-colors disabled:opacity-50"
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            disabled={isLoading !== null}
+            className="w-full p-4 border-2 border-white/10 bg-white/5 text-white font-mono placeholder:text-white/40 focus:outline-none focus:border-[#F97316] transition-colors disabled:opacity-50"
+          />
+          <button
+            type="submit"
+            disabled={isLoading !== null}
+            className="w-full p-4 bg-[#F97316] text-black font-mono font-bold hover:bg-[#FB923C] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isLoading === 'email' ? (
+              <div className="w-6 h-6 border-2 border-t-black border-black/20 rounded-full animate-spin mx-auto" />
+            ) : (
+              'Sign in with Email'
+            )}
+          </button>
+        </form>
       </div>
 
       {/* Error Message */}

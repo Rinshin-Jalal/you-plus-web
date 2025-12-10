@@ -14,7 +14,7 @@ interface PillarQuestionsProps {
   onComplete: () => void;
 }
 
-type QuestionType = 'current_state' | 'future_state' | 'identity_statement';
+type QuestionType = 'current' | 'goal' | 'future';
 
 // Punchy transition lines between pillars (indexed by pillar number completed)
 const PILLAR_TRANSITION_LINES: Record<number, string[]> = {
@@ -67,21 +67,21 @@ const CURRENT_STATE_HEADERS = [
   { title: "Time for some truth.", subtitle: "You can't fix what you don't acknowledge." },
 ];
 
-const FUTURE_STATE_HEADERS = [
+const GOAL_HEADERS = [
   { title: "Close your eyes. See it.", subtitle: "What does winning look like?" },
   { title: "Picture your best self.", subtitle: "Be specific. Make it real." },
   { title: "Fast forward 1 year.", subtitle: "What do you see?" },
   { title: "Visualize the transformation.", subtitle: "Details matter." },
 ];
 
-const IDENTITY_HEADERS = [
+const FUTURE_HEADERS = [
   { title: "Say it like you mean it:", subtitle: "\"I am...\"" },
   { title: "Claim your new identity:", subtitle: "\"I am...\"" },
   { title: "Speak it into existence:", subtitle: "\"I am...\"" },
   { title: "Who are you becoming?", subtitle: "\"I am...\"" },
 ];
 
-// Reaction lines based on current_state answers
+// Reaction lines based on current state answers
 const REACTION_LINES: Record<number, string[]> = {
   0: ["Brutal honesty. Respect.", "Rock bottom is a foundation.", "At least you're not lying to yourself."],
   1: ["Been there.", "The cycle ends now.", "Awareness is step one."],
@@ -118,7 +118,7 @@ export const PillarQuestions = ({
   onComplete
 }: PillarQuestionsProps) => {
   const [pillarIndex, setPillarIndex] = useState(0);
-  const [questionType, setQuestionType] = useState<QuestionType>('current_state');
+  const [questionType, setQuestionType] = useState<QuestionType>('current');
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [showTransition, setShowTransition] = useState(false);
   const [transitionLine, setTransitionLine] = useState('');
@@ -141,7 +141,7 @@ export const PillarQuestions = ({
     return getOrCreatePillar(currentPillarId);
   }, [currentPillarId]);
 
-  const questionOrder: QuestionType[] = ['current_state', 'future_state', 'identity_statement'];
+  const questionOrder: QuestionType[] = ['current', 'goal', 'future'];
   const totalPillars = selectedPillars.length;
 
   const getFieldName = (pillarId: string, type: QuestionType): string => {
@@ -155,7 +155,7 @@ export const PillarQuestions = ({
   const [showPillarIntro, setShowPillarIntro] = useState(true);
 
   useEffect(() => {
-    if (questionType === 'current_state') {
+    if (questionType === 'current') {
       setShowPillarIntro(true);
       audioService.playWhoosh(); // Sound for pillar intro
       const timer = setTimeout(() => setShowPillarIntro(false), 1500);
@@ -273,7 +273,7 @@ export const PillarQuestions = ({
     setTimeout(() => {
       setShowTransition(false);
       setPillarIndex(pillarIndex + 1);
-      setQuestionType('current_state');
+      setQuestionType('current');
       setIsTransitioning(false);
     }, 1500);
   };
@@ -287,7 +287,7 @@ export const PillarQuestions = ({
   }
 
   // Pillar intro splash
-  if (showPillarIntro && questionType === 'current_state') {
+  if (showPillarIntro && questionType === 'current') {
     return (
       <div className="w-full max-w-2xl mx-auto flex flex-col items-center justify-center min-h-[400px] animate-in zoom-in-95 duration-500">
         <div className="text-6xl mb-4 animate-bounce">{currentPillar.icon}</div>
@@ -408,7 +408,7 @@ export const PillarQuestions = ({
     );
   }
 
-  // Reaction after current_state selection
+  // Reaction after current state selection
   if (showReaction) {
     return (
       <div className="w-full max-w-2xl mx-auto flex flex-col items-center justify-center min-h-[400px] animate-in fade-in duration-200">
@@ -466,7 +466,7 @@ export const PillarQuestions = ({
       </div>
 
       {/* QUESTION 1: Current State - Big tappable cards */}
-      {questionType === 'current_state' && (
+      {questionType === 'current' && (
         <div className="animate-in slide-in-from-right-8 duration-500">
           <h3 className="font-mono text-xl md:text-2xl text-white font-bold mb-2 text-center">
             {CURRENT_STATE_HEADERS[pillarIndex % CURRENT_STATE_HEADERS.length].title}
@@ -503,18 +503,18 @@ export const PillarQuestions = ({
         </div>
       )}
 
-      {/* QUESTION 2: Future State - Intense vision prompt */}
-      {questionType === 'future_state' && (
+      {/* QUESTION 2: Goal - What's your target? */}
+      {questionType === 'goal' && (
         <div className="animate-in slide-in-from-right-8 duration-500">
           <div className="text-center mb-8">
             <OnboardingMascot expression="encouraging" size="md" animate={true} />
           </div>
           
           <h3 className="font-mono text-xl md:text-2xl text-white font-bold mb-2 text-center">
-            {currentPillar.futurePrompt || FUTURE_STATE_HEADERS[pillarIndex % FUTURE_STATE_HEADERS.length].title}
+            {currentPillar.futurePrompt || GOAL_HEADERS[pillarIndex % GOAL_HEADERS.length].title}
           </h3>
           <p className="font-mono text-sm text-white/40 mb-8 text-center">
-            {FUTURE_STATE_HEADERS[pillarIndex % FUTURE_STATE_HEADERS.length].subtitle}
+            {GOAL_HEADERS[pillarIndex % GOAL_HEADERS.length].subtitle}
           </p>
           
           <div className="relative">
@@ -540,8 +540,8 @@ export const PillarQuestions = ({
         </div>
       )}
 
-      {/* QUESTION 3: Identity Statement - Who you're becoming */}
-      {questionType === 'identity_statement' && (
+      {/* QUESTION 3: Future State - Who you're becoming */}
+      {questionType === 'future' && (
         <div className="animate-in slide-in-from-right-8 duration-500">
           <div className="text-center mb-6">
             <div className="inline-block p-4 border-2 border-[#F97316]">
@@ -550,10 +550,10 @@ export const PillarQuestions = ({
           </div>
           
           <h3 className="font-mono text-xl md:text-2xl text-white font-bold mb-2 text-center">
-            {IDENTITY_HEADERS[pillarIndex % IDENTITY_HEADERS.length].title}
+            {FUTURE_HEADERS[pillarIndex % FUTURE_HEADERS.length].title}
           </h3>
           <p className="font-mono text-sm text-white/40 mb-6 text-center">
-            {IDENTITY_HEADERS[pillarIndex % IDENTITY_HEADERS.length].subtitle}
+            {FUTURE_HEADERS[pillarIndex % FUTURE_HEADERS.length].subtitle}
           </p>
           
           <div className="relative">
