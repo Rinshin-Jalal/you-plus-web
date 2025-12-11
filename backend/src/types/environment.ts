@@ -26,9 +26,6 @@ export const EnvSchema = z.object({
   
   // Optional configuration
   SUPERMEMORY_API_KEY: z.string().optional(),
-  REVENUECAT_WEBHOOK_SECRET: z.string().optional(),
-  REVENUECAT_API_KEY: z.string().optional(),
-  REVENUECAT_PROJECT_ID: z.string().optional(),
   DEBUG_ACCESS_TOKEN: z.string().optional(),
   GEMINI_API_KEY: z.string().optional(), // For returning user personalization
   
@@ -115,12 +112,6 @@ export const EnvCategories = {
 
   memory: {
     SUPERMEMORY_API_KEY: "Supermemory API key for persistent user context (optional)",
-  },
-  
-  revenue: {
-    REVENUECAT_WEBHOOK_SECRET: "RevenueCat webhook secret for subscription validation",
-    REVENUECAT_API_KEY: "RevenueCat API key for subscription validation",
-    REVENUECAT_PROJECT_ID: "RevenueCat project ID for v2 API",
   },
   
   payments: {

@@ -4,14 +4,15 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useSubscription } from '@/hooks/useSubscription';
-import { storageService } from '@/services/storage';
+import { storageService, type PushProgress, type PushResult } from '@/services/storage';
 import { Button } from '@/components/ui/Button';
 import { PhoneInput, isValidE164 } from '@/components/shared/PhoneInput';
 import { apiClient } from '@/services/api';
-import { useDashboardStore } from '@/stores/dashboardStore';
-import { Phone, X, Check } from 'lucide-react';
+import paymentService from '@/services/payment';
+import { Phone, X, Check, RefreshCw, WifiOff, AlertCircle, CreditCard, ExternalLink } from 'lucide-react';
 import { FullPageLoader, SavingOverlay } from '@/components/ui/Loaders';
 import { OnboardingMascot } from '@/components/onboarding/ui/OnboardingMascot';
+import { formatCountdown } from '@/utils/retry';
 
 /**
  * Setup Page - The gateway after onboarding
@@ -103,7 +104,12 @@ const MICRO_STORIES = [
 // ENGAGING LOADER COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════
 
-function EngagingLoader({ isProcessing }: { isProcessing: boolean }) {
+interface EngagingLoaderProps {
+  isProcessing: boolean;
+  progress?: PushProgress | null;
+}
+
+function EngagingLoader({ isProcessing, progress }: EngagingLoaderProps) {
   const [messageIndex, setMessageIndex] = useState(0);
   const [microStoryIndex, setMicroStoryIndex] = useState(0);
   const [showMicroStory, setShowMicroStory] = useState(false);
@@ -171,6 +177,29 @@ function EngagingLoader({ isProcessing }: { isProcessing: boolean }) {
 
   const currentMessage = LOADING_MESSAGES[messageIndex];
 
+  // Get progress step label
+  const getProgressStepLabel = (step: PushProgress['step']) => {
+    switch (step) {
+      case 'validating': return 'Preparing data';
+      case 'merging_audio': return 'Processing voice';
+      case 'uploading': return 'Creating Future Self';
+      case 'complete': return 'Complete';
+      case 'error': return 'Error';
+      default: return 'Processing';
+    }
+  };
+
+  // Get progress percentage
+  const getProgressPercentage = (step: PushProgress['step']) => {
+    switch (step) {
+      case 'validating': return 15;
+      case 'merging_audio': return 40;
+      case 'uploading': return 70;
+      case 'complete': return 100;
+      default: return 0;
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#0A0A0A] flex flex-col items-center justify-center p-6 relative overflow-hidden">
       {/* Background animated elements */}
@@ -208,10 +237,63 @@ function EngagingLoader({ isProcessing }: { isProcessing: boolean }) {
           )}
         </div>
 
+        {/* Progress steps indicator */}
+        {progress && (
+          <div className="mt-8 mb-4">
+            <div className="flex justify-center gap-2 mb-3">
+              {['validating', 'merging_audio', 'uploading'].map((stepName, idx) => {
+                const stepOrder = ['validating', 'merging_audio', 'uploading'];
+                const currentStepIndex = stepOrder.indexOf(progress.step);
+                const isComplete = idx < currentStepIndex || progress.step === 'complete';
+                const isCurrent = progress.step === stepName;
+                
+                return (
+                  <div key={stepName} className="flex items-center gap-2">
+                    <div
+                      className={`w-3 h-3 rounded-full transition-colors ${
+                        isComplete ? 'bg-[#F97316]' :
+                        isCurrent ? 'bg-[#F97316] animate-pulse' :
+                        'bg-white/20'
+                      }`}
+                    />
+                    {idx < 2 && <div className={`w-8 h-0.5 ${isComplete ? 'bg-[#F97316]' : 'bg-white/20'}`} />}
+                  </div>
+                );
+              })}
+            </div>
+            <p className="text-sm text-white/60">
+              {getProgressStepLabel(progress.step)}
+              {progress.attempt && progress.maxAttempts && progress.attempt > 1 && (
+                <span className="text-white/40 ml-2">
+                  (Attempt {progress.attempt}/{progress.maxAttempts})
+                </span>
+              )}
+            </p>
+            {progress.retryingIn && (
+              <p className="text-xs text-[#F97316] mt-1">
+                Retrying in {formatCountdown(progress.retryingIn)}...
+              </p>
+            )}
+            {progress.isOffline && (
+              <div className="flex items-center justify-center gap-2 mt-2 text-yellow-500">
+                <WifiOff size={14} />
+                <span className="text-xs">Waiting for connection...</span>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Progress bar */}
         <div className="mt-12 w-full max-w-xs mx-auto">
           <div className="h-1 bg-white/10 rounded-full overflow-hidden">
-            <div className="h-full bg-gradient-to-r from-[#F97316] to-[#FB923C] rounded-full animate-progress" />
+            {progress ? (
+              <div 
+                className="h-full bg-gradient-to-r from-[#F97316] to-[#FB923C] rounded-full transition-all duration-500"
+                style={{ width: `${getProgressPercentage(progress.step)}%` }}
+              />
+            ) : (
+              <div className="h-full bg-gradient-to-r from-[#F97316] to-[#FB923C] rounded-full animate-progress" />
+            )}
           </div>
         </div>
 
@@ -303,6 +385,38 @@ export default function SetupPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pushAttempted, setPushAttempted] = useState(false);
+  
+  // Enhanced state for resilient UX
+  const [pushProgress, setPushProgress] = useState<PushProgress | null>(null);
+  const [pushResult, setPushResult] = useState<PushResult | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const [isOnline, setIsOnline] = useState(true);
+  const [isOpeningPortal, setIsOpeningPortal] = useState(false);
+
+  // Monitor online status
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    setIsOnline(navigator.onLine);
+    
+    const handleOnline = () => {
+      setIsOnline(true);
+      // Auto-retry if we were in error state due to network
+      if (step === 'error' && pushResult?.errorCode === 'network') {
+        handleRetry();
+      }
+    };
+    
+    const handleOffline = () => setIsOnline(false);
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [step, pushResult?.errorCode]);
 
   // Step 1: Check authentication
   useEffect(() => {
@@ -337,20 +451,14 @@ export default function SetupPage() {
 
     if (!isActive) {
       console.log('[Setup] Not subscribed, redirecting to checkout');
-      // router.replace('/checkout');
+
+      if (hasLocalData) {
+        router.replace('/checkout/welcome');
+      } else {
+        router.replace('/checkout');
+      }
       return;
     }
-
-    // if (!isActive) {
-    //   // Not subscribed → redirect to checkout
-    //   // If they have onboarding data locally (mid-progress), send to personalized welcome
-    //   if (hasLocalData) {
-    //     router.replace('/checkout/welcome');
-    //   } else {
-    //     router.replace('/checkout');
-    //   }
-    //   return;
-    // }
 
     // Auth + subscription confirmed → proceed to push data
     if (step === 'checking') {
@@ -358,18 +466,29 @@ export default function SetupPage() {
     }
   }, [isAuthenticated, authLoading, subLoading, isActive, onboardingCompleted, step, router]);
 
-  // Step 3: Push onboarding data to backend
+  // Step 3: Push onboarding data to backend with progress tracking
   useEffect(() => {
     if (step !== 'pushing' || pushAttempted) return;
 
     const pushData = async () => {
       setPushAttempted(true);
+      setPushProgress(null);
+      setPushResult(null);
 
       try {
         // Check if there's onboarding data to push
         if (storageService.hasOnboardingData()) {
           console.log('[Setup] Pushing onboarding data to backend...');
-          const result = await storageService.pushOnboardingData();
+
+          const result = await storageService.pushOnboardingData({
+            onProgress: (progress) => {
+              setPushProgress(progress);
+              console.log('[Setup] Progress:', progress);
+            },
+            maxRetries: 3,
+          });
+
+          setPushResult(result);
 
           if (!result.success) {
             console.error('[Setup] Failed to push onboarding data:', result.error);
@@ -429,10 +548,70 @@ export default function SetupPage() {
     }
   };
 
-  const handleRetry = () => {
+  const handleRetry = useCallback(() => {
     setError(null);
     setPushAttempted(false);
+    setPushProgress(null);
+    setPushResult(null);
+    setRetryCount(prev => prev + 1);
     setStep('pushing');
+  }, []);
+
+  const handleOpenBillingPortal = async () => {
+    setIsOpeningPortal(true);
+    try {
+      const portalUrl = await paymentService.getCustomerPortalUrl();
+      if (portalUrl) {
+        window.open(portalUrl, '_blank');
+      }
+    } catch (err) {
+      console.error('Error opening billing portal:', err);
+    } finally {
+      setIsOpeningPortal(false);
+    }
+  };
+
+  // Get contextual error help based on error type
+  const getErrorHelp = () => {
+    if (!pushResult) return null;
+    
+    switch (pushResult.errorCode) {
+      case 'network':
+        return {
+          icon: WifiOff,
+          title: 'Connection Issue',
+          description: 'Please check your internet connection and try again.',
+          showPortalLink: false,
+        };
+      case 'timeout':
+        return {
+          icon: AlertCircle,
+          title: 'Request Timed Out',
+          description: 'The server is taking too long to respond. This might be due to heavy load.',
+          showPortalLink: false,
+        };
+      case 'server':
+        return {
+          icon: AlertCircle,
+          title: 'Server Issue',
+          description: 'Our servers are experiencing issues. Please try again in a few minutes.',
+          showPortalLink: true,
+        };
+      case 'validation':
+        return {
+          icon: AlertCircle,
+          title: 'Incomplete Data',
+          description: 'Some required information is missing. You may need to complete onboarding again.',
+          showPortalLink: false,
+        };
+      default:
+        return {
+          icon: X,
+          title: 'Something Went Wrong',
+          description: error || 'We couldn\'t save your data. Please try again.',
+          showPortalLink: true,
+        };
+    }
   };
 
   // Loading states
@@ -447,27 +626,85 @@ export default function SetupPage() {
 
   // Engaging loader for the 'pushing' step (voice cloning, transcription, etc.)
   if (step === 'pushing') {
-    return <EngagingLoader isProcessing={true} />;
+    return <EngagingLoader isProcessing={true} progress={pushProgress} />;
   }
 
-  // Error state
+  // Error state with improved UI
   if (step === 'error') {
+    const errorHelp = getErrorHelp();
+    const ErrorIcon = errorHelp?.icon || X;
+    
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#0D0D0D] p-4">
         <div className="max-w-md w-full text-center">
-          <div className="w-20 h-20 border border-white/30 flex items-center justify-center mx-auto mb-6">
-            <X className="w-10 h-10 text-white" />
+          {/* Offline banner */}
+          {!isOnline && (
+            <div className="mb-6 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg flex items-center justify-center gap-2">
+              <WifiOff size={16} className="text-yellow-500" />
+              <span className="text-yellow-500 text-sm">You're offline. Waiting for connection...</span>
+            </div>
+          )}
+          
+          <div className="w-20 h-20 border border-white/30 flex items-center justify-center mx-auto mb-6 rounded-lg">
+            <ErrorIcon className="w-10 h-10 text-white/70" />
           </div>
-          <h1 className="text-2xl font-bold text-white mb-4">
-            Something went wrong
+          
+          <h1 className="text-2xl font-bold text-white mb-2">
+            {errorHelp?.title || 'Something went wrong'}
           </h1>
-          <p className="text-white/60 mb-8">
-            {error || 'We couldn\'t save your data. Please try again.'}
+          
+          <p className="text-white/60 mb-2">
+            {errorHelp?.description}
           </p>
+          
+          {retryCount > 0 && (
+            <p className="text-white/40 text-sm mb-6">
+              Attempt {retryCount + 1} of retrying
+            </p>
+          )}
+          
+          {/* Retry info */}
+          {pushResult?.isRetryable && (
+            <p className="text-[#F97316]/80 text-sm mb-6">
+              Don't worry, your data is saved locally and we can try again.
+            </p>
+          )}
+          
           <div className="space-y-3">
-            <Button onClick={handleRetry} className="w-full bg-[#F97316] hover:bg-[#EA580C] text-white">
-              Try Again
+            <Button 
+              onClick={handleRetry} 
+              disabled={!isOnline}
+              className="w-full bg-[#F97316] hover:bg-[#EA580C] text-white flex items-center justify-center gap-2"
+            >
+              <RefreshCw size={18} className={!isOnline ? 'animate-spin opacity-50' : ''} />
+              {!isOnline ? 'Waiting for connection...' : 'Try Again'}
             </Button>
+            
+            {/* Portal link for billing issues */}
+            {errorHelp?.showPortalLink && (
+              <button
+                onClick={handleOpenBillingPortal}
+                disabled={isOpeningPortal}
+                className="w-full py-3 border border-white/20 text-white/70 hover:text-white hover:bg-white/5 transition-colors flex items-center justify-center gap-2 rounded"
+              >
+                <CreditCard size={16} />
+                {isOpeningPortal ? 'Opening...' : 'Check Billing Status'}
+                <ExternalLink size={14} className="opacity-50" />
+              </button>
+            )}
+            
+            {/* Contact support for persistent issues */}
+            {retryCount >= 2 && (
+              <p className="text-white/40 text-xs mt-4">
+                Still having trouble?{' '}
+                <a 
+                  href="mailto:support@youplus.app" 
+                  className="text-[#F97316] hover:underline"
+                >
+                  Contact support
+                </a>
+              </p>
+            )}
           </div>
         </div>
       </div>

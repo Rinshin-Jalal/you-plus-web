@@ -92,57 +92,6 @@ function base64ToAudioBlob(audioBase64: string): AudioBlobResult {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// HELPER: Combine multiple audio recordings into one blob
-// ═══════════════════════════════════════════════════════════════════════════
-
-/**
- * Combines multiple base64 audio recordings into a single blob.
- * 
- * Note: This creates a simple concatenation of the audio data.
- * For WebM/Opus format, this works well enough for voice cloning
- * since the ML model extracts voice characteristics from the raw audio.
- * 
- * @param audioSources - Array of base64 encoded audio strings
- * @returns Combined blob with total size info
- */
-function combineAudioBlobs(audioSources: string[]): { blob: Blob; totalSize: number; mimeType: string } {
-  console.log(`🔗 Combining ${audioSources.length} audio sources...`);
-  
-  const allBytes: Uint8Array[] = [];
-  let mimeType = "audio/webm";
-  let totalSize = 0;
-
-  for (let i = 0; i < audioSources.length; i++) {
-    const source = audioSources[i];
-    if (!source) continue;
-    
-    const { bytes, mimeType: sourceMimeType } = base64ToAudioBlob(source);
-    allBytes.push(bytes);
-    totalSize += bytes.length;
-    
-    // Use the first source's mime type
-    if (i === 0) {
-      mimeType = sourceMimeType;
-    }
-    
-    console.log(`   Source ${i + 1}: ${bytes.length} bytes`);
-  }
-
-  // Combine all byte arrays into one
-  const combinedBytes = new Uint8Array(totalSize);
-  let offset = 0;
-  for (const bytes of allBytes) {
-    combinedBytes.set(bytes, offset);
-    offset += bytes.length;
-  }
-
-  const blob = new Blob([combinedBytes], { type: mimeType });
-  console.log(`✅ Combined audio: ${totalSize} bytes total`);
-
-  return { blob, totalSize, mimeType };
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
 // TRANSCRIPTION (Cartesia Ink STT)
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -216,14 +165,15 @@ export async function transcribeAudio(
 /**
  * Clone a user's voice using Cartesia Voice Cloning API
  * 
- * Creates a high-similarity voice clone from audio clips.
- * Accepts multiple audio sources which are combined for better voice quality.
- * The cloned voice can be used for the Future Self agent to speak
- * back to the user in their own voice.
+ * Creates a high-similarity voice clone from a single audio clip.
+ * Cartesia recommends ~5 seconds of audio for best results.
+ * 
+ * The audio is typically a merged WAV file created client-side using Web Audio API.
+ * This ensures Cartesia receives a valid audio file (not concatenated bytes).
  * 
  * POST https://api.cartesia.ai/voices/clone
  * 
- * @param audioSources - Array of base64 encoded audio data (combined for better quality)
+ * @param audioSources - Array of base64 encoded audio data (uses largest if multiple)
  * @param userId - User ID for naming the voice
  * @param userName - User's name for the voice description
  * @param env - Environment variables containing CARTESIA_API_KEY
@@ -236,7 +186,7 @@ export async function cloneVoice(
   env: Env
 ): Promise<VoiceCloneResult> {
   console.log("🎭 Starting Cartesia voice cloning...");
-  console.log(`📊 Received ${audioSources.length} audio sources to combine`);
+  console.log(`📊 Received ${audioSources.length} audio sources`);
 
   try {
     // Filter out empty sources
@@ -249,15 +199,28 @@ export async function cloneVoice(
       };
     }
 
-    // Combine all audio sources into one blob
-    const { blob, totalSize, mimeType } = combineAudioBlobs(validSources);
-    console.log(`📦 Combined audio for cloning: ${totalSize} bytes, type: ${mimeType}`);
+    // Select the largest/best recording for cloning
+    // (Cartesia needs a single valid audio file, not concatenated bytes)
+    let bestSource = validSources[0]!;
+    let bestSize = 0;
+    
+    for (let i = 0; i < validSources.length; i++) {
+      const source = validSources[i]!;
+      const { bytes } = base64ToAudioBlob(source);
+      console.log(`   Source ${i + 1}: ${bytes.length} bytes`);
+      if (bytes.length > bestSize) {
+        bestSize = bytes.length;
+        bestSource = source;
+      }
+    }
+    
+    const { blob, mimeType } = base64ToAudioBlob(bestSource);
+    console.log(`📦 Selected best audio for cloning: ${blob.size} bytes, type: ${mimeType}`);
 
     // Validate audio size - Cartesia recommends at least 5 seconds
     // Rough estimate: 5 seconds of webm audio is typically 40-80KB
-    // With 3 recordings combined, we should have plenty
-    if (totalSize < 10000) {
-      console.warn("⚠️ Combined audio may be too short for quality voice cloning");
+    if (blob.size < 10000) {
+      console.warn("⚠️ Audio may be too short for quality voice cloning");
     }
 
     // Determine extension from mime type

@@ -474,15 +474,24 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
           )}
 
           {/* PILLAR QUESTIONS */}
-          {currentStep.type === 'pillar_questions' && inPillarQuestions && (
-            <PillarQuestions
-              key="pillar_questions"
-              selectedPillars={Array.isArray(data.selected_pillars) ? data.selected_pillars : []}
-              data={data}
-              onUpdate={handlePillarQuestionsUpdate}
-              onComplete={handlePillarQuestionsComplete}
-            />
-          )}
+          {currentStep.type === 'pillar_questions' && inPillarQuestions && (() => {
+            // Reorder pillars to put primary pillar first
+            const pillars = Array.isArray(data.selected_pillars) ? data.selected_pillars : [];
+            const primaryPillar = data.primary_pillar;
+            const orderedPillars = primaryPillar 
+              ? [primaryPillar, ...pillars.filter(p => p !== primaryPillar)]
+              : pillars;
+            
+            return (
+              <PillarQuestions
+                key="pillar_questions"
+                selectedPillars={orderedPillars}
+                data={data}
+                onUpdate={handlePillarQuestionsUpdate}
+                onComplete={handlePillarQuestionsComplete}
+              />
+            );
+          })()}
 
           {/* COMMITMENT CARD */}
           {currentStep.type === 'card' && (

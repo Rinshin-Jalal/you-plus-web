@@ -1,7 +1,4 @@
-// Export all handlers and router for webhook feature
-
-// Handlers
-export * from './handlers/revenuecat-webhooks';
+// Export router for webhook feature
 
 // Router
 export { default as router } from './router';

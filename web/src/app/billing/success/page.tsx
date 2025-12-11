@@ -1,49 +1,22 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { storageService } from '@/services/storage';
 import { useAuth } from '@/hooks/useAuth';
 
 /**
  * Billing Success Page
  * 
  * After successful payment, this page:
- * 1. Pushes onboarding data to backend (if exists)
- * 2. Clears temporary checkout data
- * 3. Redirects to /setup for phone collection
+ * 1. Clears temporary checkout data
+ * 2. Hands off to /setup (which pushes onboarding data and collects phone)
  */
 
 export default function BillingSuccessPage() {
   const router = useRouter();
   const { isAuthenticated, loading: authLoading } = useAuth();
   const [processing, setProcessing] = useState(false);
-  const [statusMessage, setStatusMessage] = useState('Processing payment...');
-
-  const processAndRedirect = useCallback(async () => {
-    setProcessing(true);
-
-    try {
-      // Push onboarding data if exists
-      if (storageService.hasOnboardingData()) {
-        setStatusMessage('Saving your profile...');
-        await storageService.pushOnboardingData();
-      }
-
-      // Clear temporary checkout data
-      localStorage.removeItem('youplus_guest_checkout_id');
-      localStorage.removeItem('youplus_pending_plan_id');
-      
-      setStatusMessage('Redirecting to setup...');
-      
-      // Always go to setup after successful payment
-      // Setup will handle phone collection and then redirect to dashboard
-      router.replace('/setup');
-    } catch {
-      // Even on error, redirect to setup - it will handle any issues
-      router.replace('/setup');
-    }
-  }, [router]);
+  const statusMessage = 'Redirecting to setup...';
 
   useEffect(() => {
     if (authLoading) return;
@@ -53,8 +26,22 @@ export default function BillingSuccessPage() {
       return;
     }
 
-    processAndRedirect();
-  }, [isAuthenticated, authLoading, router, processAndRedirect]);
+    const clearAndRedirect = async () => {
+      setProcessing(true);
+
+      try {
+        // Clear temporary checkout data before handing off to setup
+        localStorage.removeItem('youplus_guest_checkout_id');
+        localStorage.removeItem('youplus_pending_plan_id');
+
+        router.replace('/setup');
+      } catch {
+        router.replace('/setup');
+      }
+    };
+
+    clearAndRedirect();
+  }, [isAuthenticated, authLoading, router]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0A0A0A] text-white">

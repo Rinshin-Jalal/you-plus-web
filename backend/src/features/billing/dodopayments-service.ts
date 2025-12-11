@@ -1,5 +1,50 @@
 import DodoPayments from 'dodopayments';
 import type { Env } from '@/index';
+import { withRetry, withSafeFallback, mapToSafeError, type RetryOptions, type SafeError } from '@/features/core/utils/retry';
+
+// Simple TTL cache for products/plans
+interface CacheEntry<T> {
+  data: T;
+  expiresAt: number;
+}
+
+const PLANS_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+let plansCache: CacheEntry<Array<{
+  product_id: string;
+  name: string;
+  description: string;
+  price_cents: number;
+  currency: string;
+  interval: 'month' | 'year' | 'week' | 'day';
+  interval_count: number;
+  is_recurring: boolean;
+  features: string[];
+  image: string | null;
+  tax_inclusive: boolean;
+}>> | null = null;
+
+// Default retry options for Dodo API calls
+const DODO_RETRY_OPTIONS: RetryOptions = {
+  maxRetries: 3,
+  initialDelayMs: 1000,
+  maxDelayMs: 8000,
+  timeoutMs: 15000,
+  backoffMultiplier: 2,
+  jitter: true,
+};
+
+// Shorter timeout for read operations
+const DODO_READ_OPTIONS: RetryOptions = {
+  ...DODO_RETRY_OPTIONS,
+  timeoutMs: 10000,
+};
+
+// Longer timeout for write operations
+const DODO_WRITE_OPTIONS: RetryOptions = {
+  ...DODO_RETRY_OPTIONS,
+  timeoutMs: 20000,
+  maxRetries: 2, // Fewer retries for writes to avoid duplicates
+};
 
 export interface DodoCheckoutSession {
   session_id: string;
@@ -54,28 +99,43 @@ export class DodoPaymentsService {
   }
 
   async ensureCustomer(userId: string, email: string, name?: string): Promise<DodoCustomer> {
+    const trimmedName = name?.trim();
+
     try {
       let found: any | undefined;
-      const trimmedName = name?.trim();
 
-      try {
-        // @ts-ignore - list may be async iterable in newer SDKs
-        for await (const c of (this.client as any).customers.list({ email })) {
-          if (c.email?.toLowerCase() === email.toLowerCase()) {
-            found = c;
-            break;
+      // Try to find existing customer with retry
+      const searchResult = await withSafeFallback(
+        async () => {
+          try {
+            // @ts-ignore - list may be async iterable in newer SDKs
+            for await (const c of (this.client as any).customers.list({ email })) {
+              if (c.email?.toLowerCase() === email.toLowerCase()) {
+                return c;
+              }
+            }
+            return undefined;
+          } catch {
+            const res: any = await (this.client as any).customers.list({ email });
+            const items: any[] = res?.items ?? res?.data ?? [];
+            return items.find((c) => c.email?.toLowerCase() === email.toLowerCase());
           }
-        }
-      } catch {
-        const res: any = await (this.client as any).customers.list({ email });
-        const items: any[] = res?.items ?? res?.data ?? [];
-        found = items.find((c) => c.email?.toLowerCase() === email.toLowerCase());
-      }
+        },
+        undefined,
+        'search customer',
+        DODO_READ_OPTIONS
+      );
+
+      found = searchResult.data;
 
       if (found) {
         if (trimmedName && trimmedName.length > 0 && found.name !== trimmedName) {
           try {
-            await (this.client as any).customers.update(found.customer_id, { name: trimmedName });
+            await withRetry(
+              () => (this.client as any).customers.update(found.customer_id, { name: trimmedName }),
+              DODO_WRITE_OPTIONS,
+              'update customer name'
+            );
             found.name = trimmedName;
           } catch (updateError) {
             console.warn('[dodo] Failed to update customer name, continuing:', updateError);
@@ -96,7 +156,11 @@ export class DodoPaymentsService {
         metadata: { user_id: userId },
       };
 
-      const customer: any = await (this.client as any).customers.create(payload);
+      const customer: any = await withRetry(
+        () => (this.client as any).customers.create(payload),
+        DODO_WRITE_OPTIONS,
+        'create customer'
+      );
 
       const created: DodoCustomer = {
         customer_id: customer.customer_id,
@@ -105,8 +169,9 @@ export class DodoPaymentsService {
       };
       return customer.metadata ? { ...created, metadata: customer.metadata as Record<string, unknown> } : created;
     } catch (error) {
-      console.error('Error ensuring customer:', error);
-      throw new Error('Failed to create or retrieve customer');
+      const safeError = mapToSafeError(error instanceof Error ? error : new Error(String(error)), 'customer operation');
+      console.error('Error ensuring customer:', safeError.message);
+      throw new Error(safeError.userMessage);
     }
   }
 
@@ -124,18 +189,22 @@ export class DodoPaymentsService {
           )
           : null;
 
-      const session = await (this.client as any).checkoutSessions.create({
-        customer: { customer_id: params.customerId },
-        product_cart: [
-          {
-            product_id: params.productId,
-            quantity: 1,
-          },
-        ],
-        allowed_payment_method_types: ['credit', 'debit', 'upi_collect', 'upi_intent'],
-        return_url: params.returnUrl,
-        metadata: metaForSdk,
-      });
+      const session = await withRetry(
+        () => (this.client as any).checkoutSessions.create({
+          customer: { customer_id: params.customerId },
+          product_cart: [
+            {
+              product_id: params.productId,
+              quantity: 1,
+            },
+          ],
+          allowed_payment_method_types: ['credit', 'debit', 'upi_collect', 'upi_intent'],
+          return_url: params.returnUrl,
+          metadata: metaForSdk,
+        }),
+        DODO_WRITE_OPTIONS,
+        'create checkout session'
+      );
 
       console.log('[dodo] Raw checkout session response:', JSON.stringify(session, null, 2));
 
@@ -149,136 +218,178 @@ export class DodoPaymentsService {
         expires_at: ((session as any).expires_at ?? (session as any).created_at)?.toString?.() ?? '',
       };
     } catch (error) {
-      console.error('Error creating checkout session:', error);
-      throw new Error('Failed to create checkout session');
+      const safeError = mapToSafeError(error instanceof Error ? error : new Error(String(error)), 'checkout');
+      console.error('Error creating checkout session:', safeError.message);
+      throw new Error(safeError.userMessage);
     }
   }
 
   async retrieveCheckoutSession(sessionId: string): Promise<any> {
     try {
-      return await this.client.checkoutSessions.retrieve(sessionId);
+      return await withRetry(
+        () => this.client.checkoutSessions.retrieve(sessionId),
+        DODO_READ_OPTIONS,
+        'retrieve checkout session'
+      );
     } catch (error) {
-      console.error('Error retrieving checkout session:', error);
-      throw new Error('Failed to retrieve checkout session');
+      const safeError = mapToSafeError(error instanceof Error ? error : new Error(String(error)), 'checkout verification');
+      console.error('Error retrieving checkout session:', safeError.message);
+      throw new Error(safeError.userMessage);
     }
   }
 
   async getCustomerSubscriptions(customerId: string): Promise<DodoSubscription[]> {
-    try {
-      const res: any = await (this.client as any).subscriptions.list({
-        customer_id: customerId,
-        page_size: 100,
-      });
+    const { data: collected, error } = await withSafeFallback(
+      async () => {
+        const res: any = await (this.client as any).subscriptions.list({
+          customer_id: customerId,
+          page_size: 100,
+        });
 
+        const items: any[] = [];
+        if (res?.items) {
+          items.push(...res.items);
+        } else if (res?.data) {
+          items.push(...res.data);
+        } else {
+          try {
+            // @ts-ignore
+            for await (const s of (this.client as any).subscriptions.list({ customer_id: customerId })) {
+              items.push(s);
+            }
+          } catch { }
+        }
+        return items;
+      },
+      [],
+      'fetch subscriptions',
+      DODO_READ_OPTIONS
+    );
 
-      const collected: any[] = [];
-      if (res?.items) {
-        collected.push(...res.items);
-      } else if (res?.data) {
-        collected.push(...res.data);
-      } else {
-        try {
-          // @ts-ignore
-          for await (const s of (this.client as any).subscriptions.list({ customer_id: customerId })) {
-            collected.push(s);
-          }
-        } catch { }
-      }
-
-      return collected.map((sub: any) => ({
-        subscription_id: sub.subscription_id ?? sub.id,
-        customer_id: sub.customer?.customer_id ?? sub.customer_id ?? '',
-        product_id: sub.product_id ?? sub.product ?? '',
-        status: sub.status,
-        // DodoPayments API returns previous_billing_date/next_billing_date, not current_period_*
-        current_period_start: sub.previous_billing_date ?? sub.current_period_start ?? sub.current_period?.start ?? '',
-        current_period_end: sub.next_billing_date ?? sub.current_period_end ?? sub.current_period?.end ?? '',
-        cancel_at_period_end: (sub.cancel_at_next_billing_date ?? sub.cancel_at_period_end ?? false) as boolean,
-        metadata: sub.metadata,
-      }));
-    } catch (error) {
-      console.error('Error fetching subscriptions:', error);
-      return [];
+    if (error) {
+      console.error('Error fetching subscriptions:', error.message);
     }
+
+    return collected.map((sub: any) => ({
+      subscription_id: sub.subscription_id ?? sub.id,
+      customer_id: sub.customer?.customer_id ?? sub.customer_id ?? '',
+      product_id: sub.product_id ?? sub.product ?? '',
+      status: sub.status,
+      // DodoPayments API returns previous_billing_date/next_billing_date, not current_period_*
+      current_period_start: sub.previous_billing_date ?? sub.current_period_start ?? sub.current_period?.start ?? '',
+      current_period_end: sub.next_billing_date ?? sub.current_period_end ?? sub.current_period?.end ?? '',
+      cancel_at_period_end: (sub.cancel_at_next_billing_date ?? sub.cancel_at_period_end ?? false) as boolean,
+      metadata: sub.metadata,
+    }));
   }
 
   async getSubscription(subscriptionId: string): Promise<DodoSubscription | null> {
-    try {
-      const sub: any = await (this.client as any).subscriptions.retrieve(subscriptionId);
+    const { data: sub, error } = await withSafeFallback<any>(
+      () => (this.client as any).subscriptions.retrieve(subscriptionId),
+      null as any,
+      'fetch subscription',
+      DODO_READ_OPTIONS
+    );
 
-      return {
-        subscription_id: sub.subscription_id ?? sub.id,
-        customer_id: sub.customer?.customer_id ?? sub.customer_id ?? '',
-        product_id: sub.product_id ?? sub.product ?? '',
-        status: sub.status,
-        // DodoPayments API returns previous_billing_date/next_billing_date, not current_period_*
-        current_period_start: sub.previous_billing_date ?? sub.current_period_start ?? sub.current_period?.start ?? '',
-        current_period_end: sub.next_billing_date ?? sub.current_period_end ?? sub.current_period?.end ?? '',
-        cancel_at_period_end: (sub.cancel_at_next_billing_date ?? sub.cancel_at_period_end ?? false) as boolean,
-        metadata: sub.metadata,
-      };
-    } catch (error) {
-      console.error('Error fetching subscription:', error);
+    if (error || !sub) {
+      if (error) {
+        console.error('Error fetching subscription:', error.message);
+      }
       return null;
     }
+
+    return {
+      subscription_id: sub.subscription_id ?? sub.id,
+      customer_id: sub.customer?.customer_id ?? sub.customer_id ?? '',
+      product_id: sub.product_id ?? sub.product ?? '',
+      status: sub.status,
+      // DodoPayments API returns previous_billing_date/next_billing_date, not current_period_*
+      current_period_start: sub.previous_billing_date ?? sub.current_period_start ?? sub.current_period?.start ?? '',
+      current_period_end: sub.next_billing_date ?? sub.current_period_end ?? sub.current_period?.end ?? '',
+      cancel_at_period_end: (sub.cancel_at_next_billing_date ?? sub.cancel_at_period_end ?? false) as boolean,
+      metadata: sub.metadata,
+    };
   }
 
-  async cancelSubscription(subscriptionId: string): Promise<boolean> {
+  async cancelSubscription(subscriptionId: string): Promise<{ success: boolean; error?: string }> {
     try {
-      await (this.client as any).subscriptions.update(subscriptionId, {
-        cancel_at_next_billing_date: true,
-      });
-      return true;
+      await withRetry(
+        () => (this.client as any).subscriptions.update(subscriptionId, {
+          cancel_at_next_billing_date: true,
+        }),
+        DODO_WRITE_OPTIONS,
+        'cancel subscription'
+      );
+      return { success: true };
     } catch (error) {
-      console.error('Error canceling subscription:', error);
-      return false;
+      const safeError = mapToSafeError(error instanceof Error ? error : new Error(String(error)), 'subscription cancellation');
+      console.error('Error canceling subscription:', safeError.message);
+      return { success: false, error: safeError.userMessage };
     }
   }
 
   async getCustomerPortalUrl(customerId: string, returnUrl: string): Promise<string> {
     try {
-      const portal = await (this.client as any).customers.customerPortal.create(customerId, {
-        return_url: returnUrl,
-      });
+      const portal = await withRetry(
+        () => (this.client as any).customers.customerPortal.create(customerId, {
+          return_url: returnUrl,
+        }),
+        DODO_WRITE_OPTIONS,
+        'create customer portal'
+      );
 
       return (portal as any).link;
     } catch (error) {
-      console.error('Error creating customer portal:', error);
-      throw new Error('Failed to create customer portal');
+      const safeError = mapToSafeError(error instanceof Error ? error : new Error(String(error)), 'customer portal');
+      console.error('Error creating customer portal:', safeError.message);
+      throw new Error(safeError.userMessage);
     }
   }
 
-  async changePlan(subscriptionId: string, newProductId: string): Promise<boolean> {
+  async changePlan(subscriptionId: string, newProductId: string): Promise<{ success: boolean; error?: string }> {
     try {
-      await (this.client as any).subscriptions.changePlan(subscriptionId, {
-        product_id: newProductId,
-        proration_billing_mode: 'full_immediately',
-        quantity: 1,
-      });
-      return true;
+      await withRetry(
+        () => (this.client as any).subscriptions.changePlan(subscriptionId, {
+          product_id: newProductId,
+          proration_billing_mode: 'full_immediately',
+          quantity: 1,
+        }),
+        DODO_WRITE_OPTIONS,
+        'change subscription plan'
+      );
+      return { success: true };
     } catch (error) {
-      console.error('Error changing subscription plan:', error);
-      throw new Error('Failed to change subscription plan');
+      const safeError = mapToSafeError(error instanceof Error ? error : new Error(String(error)), 'plan change');
+      console.error('Error changing subscription plan:', safeError.message);
+      return { success: false, error: safeError.userMessage };
     }
   }
 
   async listProducts(): Promise<any[]> {
-    try {
-      const res: any = await (this.client as any).products.list({ recurring: true });
-      if (res?.items) return res.items;
-      if (res?.data) return res.data;
-      const items: any[] = [];
-      try {
-        // @ts-ignore
-        for await (const p of (this.client as any).products.list({ recurring: true })) {
-          items.push(p);
-        }
-      } catch { }
-      return items;
-    } catch (error) {
-      console.error('Error listing products:', error);
-      return [];
+    const { data: items, error } = await withSafeFallback(
+      async () => {
+        const res: any = await (this.client as any).products.list({ recurring: true });
+        if (res?.items) return res.items;
+        if (res?.data) return res.data;
+        const products: any[] = [];
+        try {
+          // @ts-ignore
+          for await (const p of (this.client as any).products.list({ recurring: true })) {
+            products.push(p);
+          }
+        } catch { }
+        return products;
+      },
+      [],
+      'list products',
+      DODO_READ_OPTIONS
+    );
+
+    if (error) {
+      console.error('Error listing products:', error.message);
     }
+
+    return items;
   }
 
   async listProductsForCheckout(): Promise<Array<{
@@ -294,10 +405,17 @@ export class DodoPaymentsService {
     image: string | null;
     tax_inclusive: boolean;
   }>> {
+    // Check cache first
+    const now = Date.now();
+    if (plansCache && plansCache.expiresAt > now) {
+      console.log('[dodo] Returning cached plans');
+      return plansCache.data;
+    }
+
     try {
       const rawProducts = await this.listProducts();
 
-      return rawProducts.map((product: any) => {
+      const products = rawProducts.map((product: any) => {
         // Extract price - can be integer (list) or object (detail)
         let priceCents = 0;
         let currency = 'USD';
@@ -367,8 +485,22 @@ export class DodoPaymentsService {
           tax_inclusive: taxInclusive || product.tax_inclusive || false,
         };
       });
+
+      // Cache the results
+      plansCache = {
+        data: products,
+        expiresAt: Date.now() + PLANS_CACHE_TTL_MS,
+      };
+      console.log('[dodo] Plans cached for 5 minutes');
+
+      return products;
     } catch (error) {
       console.error('Error listing products for checkout:', error);
+      // Return cached data if available, even if expired
+      if (plansCache) {
+        console.log('[dodo] Returning stale cache due to error');
+        return plansCache.data;
+      }
       return [];
     }
   }

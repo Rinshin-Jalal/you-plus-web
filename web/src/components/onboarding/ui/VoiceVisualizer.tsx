@@ -4,6 +4,11 @@ import { Mic, Square } from 'lucide-react';
 import { storageService } from '../../../services/storage';
 import { audioService } from '../../../services/audio';
 
+// Audio constraints - must match schema validation
+const MIN_AUDIO_SIZE = 10 * 1024; // 10KB
+const MAX_AUDIO_SIZE = 10 * 1024 * 1024; // 10MB
+const ALLOWED_AUDIO_TYPES = ['audio/webm', 'audio/wav', 'audio/mp3', 'audio/mpeg', 'audio/ogg', 'audio/m4a', 'audio/mp4'];
+
 interface VoiceVisualizerProps {
     isRecording: boolean;
     onToggle: () => void;
@@ -12,6 +17,7 @@ interface VoiceVisualizerProps {
     canStop?: boolean;
     fieldName?: string; // The field name to save the voice recording as (e.g., 'future_self_intro_recording')
     onRecordingComplete?: (blob: Blob) => void; // Callback when recording is complete
+    onRecordingError?: (error: string) => void; // Callback when recording validation fails
 }
 
 export const VoiceVisualizer = ({ 
@@ -21,7 +27,8 @@ export const VoiceVisualizer = ({
     minDuration = 15, 
     canStop = true,
     fieldName,
-    onRecordingComplete
+    onRecordingComplete,
+    onRecordingError
 }: VoiceVisualizerProps) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const animationRef = useRef<number | null>(null);
@@ -34,6 +41,7 @@ export const VoiceVisualizer = ({
     // Store fieldName in a ref so the onstop callback always has the latest value
     const fieldNameRef = useRef(fieldName);
     const onRecordingCompleteRef = useRef(onRecordingComplete);
+    const onRecordingErrorRef = useRef(onRecordingError);
 
     // Calculate progress percentage toward minimum duration
     const progress = Math.min((recordingTime / minDuration) * 100, 100);
@@ -49,7 +57,8 @@ export const VoiceVisualizer = ({
       canStopRef.current = canStop;
       fieldNameRef.current = fieldName;
       onRecordingCompleteRef.current = onRecordingComplete;
-    }, [progress, canStop, fieldName, onRecordingComplete]);
+      onRecordingErrorRef.current = onRecordingError;
+    }, [progress, canStop, fieldName, onRecordingComplete, onRecordingError]);
 
     useEffect(() => {
         const canvas = canvasRef.current;
@@ -90,10 +99,40 @@ export const VoiceVisualizer = ({
                     };
                     mediaRecorder.onstop = () => {
                         const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+                        
+                        // Validate audio size
+                        if (blob.size < MIN_AUDIO_SIZE) {
+                            const errorMsg = `Recording too short (${Math.round(blob.size / 1024)}KB). Please record for longer.`;
+                            console.error('[VoiceVisualizer]', errorMsg);
+                            if (onRecordingErrorRef.current) {
+                                onRecordingErrorRef.current(errorMsg);
+                            }
+                            return;
+                        }
+                        
+                        if (blob.size > MAX_AUDIO_SIZE) {
+                            const errorMsg = `Recording too large (${Math.round(blob.size / (1024 * 1024))}MB). Maximum is 10MB.`;
+                            console.error('[VoiceVisualizer]', errorMsg);
+                            if (onRecordingErrorRef.current) {
+                                onRecordingErrorRef.current(errorMsg);
+                            }
+                            return;
+                        }
+                        
+                        // Validate audio type
+                        if (!ALLOWED_AUDIO_TYPES.includes(blob.type)) {
+                            const errorMsg = `Invalid audio format: ${blob.type}`;
+                            console.error('[VoiceVisualizer]', errorMsg);
+                            if (onRecordingErrorRef.current) {
+                                onRecordingErrorRef.current(errorMsg);
+                            }
+                            return;
+                        }
+                        
                         // Use refs to get latest values (avoids stale closure bug)
                         const saveId = fieldNameRef.current || `recording_${Date.now()}`;
                         storageService.saveVoice(blob, saveId);
-                        console.log("Voice recorded and saved:", saveId);
+                        console.log("Voice recorded and saved:", saveId, `(${Math.round(blob.size / 1024)}KB)`);
                         // Notify parent component using ref
                         if (onRecordingCompleteRef.current) {
                             onRecordingCompleteRef.current(blob);

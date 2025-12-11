@@ -54,7 +54,6 @@
 
 ### What's Built ✅
 - [x] Guest checkout flow (`POST /api/billing/checkout/create-guest`)
-- [x] Link guest checkout to user (`POST /api/billing/link-guest-checkout`)
 - [x] Checkout page (`/checkout`)
 - [x] Billing success page (`/billing/success`) with sign-in buttons
 - [x] Auth callback with smart routing

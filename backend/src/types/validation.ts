@@ -34,7 +34,6 @@ export const UserSchema = z.object({
   onboarding_completed_at: z.string().optional(),
   schedule_change_count: z.number(),
   voice_reclone_count: z.number(),
-  revenuecat_customer_id: z.string().optional(),
 });
 
 // Promise-related schemas

@@ -140,12 +140,12 @@ export async function proxy(request: NextRequest) {
         // State 2: Subscribed Only (Missing Onboarding)
         // -> Goal: Onboarding / Setup
         if (!onboardingCompleted && hasActiveSubscription) {
-            // Must go to onboarding or setup
-            if (!pathname.startsWith('/onboarding') && !pathname.startsWith('/setup')) {
-                console.log(`[MIDDLEWARE] ${pathname} - Subscribed but not onboarded, redirecting to /onboarding`)
-                return NextResponse.redirect(new URL('/onboarding', request.url))
+            // Must go to setup (handles post-payment data push + phone capture)
+            if (!pathname.startsWith('/setup')) {
+                console.log(`[MIDDLEWARE] ${pathname} - Subscribed but not onboarded, redirecting to /setup`)
+                return NextResponse.redirect(new URL('/setup', request.url))
             }
-            // Allow /onboarding and /setup
+            // Allow setup flow
             return supabaseResponse
         }
 

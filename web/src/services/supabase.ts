@@ -170,19 +170,58 @@ export const auth = {
     return { error: error || null }
   },
 
-  // FOR TESTING ONLY - Email/Password sign in
+  // FOR TESTING ONLY - Email/Password sign in (auto-creates account if doesn't exist)
   async signInWithPassword(email: string, password: string): Promise<{ error: Error | null }> {
     const client = getClient()
     console.debug('[AUTH] Signing in with email/password (TEST MODE)')
     
-    const { error } = await client.auth.signInWithPassword({
+    // Try to sign in first
+    const { error: signInError } = await client.auth.signInWithPassword({
       email,
       password,
     })
 
-    if (error) {
-      console.error('[AUTH] Email/password sign-in error:', error)
-      return { error }
+    // If invalid credentials, try to create the account
+    if (signInError && signInError.message.includes('Invalid login credentials')) {
+      console.debug('[AUTH] Login failed, attempting to create account...')
+      
+      const { error: signUpError } = await client.auth.signUp({
+        email,
+        password,
+        options: {
+          // Skip email confirmation for testing
+          emailRedirectTo: undefined,
+        },
+      })
+
+      if (signUpError) {
+        console.error('[AUTH] Sign-up error:', signUpError)
+        return { error: signUpError }
+      }
+
+      // Try signing in again after account creation
+      const { error: retryError } = await client.auth.signInWithPassword({
+        email,
+        password,
+      })
+
+      if (retryError) {
+        // If still failing, might need email confirmation - return helpful message
+        if (retryError.message.includes('Email not confirmed')) {
+          console.debug('[AUTH] Account created but email confirmation required')
+          return { error: new Error('Account created! Check your email to confirm, or disable email confirmation in Supabase dashboard for testing.') }
+        }
+        console.error('[AUTH] Retry sign-in error:', retryError)
+        return { error: retryError }
+      }
+
+      console.debug('[AUTH] Account created and signed in successfully')
+      return { error: null }
+    }
+
+    if (signInError) {
+      console.error('[AUTH] Email/password sign-in error:', signInError)
+      return { error: signInError }
     }
 
     return { error: null }

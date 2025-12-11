@@ -19,6 +19,7 @@ export interface SubscriptionInfo {
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 let cachedResponse: SubscriptionResponse | null = null;
 let cacheTimestamp: number = 0;
+let cachedUserId: string | null = null;
 
 export function useSubscription() {
   const { isAuthenticated, user } = useAuth();
@@ -38,41 +39,49 @@ export function useSubscription() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchSubscription = useCallback(async () => {
-    if (!isAuthenticated || !user) {
+  const fetchSubscription = useCallback(async (force: boolean = false) => {
+    const userId = user?.id ?? null;
+
+    if (!isAuthenticated || !userId) {
       setSubscription(prev => ({ ...prev, status: 'none', hasActiveSubscription: false }));
       setOnboardingCompleted(false);
       setLoading(false);
       setLoadedUserId(null);
+      cachedResponse = null;
+      cachedUserId = null;
+      cacheTimestamp = 0;
+      return;
+    }
+
+    // Reuse cached result when the same user is already loaded recently.
+    const now = Date.now();
+    const hasValidCache =
+      !force &&
+      cachedResponse &&
+      cachedUserId === userId &&
+      now - cacheTimestamp < CACHE_DURATION &&
+      loadedUserId === userId;
+
+    if (hasValidCache) {
+      // Nothing to do; avoid triggering re-renders on focus/tab changes.
+      setLoading(false);
       return;
     }
 
     setLoading(true);
-    try {
-      // Use getFullSubscriptionStatus to get both pieces of info in one call
-      const fullResponse = await paymentService.getFullSubscriptionStatus();
-      console.log('Full response:', fullResponse);
+
+    const applyResponse = (fullResponse: SubscriptionResponse) => {
       const sub = fullResponse.subscription;
       const isOnboarded = fullResponse.onboardingCompleted;
 
-      // Map to SubscriptionInfo format
       let status: 'active' | 'expired' | 'none' = 'none';
       let displayText = 'No Active Subscription';
       let needsAction = true;
-
-      console.log('Subscription status:', sub);
-      console.log('Is onboarding completed:', isOnboarded);
-      console.log('Is active:', sub.hasActiveSubscription === true);
-      console.log("Is hasActiveSubscription", sub.status === "active");
-      console.log('Is past due:', sub.status === 'past_due');
-      console.log('Is cancelled:', sub.status === 'cancelled');
 
       if (sub.hasActiveSubscription && sub.status === 'active') {
         status = 'active';
         displayText = 'Subscription Active';
         needsAction = false;
-
-        console.log('Subscription is active');
       } else if (sub.status === 'past_due') {
         status = 'expired';
         displayText = 'Payment Failed - Update Required';
@@ -95,16 +104,26 @@ export function useSubscription() {
         productId: sub.productId ?? null,
       });
       setOnboardingCompleted(isOnboarded);
-      setLoadedUserId(user.id);
+      setLoadedUserId(userId);
       setError(null);
+    };
+
+    try {
+      // Use getFullSubscriptionStatus to get both pieces of info in one call
+      const fullResponse = await paymentService.getFullSubscriptionStatus();
+
+      cachedResponse = fullResponse;
+      cachedUserId = userId;
+      cacheTimestamp = Date.now();
+
+      applyResponse(fullResponse);
     } catch (err) {
       console.error('Error fetching subscription:', err);
       setError('Failed to load subscription status');
-      // Keep previous state or set to error state if needed
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user, loadedUserId]);
 
   // Initial fetch
   useEffect(() => {
@@ -113,13 +132,16 @@ export function useSubscription() {
 
   // Refresh function
   const refresh = useCallback(() => {
-    return fetchSubscription();
+    return fetchSubscription(true);
   }, [fetchSubscription]);
 
   // Clear cache (noop now, but kept for API compatibility)
   const clearCache = useCallback(() => {
-    return refresh();
-  }, [refresh]);
+    cachedResponse = null;
+    cachedUserId = null;
+    cacheTimestamp = 0;
+    return fetchSubscription(true);
+  }, [fetchSubscription]);
 
   // Determine effective loading state
   // We are loading if:

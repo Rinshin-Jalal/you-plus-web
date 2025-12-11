@@ -3,6 +3,7 @@ import { createSupabaseClient } from "@/features/core/utils/database";
 import { Env } from "@/types/environment";
 import { getAuthenticatedUserId } from "@/middleware/auth";
 import { transcribeAudio, cloneVoice, uploadAudioToR2 } from "@/features/core/utils/transcription";
+import { ConversionCompleteSchema } from "../schemas";
 
 export const postConversionOnboardingComplete = async (c: Context) => {
   console.log("🎯 === CONVERSION ONBOARDING: Complete Request Received ===");
@@ -12,6 +13,13 @@ export const postConversionOnboardingComplete = async (c: Context) => {
 
   const body = await c.req.json();
   console.log("📦 Request body keys:", Object.keys(body));
+
+  const parsed = ConversionCompleteSchema.safeParse(body);
+  if (!parsed.success) {
+    return c.json({ error: "Invalid onboarding payload", details: parsed.error.flatten() }, 400);
+  }
+
+  const payload = parsed.data;
 
   const env = c.env as Env;
 
@@ -35,10 +43,17 @@ export const postConversionOnboardingComplete = async (c: Context) => {
     future_self_intro_recording,
     why_recording,  // This will be transcribed to get the_why
     pledge_recording,
+    
+    // Merged voice recording for cloning (single WAV file merged on client)
+    // This is the preferred source for voice cloning as it's a proper audio file
+    merged_voice_recording,
 
     // Call settings
     call_time,
-  } = body;
+    
+    // User's timezone (from browser Intl API)
+    timezone,
+  } = payload;
 
   // Validate required fields
   if (!core_identity) {
@@ -58,6 +73,17 @@ export const postConversionOnboardingComplete = async (c: Context) => {
   }
   if (!pledge_recording) {
     return c.json({ error: "Missing required field: pledge_recording" }, 400);
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // REQUIRE STORAGE BUCKET - Audio files must be stored in R2
+  // ═══════════════════════════════════════════════════════════════════════
+  if (!env.AUDIO_BUCKET) {
+    console.error("❌ AUDIO_BUCKET not configured - cannot process onboarding without storage");
+    return c.json({ 
+      error: "Storage configuration error", 
+      details: "Audio storage bucket is not configured. Please contact support." 
+    }, 503);
   }
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -97,14 +123,48 @@ export const postConversionOnboardingComplete = async (c: Context) => {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // STEP 2: Clone voice from ALL 3 recordings combined (better quality)
+  // STEP 2: Clone voice from merged recording (or fallback to best single)
   // ─────────────────────────────────────────────────────────────────────────
-  if (introIsBase64 && whyIsBase64 && pledgeIsBase64) {
-    console.log("🎭 [2/4] Cloning user's voice from all 3 recordings...");
-
-    // Pass all 3 recordings to be combined for voice cloning
+  // The client merges all 3 recordings into a single WAV file using Web Audio API
+  // This produces a valid audio file that Cartesia can process (unlike raw byte concatenation)
+  
+  if (merged_voice_recording && isBase64(merged_voice_recording)) {
+    console.log("🎭 [2/4] Cloning user's voice from merged recording (client-side merged)...");
+    
+    // Use the merged recording - it's already a proper audio file
     const cloneResult = await cloneVoice(
-      [future_self_intro_recording, why_recording, pledge_recording],
+      [merged_voice_recording],  // Single merged file
+      userId,
+      name || "User",
+      env
+    );
+
+    if (cloneResult.success && cloneResult.voiceId) {
+      cartesiaVoiceId = cloneResult.voiceId;
+      console.log(`✅ Voice cloned successfully! Voice ID: ${cartesiaVoiceId}`);
+    } else {
+      console.warn(`⚠️ Voice cloning failed: ${cloneResult.error}`);
+      console.warn("⚠️ User will use default agent voice until cloning succeeds");
+    }
+  } else if (introIsBase64 && whyIsBase64 && pledgeIsBase64) {
+    // Fallback: Use the single largest recording if no merged audio
+    console.log("🎭 [2/4] No merged recording - using largest individual recording...");
+
+    // Find the largest recording
+    const recordings = [
+      { name: 'intro', data: future_self_intro_recording },
+      { name: 'why', data: why_recording },
+      { name: 'pledge', data: pledge_recording }
+    ];
+    
+    const largestRecording = recordings.reduce((best, current) => 
+      current.data.length > best.data.length ? current : best
+    );
+    
+    console.log(`   Using ${largestRecording.name} recording (${largestRecording.data.length} chars)`);
+
+    const cloneResult = await cloneVoice(
+      [largestRecording.data],
       userId,
       name || "User",
       env
@@ -124,58 +184,52 @@ export const postConversionOnboardingComplete = async (c: Context) => {
   // ─────────────────────────────────────────────────────────────────────────
   // STEP 3 & 4: Upload ALL 3 recordings to R2 for future reference
   // ─────────────────────────────────────────────────────────────────────────
-  if (env.AUDIO_BUCKET) {
-    console.log("📤 [3/4] Uploading all recordings to R2...");
+  // AUDIO_BUCKET is required (validated above)
+  console.log("📤 [3/4] Uploading all recordings to R2...");
 
-    // Upload future_self_intro_recording
-    if (introIsBase64) {
-      futureSelftroUrl = await uploadAudioToR2(
-        future_self_intro_recording,
-        userId,
-        "future_self_intro",
-        env.AUDIO_BUCKET,
-        env
-      );
-      console.log(`   ✅ future_self_intro uploaded`);
-    } else {
-      futureSelftroUrl = future_self_intro_recording;
-    }
-
-    // Upload why_recording
-    if (whyIsBase64) {
-      whyRecordingUrl = await uploadAudioToR2(
-        why_recording,
-        userId,
-        "why",
-        env.AUDIO_BUCKET,
-        env
-      );
-      console.log(`   ✅ why_recording uploaded`);
-    } else {
-      whyRecordingUrl = why_recording;
-    }
-
-    // Upload pledge_recording
-    if (pledgeIsBase64) {
-      pledgeRecordingUrl = await uploadAudioToR2(
-        pledge_recording,
-        userId,
-        "pledge",
-        env.AUDIO_BUCKET,
-        env
-      );
-      console.log(`   ✅ pledge_recording uploaded`);
-    } else {
-      pledgeRecordingUrl = pledge_recording;
-    }
-
-    console.log("📤 [4/4] All recordings uploaded to R2");
+  // Upload future_self_intro_recording
+  if (introIsBase64) {
+    futureSelftroUrl = await uploadAudioToR2(
+      future_self_intro_recording,
+      userId,
+      "future_self_intro",
+      env.AUDIO_BUCKET,
+      env
+    );
+    console.log(`   ✅ future_self_intro uploaded`);
   } else {
-    console.warn("⚠️ AUDIO_BUCKET not configured, storing base64 directly (not recommended)");
     futureSelftroUrl = future_self_intro_recording;
+  }
+
+  // Upload why_recording
+  if (whyIsBase64) {
+    whyRecordingUrl = await uploadAudioToR2(
+      why_recording,
+      userId,
+      "why",
+      env.AUDIO_BUCKET,
+      env
+    );
+    console.log(`   ✅ why_recording uploaded`);
+  } else {
     whyRecordingUrl = why_recording;
+  }
+
+  // Upload pledge_recording
+  if (pledgeIsBase64) {
+    pledgeRecordingUrl = await uploadAudioToR2(
+      pledge_recording,
+      userId,
+      "pledge",
+      env.AUDIO_BUCKET,
+      env
+    );
+    console.log(`   ✅ pledge_recording uploaded`);
+  } else {
     pledgeRecordingUrl = pledge_recording;
   }
+
+  console.log("📤 [4/4] All recordings uploaded to R2");
 
   // Validate that we have the_why
   if (!theWhy) {
@@ -361,15 +415,24 @@ export const postConversionOnboardingComplete = async (c: Context) => {
 
     console.log(`\n👤 === UPDATING USER RECORD ===`);
 
+    // Prepare user update data
+    const userUpdateData: Record<string, unknown> = {
+      name: userName,
+      call_time: callTimeString,
+      onboarding_completed: true,
+      onboarding_completed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    // Add timezone if provided (from browser Intl API)
+    if (timezone && typeof timezone === 'string') {
+      userUpdateData.timezone = timezone;
+      console.log(`📍 Timezone: ${timezone}`);
+    }
+
     const { error: updateError } = await supabase
       .from("users")
-      .update({
-        name: userName,
-        call_time: callTimeString,
-        onboarding_completed: true,
-        onboarding_completed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
+      .update(userUpdateData)
       .eq("id", userId);
 
     if (updateError) {
@@ -377,7 +440,7 @@ export const postConversionOnboardingComplete = async (c: Context) => {
       throw updateError;
     }
 
-    console.log(`✅ User updated with call_time: ${callTimeString}`);
+    console.log(`✅ User updated with call_time: ${callTimeString}${timezone ? `, timezone: ${timezone}` : ''}`);
 
     console.log(`\n🎉 === CONVERSION ONBOARDING COMPLETE ===`);
     console.log(`Created ${createdPillars.length} pillars: ${createdPillars.join(', ')}`);

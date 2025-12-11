@@ -1,8 +1,57 @@
 import { Hono } from 'hono';
+import type { ZodTypeAny } from 'zod';
 import type { Env } from '@/index';
 import { requireAuth } from '@/middleware/auth';
 import { createDodoPaymentsService } from './dodopayments-service';
 import { createSupabaseClient } from '@/features/core/utils/database';
+import {
+  BillingHistoryResponseSchema,
+  BillingPlanSchema,
+  CancelSubscriptionSchema,
+  ChangePlanSchema,
+  CheckoutCreateGuestSchema,
+  CheckoutCreateSchema,
+  CheckoutSessionSchema,
+  CheckoutVerifySchema,
+  LinkGuestCheckoutSchema,
+  SubscriptionStatusSchema,
+  SubscriptionResponseSchema,
+} from './schemas';
+import type {
+  BillingHistoryResponse,
+  BillingPlan,
+  CancelSubscriptionBody,
+  ChangePlanBody,
+  CheckoutCreateBody,
+  CheckoutCreateGuestBody,
+  CheckoutVerifyBody,
+  LinkGuestCheckoutBody,
+  SubscriptionResponse,
+} from './schemas';
+
+async function parseBody<T>(c: any, schema: ZodTypeAny): Promise<{ data: T; error?: undefined } | { data?: undefined; error: Response }> {
+  try {
+    const json = await c.req.json();
+    const result = schema.safeParse(json);
+    if (!result.success) {
+      return {
+        error: c.json(
+          {
+            error: 'Invalid request payload',
+            details: result.error.flatten(),
+          },
+          400,
+        ),
+      };
+    }
+    return { data: result.data as T };
+  } catch (parseError) {
+    console.error('Failed to parse request body', parseError);
+    return {
+      error: c.json({ error: 'Malformed JSON body' }, 400),
+    };
+  }
+}
 
 const billing = new Hono<{
   Bindings: Env;
@@ -18,10 +67,11 @@ billing.post('/link-guest-checkout', requireAuth, async (c) => {
   const userEmail = c.get('userEmail');
   const env = c.env;
 
-  try {
-    const body = await c.req.json();
-    const { guestId, onboardingData } = body;
+  const parsed = await parseBody<LinkGuestCheckoutBody>(c, LinkGuestCheckoutSchema);
+  if (parsed.error) return parsed.error;
+  const { guestId, onboardingData } = parsed.data;
 
+  try {
     console.log('[link-guest-checkout] Linking guest checkout:', { userId, guestId, hasOnboardingData: !!onboardingData });
 
     const supabase = createSupabaseClient(env);
@@ -48,28 +98,13 @@ billing.post('/link-guest-checkout', requireAuth, async (c) => {
       .eq('id', userId);
 
     if (onboardingData && Object.keys(onboardingData).length > 0) {
-      console.log('[link-guest-checkout] Saving onboarding data...');
+      console.log('[link-guest-checkout] Guest has partial onboarding data, storing for later...');
 
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({
-          onboarding_completed: true,
-          onboarding_completed_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', userId);
-
-      if (updateError) {
-        console.error('[link-guest-checkout] Failed to update user:', updateError);
-      } else {
-        console.log('[link-guest-checkout] User marked as onboarding complete');
-      }
-
-      if (onboardingData.futureSelfStatement || onboardingData.pillars) {
+      if ((onboardingData as any).futureSelfStatement || (onboardingData as any).pillars) {
         const futureSelfData = {
           user_id: userId,
-          future_self_statement: onboardingData.futureSelfStatement || '',
-          favorite_excuse: onboardingData.favoriteExcuse || onboardingData.favorite_excuse || null,
+          future_self_statement: (onboardingData as any).futureSelfStatement || '',
+          favorite_excuse: (onboardingData as any).favoriteExcuse || (onboardingData as any).favorite_excuse || null,
           onboarding_context: onboardingData,
         };
 
@@ -83,8 +118,8 @@ billing.post('/link-guest-checkout', requireAuth, async (c) => {
           console.log('[link-guest-checkout] future_self record created/updated');
         }
 
-        if (onboardingData.pillars && Array.isArray(onboardingData.pillars)) {
-          for (const pillar of onboardingData.pillars) {
+        if ((onboardingData as any).pillars && Array.isArray((onboardingData as any).pillars)) {
+          for (const pillar of (onboardingData as any).pillars) {
             const { error: pillarError } = await supabase
               .from('future_self_pillars')
               .upsert({
@@ -104,11 +139,11 @@ billing.post('/link-guest-checkout', requireAuth, async (c) => {
         }
       }
 
-      if (onboardingData.callTime || onboardingData.call_time) {
+      if ((onboardingData as any).callTime || (onboardingData as any).call_time) {
         const { error: callTimeError } = await supabase
           .from('users')
           .update({
-            call_time: onboardingData.callTime || onboardingData.call_time || '21:00',
+            call_time: (onboardingData as any).callTime || (onboardingData as any).call_time || '21:00',
           })
           .eq('id', userId);
 
@@ -137,28 +172,26 @@ billing.get('/subscription', requireAuth, async (c) => {
 
   try {
     const supabase = createSupabaseClient(env);
+    const respond = (payload: SubscriptionResponse) => c.json(SubscriptionResponseSchema.parse(payload));
 
     // Fetch user data (dodo_customer_id, onboarding_completed) and check if a futureself row exists for this user_id
     const { data: userData } = await supabase
       .from('users')
-      .select('dodo_customer_id, onboarding_completed')
+      .select('dodo_customer_id, onboarding_completed,id')
       .eq('id', userId)
       .single();
 
     const { data: futureSelfExists } = await supabase
-      .from('futureself')
+      .from('future_self')
       .select('id')
       .eq('user_id', userId)
       .maybeSingle();
 
     const hasFutureSelf = !!futureSelfExists;
 
-    console.log('userData:', userData);
-    console.log('hasFutureSelf:', hasFutureSelf);
-    console.log('userId:', userId);
 
     if (!userData?.dodo_customer_id) {
-      return c.json({
+      return respond({
         subscription: {
           hasActiveSubscription: false,
           status: 'inactive',
@@ -179,10 +212,15 @@ billing.get('/subscription', requireAuth, async (c) => {
     const dodo = createDodoPaymentsService(env);
     const subscriptions = await dodo.getCustomerSubscriptions(userData.dodo_customer_id);
 
-
+    // Find subscriptions that grant access (active or past_due within grace period)
+    // Priority: active > past_due > pending
     const activeSubscription = subscriptions
-      .filter((sub) => sub.status === 'active')
+      .filter((sub) => sub.status === 'active' || sub.status === 'past_due')
       .sort((a, b) => {
+        // Prefer 'active' over 'past_due'
+        if (a.status === 'active' && b.status !== 'active') return -1;
+        if (b.status === 'active' && a.status !== 'active') return 1;
+        // Then sort by period end date
         const aEnd = a.current_period_end ? new Date(a.current_period_end).getTime() : 0;
         const bEnd = b.current_period_end ? new Date(b.current_period_end).getTime() : 0;
         return bEnd - aEnd;
@@ -194,7 +232,7 @@ billing.get('/subscription', requireAuth, async (c) => {
         const products = await dodo.listProductsForCheckout();
         const pendingProduct = products.find((p) => p.product_id === pendingSubscription.product_id);
 
-        return c.json({
+        return respond({
           subscription: {
             hasActiveSubscription: false,
             status: pendingSubscription.status,
@@ -207,11 +245,11 @@ billing.get('/subscription', requireAuth, async (c) => {
             currency: pendingProduct?.currency || 'USD',
             subscriptionId: pendingSubscription.subscription_id,
           },
-              onboardingCompleted: hasFutureSelf || false,
-            });
+          onboardingCompleted: hasFutureSelf || false,
+        });
       }
 
-      return c.json({
+      return respond({
         subscription: {
           hasActiveSubscription: false,
           status: 'inactive',
@@ -232,10 +270,13 @@ billing.get('/subscription', requireAuth, async (c) => {
     const periodEndRaw = activeSubscription.current_period_end;
     const periodEnd = periodEndRaw ? new Date(periodEndRaw).getTime() : null;
     const periodValid = periodEnd !== null && periodEnd > now;
-    const isActive = activeSubscription.status === 'active' && periodValid;
+    
+    // Users with 'active' or 'past_due' status should have access if period is valid
+    // past_due means payment failed but they're in grace period
+    const hasAccess = (activeSubscription.status === 'active' || activeSubscription.status === 'past_due') && periodValid;
 
-    if (!isActive) {
-      return c.json({
+    if (!hasAccess) {
+      return respond({
         subscription: {
           hasActiveSubscription: false,
           status: 'inactive',
@@ -255,16 +296,17 @@ billing.get('/subscription', requireAuth, async (c) => {
     const products = await dodo.listProductsForCheckout();
     const product = products.find((p) => p.product_id === activeSubscription.product_id);
 
-    return c.json({
+    return respond({
       subscription: {
-        hasActiveSubscription: isActive,
-        status: isActive ? 'active' : activeSubscription.status,
+        hasActiveSubscription: hasAccess,
+        status: activeSubscription.status, // Return actual status (active or past_due)
         paymentProvider: 'dodopayments',
         planId: activeSubscription.product_id,
         planName: product?.name || activeSubscription.product_id,
         currentPeriodEnd: activeSubscription.current_period_end,
         cancelledAt: activeSubscription.cancel_at_period_end ? activeSubscription.current_period_end : null,
         amountCents: product?.price_cents || null,
+        currency: product?.currency || (activeSubscription as any).currency || 'USD',
         subscriptionId: activeSubscription.subscription_id,
       },
       onboardingCompleted: hasFutureSelf || false,
@@ -293,7 +335,8 @@ billing.get('/history', requireAuth, async (c) => {
       throw error;
     }
 
-    return c.json({ history: history || [] });
+    const response = BillingHistoryResponseSchema.parse({ history: history || [] });
+    return c.json(response);
   } catch (error) {
     console.error('Error fetching billing history:', error);
     return c.json({ error: 'Failed to fetch billing history' }, 500);
@@ -305,8 +348,9 @@ billing.post('/checkout/create-guest', async (c) => {
   const env = c.env;
 
   try {
-    const body = await c.req.json();
-    const { planId, returnUrl, email } = body;
+    const parsed = await parseBody<CheckoutCreateGuestBody>(c, CheckoutCreateGuestSchema);
+    if (parsed.error) return parsed.error;
+    const { planId, returnUrl, email } = parsed.data;
     console.log('[guest-checkout] Request body:', { planId, returnUrl, email });
 
     if (!planId) {
@@ -334,12 +378,12 @@ billing.post('/checkout/create-guest', async (c) => {
     });
     console.log('[guest-checkout] Session created:', session);
 
-    return c.json({
+    return c.json(CheckoutSessionSchema.parse({
       sessionId: session.session_id,
       checkoutUrl: session.url,
       expiresAt: session.expires_at,
       guestId: guestId,
-    });
+    }));
   } catch (error) {
     console.error('Error creating guest checkout session:', error);
     return c.json({ error: 'Failed to create checkout session' }, 500);
@@ -352,8 +396,9 @@ billing.post('/checkout/create', requireAuth, async (c) => {
   const env = c.env;
 
   try {
-    const body = await c.req.json();
-    const { planId, returnUrl } = body;
+    const parsed = await parseBody<CheckoutCreateBody>(c, CheckoutCreateSchema);
+    if (parsed.error) return parsed.error;
+    const { planId, returnUrl } = parsed.data;
 
     if (!planId) {
       return c.json({ error: 'Plan ID is required' }, 400);
@@ -402,11 +447,11 @@ billing.post('/checkout/create', requireAuth, async (c) => {
       },
     });
 
-    return c.json({
+    return c.json(CheckoutSessionSchema.parse({
       sessionId: session.session_id,
       checkoutUrl: session.url,
       expiresAt: session.expires_at,
-    });
+    }));
   } catch (error) {
     console.error('Error creating checkout session:', error);
     return c.json({ error: 'Failed to create checkout session' }, 500);
@@ -418,8 +463,9 @@ billing.post('/checkout/verify', requireAuth, async (c) => {
   const env = c.env;
 
   try {
-    const body = await c.req.json();
-    const { sessionId } = body;
+    const parsed = await parseBody<CheckoutVerifyBody>(c, CheckoutVerifySchema);
+    if (parsed.error) return parsed.error;
+    const { sessionId } = parsed.data;
 
     if (!sessionId) {
       return c.json({ error: 'Session ID is required' }, 400);
@@ -447,14 +493,18 @@ billing.post('/checkout/verify', requireAuth, async (c) => {
     return c.json({
       success: true,
       subscription: subscription
-        ? {
+        ? SubscriptionStatusSchema.parse({
           hasActiveSubscription: subscription.status === 'active',
           status: subscription.status,
           paymentProvider: subscription.payment_provider,
           planId: subscription.plan_id,
           planName: subscription.plan_name,
           currentPeriodEnd: subscription.current_period_end,
-        }
+          cancelledAt: subscription.cancelled_at ?? null,
+          amountCents: subscription.amount_cents ?? null,
+          currency: subscription.currency ?? 'USD',
+          subscriptionId: subscription.provider_subscription_id ?? subscription.id ?? null,
+        })
         : null,
     });
   } catch (error) {
@@ -468,8 +518,9 @@ billing.post('/cancel', requireAuth, async (c) => {
   const env = c.env;
 
   try {
-    const body = await c.req.json();
-    const { reason } = body;
+    const parsed = await parseBody<CancelSubscriptionBody>(c, CancelSubscriptionSchema);
+    if (parsed.error) return parsed.error;
+    const { reason } = parsed.data;
 
     const supabase = createSupabaseClient(env);
 
@@ -485,10 +536,13 @@ billing.post('/cancel', requireAuth, async (c) => {
 
     if (subscription.payment_provider === 'dodopayments') {
       const dodo = createDodoPaymentsService(env);
-      const success = await dodo.cancelSubscription(subscription.provider_subscription_id);
+      const result = await dodo.cancelSubscription(subscription.provider_subscription_id);
 
-      if (!success) {
-        return c.json({ error: 'Failed to cancel subscription' }, 500);
+      if (!result.success) {
+        return c.json({ 
+          error: result.error || 'Failed to cancel subscription',
+          code: 'CANCELLATION_FAILED'
+        }, 500);
       }
     }
 
@@ -515,7 +569,11 @@ billing.post('/cancel', requireAuth, async (c) => {
     });
   } catch (error) {
     console.error('Error cancelling subscription:', error);
-    return c.json({ error: 'Failed to cancel subscription' }, 500);
+    const message = error instanceof Error ? error.message : 'Failed to cancel subscription';
+    return c.json({ 
+      error: message,
+      code: 'CANCELLATION_ERROR'
+    }, 500);
   }
 });
 
@@ -555,8 +613,9 @@ billing.post('/change-plan', requireAuth, async (c) => {
   const env = c.env;
 
   try {
-    const body = await c.req.json();
-    const { newPlanId } = body;
+    const parsed = await parseBody<ChangePlanBody>(c, ChangePlanSchema);
+    if (parsed.error) return parsed.error;
+    const { newPlanId } = parsed.data;
 
     if (!newPlanId) {
       return c.json({ error: 'New plan ID is required' }, 400);
@@ -591,7 +650,14 @@ billing.post('/change-plan', requireAuth, async (c) => {
       return c.json({ error: 'Already subscribed to this plan' }, 400);
     }
 
-    await dodo.changePlan(activeSubscription.subscription_id, newPlanId);
+    const changeResult = await dodo.changePlan(activeSubscription.subscription_id, newPlanId);
+
+    if (!changeResult.success) {
+      return c.json({ 
+        error: changeResult.error || 'Failed to change plan',
+        code: 'PLAN_CHANGE_FAILED'
+      }, 500);
+    }
 
     const products = await dodo.listProductsForCheckout();
     const newPlan = products.find(p => p.product_id === newPlanId);
@@ -608,7 +674,11 @@ billing.post('/change-plan', requireAuth, async (c) => {
     });
   } catch (error) {
     console.error('Error changing plan:', error);
-    return c.json({ error: 'Failed to change plan' }, 500);
+    const message = error instanceof Error ? error.message : 'Failed to change plan';
+    return c.json({ 
+      error: message,
+      code: 'PLAN_CHANGE_ERROR'
+    }, 500);
   }
 });
 
@@ -619,13 +689,14 @@ billing.get('/plans', async (c) => {
     const dodo = createDodoPaymentsService(env);
     const products = await dodo.listProductsForCheckout();
 
-    const plans = products.map((p) => ({
+    const plans = products.map((p) => BillingPlanSchema.parse({
       id: p.product_id,
       product_id: p.product_id,
       name: p.name,
       description: p.description,
       price_cents: p.price_cents,
-      price: p.price_cents, // Alias for compatibility
+      price: p.price_cents,
+      amountCents: p.price_cents,
       currency: p.currency,
       interval: p.interval,
       interval_count: p.interval_count,

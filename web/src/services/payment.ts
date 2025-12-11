@@ -1,44 +1,24 @@
 import { apiClient, ApiClientError } from './api';
+import {
+  BillingHistoryResponseSchema,
+  BillingPlan,
+  BillingPlanSchema,
+  CheckoutSession,
+  CheckoutSessionSchema,
+  SubscriptionStatusSchema,
+  SubscriptionResponse,
+  SubscriptionResponseSchema,
+  SubscriptionStatus,
+} from '@/schemas/billing';
+import type { BillingHistoryItem } from '@/schemas/billing';
 
-export interface SubscriptionStatus {
-  hasActiveSubscription: boolean;
-  status: 'active' | 'inactive' | 'cancelled' | 'past_due' | 'pending';
-  paymentProvider: 'dodopayments' | 'revenuecat';
-  planId: string | null;
-  planName: string | null;
-  currentPeriodEnd: string | null;
-  cancelledAt: string | null;
-  amountCents: number | null;
-  currency: string;
-  subscriptionId: string | null;
-  // Additional properties used in useSubscription hook
-  isTrial?: boolean;
-  entitlement?: string | null;
-  willRenew?: boolean;
-  productId?: string | null;
-}
-
-// Response from backend includes both subscription and onboarding status
-export interface SubscriptionResponse {
-  subscription: SubscriptionStatus;
-  onboardingCompleted: boolean;
-}
-
-export interface BillingHistoryItem {
-  id: string;
-  event_type: string;
-  payment_provider: string;
-  previous_status: string | null;
-  new_status: string | null;
-  created_at: string;
-  metadata: Record<string, unknown> | null;
-}
-
-export interface DodoCheckoutSession {
-  sessionId: string;
-  checkoutUrl: string;
-  expiresAt: string;
-}
+export type {
+  SubscriptionStatus,
+  SubscriptionResponse,
+  BillingHistoryItem,
+  CheckoutSession,
+  BillingPlan,
+} from '@/schemas/billing';
 
 function getPlatform(): 'web' | 'mobile' {
   if (typeof window === 'undefined') return 'web';
@@ -77,16 +57,16 @@ class PaymentService {
 
   async getSubscriptionStatus(): Promise<SubscriptionStatus> {
     try {
-      const response = await apiClient.get<SubscriptionResponse>('/api/billing/subscription');
-
-      return response.subscription;
+      const response = await apiClient.get<unknown>('/api/billing/subscription');
+      const parsed = SubscriptionResponseSchema.parse(response);
+      return parsed.subscription;
     } catch (error) {
       console.error('Error fetching subscription status:', error);
 
       return {
         hasActiveSubscription: false,
         status: 'inactive',
-        paymentProvider: this.platform === 'web' ? 'dodopayments' : 'revenuecat',
+        paymentProvider: 'dodopayments',
         planId: null,
         planName: null,
         currentPeriodEnd: null,
@@ -101,15 +81,15 @@ class PaymentService {
   // Get full subscription response including onboarding status
   async getFullSubscriptionStatus(): Promise<SubscriptionResponse> {
     try {
-      const response = await apiClient.get<SubscriptionResponse>('/api/billing/subscription');
-      return response;
+      const response = await apiClient.get<unknown>('/api/billing/subscription');
+      return SubscriptionResponseSchema.parse(response);
     } catch (error) {
       console.error('Error fetching full subscription status:', error);
       return {
         subscription: {
           hasActiveSubscription: false,
           status: 'inactive',
-          paymentProvider: this.platform === 'web' ? 'dodopayments' : 'revenuecat',
+          paymentProvider: 'dodopayments',
           planId: null,
           planName: null,
           currentPeriodEnd: null,
@@ -125,34 +105,35 @@ class PaymentService {
 
   async getBillingHistory(): Promise<BillingHistoryItem[]> {
     try {
-      const response = await apiClient.get<{ history: BillingHistoryItem[] }>('/api/billing/history');
-      return response.history || [];
+      const response = await apiClient.get<unknown>('/api/billing/history');
+      const parsed = BillingHistoryResponseSchema.parse(response);
+      return parsed.history || [];
     } catch (error) {
       console.error('Error fetching billing history:', error);
       return [];
     }
   }
 
-  async createCheckoutSession(planId: string): Promise<DodoCheckoutSession | null> {
+  async createCheckoutSession(planId: string): Promise<CheckoutSession | null> {
     if (this.platform !== 'web') {
       console.warn('createCheckoutSession is only for web platform');
       return null;
     }
 
     try {
-      const response = await apiClient.post<DodoCheckoutSession>(
+      const response = await apiClient.post<unknown>(
         '/api/billing/checkout/create',
         { planId, returnUrl: window.location.origin + '/billing/success' }
       );
 
-      return response;
+      return CheckoutSessionSchema.parse(response);
     } catch (error) {
       console.error('Error creating checkout session:', error);
       return null;
     }
   }
 
-  async createGuestCheckoutSession(planId: string, email?: string): Promise<DodoCheckoutSession & { guestId: string } | null> {
+  async createGuestCheckoutSession(planId: string, email?: string): Promise<(CheckoutSession & { guestId: string }) | null> {
     if (this.platform !== 'web') {
       console.warn('createGuestCheckoutSession is only for web platform');
       return null;
@@ -161,32 +142,48 @@ class PaymentService {
     try {
       // Use fetch directly to avoid auth token injection
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8787';
-      const response = await fetch(`${baseUrl}/api/billing/checkout/create-guest`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          planId,
-          returnUrl: window.location.origin + '/billing/success',
-          email,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to create guest checkout session');
-      }
-
-      const data = await response.json();
       
-      // Store guest ID for later account linking
-      if (data.guestId) {
-        localStorage.setItem('youplus_guest_checkout_id', data.guestId);
-        localStorage.setItem('youplus_pending_plan_id', planId);
-      }
+      // Add timeout for external payment API calls
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 45000); // 45 second timeout
+      
+      try {
+        const response = await fetch(`${baseUrl}/api/billing/checkout/create-guest`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            planId,
+            returnUrl: window.location.origin + '/billing/success',
+            email,
+          }),
+          signal: controller.signal,
+        });
 
-      return data;
+        if (!response.ok) {
+          throw new Error('Failed to create guest checkout session');
+        }
+
+        const data = await response.json();
+        const parsed = CheckoutSessionSchema.parse(data);
+        
+        // Store guest ID for later account linking
+        if (parsed.guestId) {
+          localStorage.setItem('youplus_guest_checkout_id', parsed.guestId);
+          localStorage.setItem('youplus_pending_plan_id', planId);
+        }
+
+        return parsed as CheckoutSession & { guestId: string };
+      } finally {
+        clearTimeout(timeoutId);
+      }
     } catch (error) {
+      // Handle timeout specifically
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.error('Guest checkout session creation timed out');
+        return null;
+      }
       console.error('Error creating guest checkout session:', error);
       return null;
     }
@@ -201,7 +198,7 @@ class PaymentService {
         throw new Error('Failed to create checkout session');
       }
     } else {
-      console.warn('Mobile checkout should be handled by native RevenueCat SDK');
+      console.warn('Mobile checkout is not supported in web context');
       throw new Error('Mobile checkout not supported in web context');
     }
   }
@@ -215,7 +212,7 @@ class PaymentService {
         throw new Error('Failed to create guest checkout session');
       }
     } else {
-      console.warn('Mobile checkout should be handled by native RevenueCat SDK');
+      console.warn('Mobile checkout is not supported in web context');
       throw new Error('Mobile checkout not supported in web context');
     }
   }
@@ -239,28 +236,11 @@ class PaymentService {
     }
   }
 
-  async getPlans(): Promise<Array<{
-    id: string;
-    name: string;
-    description: string;
-    amountCents?: number;
-    price_cents?: number;
-    price?: number;
-    currency: string;
-    interval?: string;
-  }>> {
+  async getPlans(): Promise<BillingPlan[]> {
     try {
-      const response = await apiClient.get<{ plans: Array<{
-        id: string;
-        name: string;
-        description: string;
-        amountCents?: number;
-        price_cents?: number;
-        price?: number;
-        currency: string;
-        interval?: string;
-      }> }>('/api/billing/plans');
-      return response.plans || [];
+      const response = await apiClient.get<unknown>('/api/billing/plans');
+      const plans = (response as { plans?: unknown[] }).plans || [];
+      return plans.map((plan) => BillingPlanSchema.parse(plan));
     } catch (error) {
       console.error('Error fetching plans:', error);
       return [];
@@ -273,12 +253,16 @@ class PaymentService {
     }
 
     try {
-      const response = await apiClient.post<{ success: boolean; subscription: SubscriptionStatus }>(
+      const response = await apiClient.post<{ success: boolean; subscription?: unknown }>(
         '/api/billing/checkout/verify',
         { sessionId }
       );
 
-      return response;
+      const parsedSubscription = response.subscription
+        ? SubscriptionStatusSchema.parse(response.subscription)
+        : undefined;
+
+      return { success: response.success, subscription: parsedSubscription };
     } catch (error) {
       console.error('Error verifying checkout session:', error);
       return { success: false };
@@ -388,8 +372,8 @@ class PaymentService {
     }
   }
 
-  getPaymentProvider(): 'dodopayments' | 'revenuecat' {
-    return this.platform === 'web' ? 'dodopayments' : 'revenuecat';
+  getPaymentProvider(): 'dodopayments' {
+    return 'dodopayments';
   }
 }
 

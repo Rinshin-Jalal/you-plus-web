@@ -17,7 +17,7 @@ export class AppError extends Error {
 
 export enum ServiceType {
   SUPABASE = "supabase",
-  REVENUECAT = "revenuecat",
+  DODOPAYMENTS = "dodopayments",
   R2 = "r2",
   UNKNOWN = "unknown",
 }
@@ -107,8 +107,8 @@ function handleServiceError(
         503
       );
 
-    case ServiceType.REVENUECAT: {
-      console.warn("RevenueCat service degraded - implementing fallback");
+    case ServiceType.DODOPAYMENTS: {
+      console.warn("DodoPayments service degraded - implementing fallback");
       const details = isDevelopment ? { details: error.originalError } : {};
       return c.json(
         {

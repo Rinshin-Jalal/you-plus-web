@@ -37,7 +37,7 @@ export const getCallEligibility = async (c: Context) => {
       });
     }
 
-    // Note: Expiration checking is handled by RevenueCat SDK on frontend
+    // Note: Expiration checking is handled by the payment provider
     // No need to check expiry date here since subscription_status reflects current state
 
     if (!userData.onboarding_completed) {
@@ -111,7 +111,7 @@ export const getScheduleSettings = async (c: Context) => {
 
 export const updateSubscriptionStatus = async (c: Context) => {
   const userId = getAuthenticatedUserId(c);
-  const { isActive, isEntitled, revenuecatCustomerId } = await c.req.json();
+  const { isActive, isEntitled } = await c.req.json();
 
   if (typeof isActive !== "boolean" || typeof isEntitled !== "boolean") {
     return c.json({ error: "Invalid subscription status data" }, 400);
@@ -136,17 +136,7 @@ export const updateSubscriptionStatus = async (c: Context) => {
 
     const updateData: any = {
       subscription_status: subscriptionStatus,
-      // Note: Additional subscription fields may need to be added to database schema
-      // subscription_product_id, subscription_expiry, subscription_will_renew
     };
-
-    // ✅ INCLUDE REVENUECAT CUSTOMER ID IF PROVIDED
-    if (revenuecatCustomerId) {
-      updateData.revenuecat_customer_id = revenuecatCustomerId;
-      console.log(
-        `💰 Updating RevenueCat customer ID for user ${userId}: ${revenuecatCustomerId}`
-      );
-    }
 
     // For now, we'll only update the core subscription status
     // TODO: Add additional subscription fields to database schema if needed
@@ -163,9 +153,7 @@ export const updateSubscriptionStatus = async (c: Context) => {
     return c.json({
       success: true,
       data,
-      message:
-        "Subscription status synchronized" +
-        (revenuecatCustomerId ? " with RevenueCat ID" : ""),
+      message: "Subscription status synchronized",
     });
   } catch (error) {
     console.error("Subscription status update failed:", error);
@@ -236,57 +224,6 @@ export const updateScheduleSettings = async (c: Context) => {
       {
         error: 'Failed to update call schedule',
         details: error instanceof Error ? error.message : 'Unknown error',
-      },
-      500
-    );
-  }
-};
-
-export const updateRevenueCatCustomerId = async (c: Context) => {
-  const userId = getAuthenticatedUserId(c);
-  const { originalAppUserId } = await c.req.json();
-
-  if (!originalAppUserId || typeof originalAppUserId !== "string") {
-    return c.json({ error: "originalAppUserId is required" }, 400);
-  }
-
-  const env = c.env as Env;
-  const supabase = createSupabaseClient(env);
-
-  try {
-    const { data, error } = await supabase
-      .from("users")
-      .update({ revenuecat_customer_id: originalAppUserId })
-      .eq("id", userId)
-      .select()
-      .single();
-
-    if (error) {
-      console.error("Failed to update RevenueCat customer ID:", error);
-      return c.json(
-        {
-          error: "Failed to update RevenueCat customer ID",
-          details: error.message,
-        },
-        500
-      );
-    }
-
-    console.log(
-      `✅ Updated RevenueCat customer ID for user ${userId}: ${originalAppUserId}`
-    );
-
-    return c.json({
-      success: true,
-      data,
-      message: "RevenueCat customer ID updated successfully",
-    });
-  } catch (error) {
-    console.error("RevenueCat customer ID update failed:", error);
-    return c.json(
-      {
-        error: "Failed to update RevenueCat customer ID",
-        details: error instanceof Error ? error.message : "Unknown error",
       },
       500
     );

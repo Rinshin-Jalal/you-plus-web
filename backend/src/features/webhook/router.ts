@@ -1,12 +1,7 @@
 import { Hono } from 'hono';
 
-import {
-  postRevenueCatWebhook,
-} from './handlers/revenuecat-webhooks';
-
 const webhookRouter = new Hono();
 
-// RevenueCat Webhook Routes
-webhookRouter.post('/revenuecat', postRevenueCatWebhook);
+// Webhook routes can be added here as needed
 
 export default webhookRouter;
