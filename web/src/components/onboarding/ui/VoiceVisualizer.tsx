@@ -4,6 +4,8 @@ import { Mic, Square } from 'lucide-react';
 import { storageService } from '../../../services/storage';
 import { audioService } from '../../../services/audio';
 
+const isDev = process.env.NODE_ENV === 'development';
+
 // Audio constraints - must match schema validation
 const MIN_AUDIO_SIZE = 10 * 1024; // 10KB
 const MAX_AUDIO_SIZE = 10 * 1024 * 1024; // 10MB
@@ -132,7 +134,7 @@ export const VoiceVisualizer = ({
                         // Use refs to get latest values (avoids stale closure bug)
                         const saveId = fieldNameRef.current || `recording_${Date.now()}`;
                         storageService.saveVoice(blob, saveId);
-                        console.log("Voice recorded and saved:", saveId, `(${Math.round(blob.size / 1024)}KB)`);
+                        if (isDev) console.log("Voice recorded and saved:", saveId, `(${Math.round(blob.size / 1024)}KB)`);
                         // Notify parent component using ref
                         if (onRecordingCompleteRef.current) {
                             onRecordingCompleteRef.current(blob);

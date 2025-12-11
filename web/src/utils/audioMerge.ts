@@ -10,6 +10,8 @@
  * 3. Simple to create from AudioBuffer
  */
 
+const isDev = process.env.NODE_ENV === 'development';
+
 /**
  * Merge multiple audio blobs into a single WAV blob
  * 
@@ -26,7 +28,7 @@ export async function mergeAudioBlobs(blobs: Blob[]): Promise<Blob> {
     return convertToWav(blobs[0]);
   }
 
-  console.log(`[AudioMerge] Merging ${blobs.length} audio files...`);
+  if (isDev) console.log(`[AudioMerge] Merging ${blobs.length} audio files...`);
 
   // Create AudioContext for decoding
   const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
@@ -38,13 +40,13 @@ export async function mergeAudioBlobs(blobs: Blob[]): Promise<Blob> {
     
     for (let i = 0; i < blobs.length; i++) {
       const blob = blobs[i];
-      console.log(`[AudioMerge] Decoding audio ${i + 1}/${blobs.length} (${blob.size} bytes, ${blob.type})`);
+      if (isDev) console.log(`[AudioMerge] Decoding audio ${i + 1}/${blobs.length} (${blob.size} bytes, ${blob.type})`);
       
       try {
         const arrayBuffer = await blob.arrayBuffer();
         const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
         buffers.push(audioBuffer);
-        console.log(`[AudioMerge] Audio ${i + 1}: ${audioBuffer.duration.toFixed(2)}s, ${audioBuffer.numberOfChannels}ch, ${audioBuffer.sampleRate}Hz`);
+        if (isDev) console.log(`[AudioMerge] Audio ${i + 1}: ${audioBuffer.duration.toFixed(2)}s, ${audioBuffer.numberOfChannels}ch, ${audioBuffer.sampleRate}Hz`);
       } catch (decodeError) {
         console.error(`[AudioMerge] Failed to decode audio ${i + 1}:`, decodeError);
         throw new Error(`Failed to decode audio file ${i + 1}: ${decodeError}`);
@@ -62,7 +64,7 @@ export async function mergeAudioBlobs(blobs: Blob[]): Promise<Blob> {
       totalLength += lengthAtTargetRate;
     }
 
-    console.log(`[AudioMerge] Total duration: ${(totalLength / targetSampleRate).toFixed(2)}s at ${targetSampleRate}Hz`);
+    if (isDev) console.log(`[AudioMerge] Total duration: ${(totalLength / targetSampleRate).toFixed(2)}s at ${targetSampleRate}Hz`);
 
     // Create merged buffer (mono for voice cloning - simpler and smaller)
     const mergedBuffer = audioContext.createBuffer(1, totalLength, targetSampleRate);
@@ -87,7 +89,7 @@ export async function mergeAudioBlobs(blobs: Blob[]): Promise<Blob> {
 
     // Convert to WAV
     const wavBlob = audioBufferToWav(mergedBuffer);
-    console.log(`[AudioMerge] Merged WAV: ${wavBlob.size} bytes (${(mergedBuffer.duration).toFixed(2)}s)`);
+    if (isDev) console.log(`[AudioMerge] Merged WAV: ${wavBlob.size} bytes (${(mergedBuffer.duration).toFixed(2)}s)`);
 
     return wavBlob;
   } finally {

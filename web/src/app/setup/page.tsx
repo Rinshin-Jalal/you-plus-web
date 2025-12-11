@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useSubscription } from '@/hooks/useSubscription';
@@ -13,6 +13,9 @@ import { Phone, X, Check, RefreshCw, WifiOff, AlertCircle, CreditCard, ExternalL
 import { FullPageLoader, SavingOverlay } from '@/components/ui/Loaders';
 import { OnboardingMascot } from '@/components/onboarding/ui/OnboardingMascot';
 import { formatCountdown } from '@/utils/retry';
+import { analytics } from '@/services/analytics';
+
+const isDev = process.env.NODE_ENV === 'development';
 
 /**
  * Setup Page - The gateway after onboarding
@@ -392,6 +395,10 @@ export default function SetupPage() {
   const [retryCount, setRetryCount] = useState(0);
   const [isOnline, setIsOnline] = useState(true);
   const [isOpeningPortal, setIsOpeningPortal] = useState(false);
+  
+  // Analytics tracking
+  const hasTrackedStart = useRef(false);
+  const setupStartTime = useRef<number>(Date.now());
 
   // Monitor online status
   useEffect(() => {
@@ -439,18 +446,20 @@ export default function SetupPage() {
 
     // If already onboarded on backend and no local data, go straight to dashboard
     if (onboardingCompleted && !hasLocalData && isActive) {
-      console.log('[Setup] Already onboarded and subscribed, redirecting to dashboard');
+      if (isDev) console.log('[Setup] Already onboarded and subscribed, redirecting to dashboard');
       router.replace('/dashboard');
       return;
     }
 
-    console.log('Is active:', isActive);
-    console.log('Is onboarding completed:', onboardingCompleted);
-    console.log('Has local data:', hasLocalData);
+    if (isDev) {
+      console.log('Is active:', isActive);
+      console.log('Is onboarding completed:', onboardingCompleted);
+      console.log('Has local data:', hasLocalData);
+    }
 
 
     if (!isActive) {
-      console.log('[Setup] Not subscribed, redirecting to checkout');
+      if (isDev) console.log('[Setup] Not subscribed, redirecting to checkout');
 
       if (hasLocalData) {
         router.replace('/checkout/welcome');
@@ -462,6 +471,12 @@ export default function SetupPage() {
 
     // Auth + subscription confirmed → proceed to push data
     if (step === 'checking') {
+      // Track setup started (only once)
+      if (!hasTrackedStart.current) {
+        analytics.setupStarted();
+        setupStartTime.current = Date.now();
+        hasTrackedStart.current = true;
+      }
       setStep('pushing');
     }
   }, [isAuthenticated, authLoading, subLoading, isActive, onboardingCompleted, step, router]);
@@ -478,12 +493,12 @@ export default function SetupPage() {
       try {
         // Check if there's onboarding data to push
         if (storageService.hasOnboardingData()) {
-          console.log('[Setup] Pushing onboarding data to backend...');
+          if (isDev) console.log('[Setup] Pushing onboarding data to backend...');
 
           const result = await storageService.pushOnboardingData({
             onProgress: (progress) => {
               setPushProgress(progress);
-              console.log('[Setup] Progress:', progress);
+              if (isDev) console.log('[Setup] Progress:', progress);
             },
             maxRetries: 3,
           });
@@ -492,20 +507,22 @@ export default function SetupPage() {
 
           if (!result.success) {
             console.error('[Setup] Failed to push onboarding data:', result.error);
+            analytics.setupFailed(result.error || 'Push failed');
             setError(result.error || 'Failed to save your data. Please try again.');
             setStep('error');
             return;
           }
 
-          console.log('[Setup] Onboarding data pushed successfully');
+          if (isDev) console.log('[Setup] Onboarding data pushed successfully');
         } else {
-          console.log('[Setup] No onboarding data to push');
+          if (isDev) console.log('[Setup] No onboarding data to push');
         }
 
         // Move to phone collection
         setStep('phone');
       } catch (err) {
         console.error('[Setup] Error pushing data:', err);
+        analytics.setupFailed(err instanceof Error ? err.message : 'Unknown error');
         setError('Something went wrong. Please try again.');
         setStep('error');
       }
@@ -536,6 +553,11 @@ export default function SetupPage() {
       });
 
       setStep('complete');
+      
+      // Track setup completed
+      const durationSeconds = Math.round((Date.now() - setupStartTime.current) / 1000);
+      analytics.setupCompleted(durationSeconds);
+      
       // Redirect to dashboard after a brief moment
       setTimeout(() => {
         router.replace('/dashboard');

@@ -1,5 +1,6 @@
 import { apiClient, ApiClientError } from './api';
 import { supabase } from './supabase';
+import { authService } from './auth';
 
 export interface UserProfile {
   id: string;
@@ -66,8 +67,8 @@ class AccountService {
     try {
       await apiClient.delete('/api/core/profile');
       
-      // Sign out after account deletion
-      await supabase.auth.signOut();
+      // Sign out after account deletion using authService for consistency
+      await authService.signOut();
       
       return { success: true };
     } catch (error) {
@@ -80,18 +81,14 @@ class AccountService {
   }
 
   async signOut(): Promise<{ success: boolean; error?: string }> {
-    try {
-      const { error } = await supabase.auth.signOut();
-      
-      if (error) {
-        return { success: false, error: error.message };
-      }
-      
-      return { success: true };
-    } catch (error) {
-      console.error('Error signing out:', error);
-      return { success: false, error: 'Failed to sign out' };
+    // Delegate to authService for consistent signout (server + client)
+    const result = await authService.signOut();
+    
+    if (result.error) {
+      return { success: false, error: result.error.message };
     }
+    
+    return { success: true };
   }
 
   getPreferences(): { theme: 'light' | 'dark' | 'system'; notifications: boolean } {

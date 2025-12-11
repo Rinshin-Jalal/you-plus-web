@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Button } from '@/components/ui/Button';
 import { audioService } from '@/services/audio';
 import { storageService } from '@/services/storage';
 import { SavingOverlay } from '@/components/ui/Loaders';
+import { analytics } from '@/services/analytics';
 
 // Step data and types
 import { OnboardingStep, getFieldName, getStepsBeforePillars, getStepsAfterPillars } from '@/data/onboardingSteps';
@@ -50,6 +51,10 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
   const [voiceState, setVoiceState] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [recordingInterval, setRecordingInterval] = useState<NodeJS.Timeout | null>(null);
+  
+  // Analytics tracking
+  const hasTrackedStart = useRef(false);
+  const onboardingStartTime = useRef<number>(Date.now());
 
   // Load data from storage after hydration
   useEffect(() => {
@@ -61,6 +66,13 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
 
     // Initialize audio on mount (will wait for user gesture)
     audioService.init();
+    
+    // Track onboarding started (only once)
+    if (!hasTrackedStart.current) {
+      analytics.onboardingStarted();
+      onboardingStartTime.current = Date.now();
+      hasTrackedStart.current = true;
+    }
   }, []);
 
   // Initialize audio on first user interaction
@@ -141,6 +153,16 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
 
     // Play audio feedback
     audioService.playBinauralBurst();
+    
+    // Track step completion
+    if (currentStep) {
+      analytics.onboardingStepCompleted(
+        currentStep.id,
+        currentStep.type,
+        stepIndex,
+        totalSteps
+      );
+    }
 
     // Save data if value provided - ONLY use field names, not numeric step IDs
     if (val !== undefined && currentStep) {
@@ -205,10 +227,16 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
   };
 
   const handlePillarContinue = () => {
-    next(Array.isArray(data.selected_pillars) ? data.selected_pillars : []);
+    const pillars = Array.isArray(data.selected_pillars) ? data.selected_pillars : [];
+    // Track pillar selection (primary not yet selected at this point)
+    analytics.onboardingPillarsSelected(pillars, '');
+    next(pillars);
   };
 
   const handlePrimaryPillarSelect = (pillarId: string) => {
+    const pillars = Array.isArray(data.selected_pillars) ? data.selected_pillars : [];
+    // Track pillar selection with primary pillar now known
+    analytics.onboardingPillarsSelected(pillars, pillarId);
     setData((prev: Record<string, unknown>) => ({ ...prev, primary_pillar: pillarId }));
     next(pillarId);
   };
@@ -263,6 +291,15 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
         clearInterval(recordingInterval);
         setRecordingInterval(null);
       }
+      
+      // Track voice recording event - determine recording type from current step
+      const recordingType = currentStep?.id === 'dark_future_voice' 
+        ? 'dark_future' 
+        : currentStep?.id === 'why_voice' 
+          ? 'why' 
+          : 'pledge';
+      analytics.onboardingVoiceRecorded(recordingType as 'dark_future' | 'why' | 'pledge', recordingTime);
+      
       setVoiceState(false);
       setRecordingTime(0);
       next('voice_recorded');
@@ -508,6 +545,10 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
               key={currentStep.id}
               data={data}
               onComplete={() => {
+                // Track onboarding completed
+                const durationSeconds = Math.round((Date.now() - onboardingStartTime.current) / 1000);
+                analytics.onboardingCompleted(totalSteps, durationSeconds);
+                
                 // After auth, complete the flow (redirects to /setup via onFinish)
                 onFinish();
               }}

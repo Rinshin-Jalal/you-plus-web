@@ -7,12 +7,16 @@ import { combinedRouter } from "@/features";
 import { getHealth, getStats } from "@/features/core/handlers/health";
 import { handleScheduled } from "@/features/core/handlers/scheduled";
 import { corsMiddleware, securityHeaders } from "@/middleware/security";
+import { sentryMiddleware, captureExceptionFromContext } from "@/lib/sentry";
 
 import { Env, validateEnv } from "@/types/environment";
 // Re-export Env type so other modules can import from "@/index"
 export type { Env } from "@/types/environment";
 
 const app = new Hono<{ Bindings: Env }>();
+
+// Sentry middleware (must be first to capture all errors)
+app.use("*", sentryMiddleware());
 
 // Global security middleware
 app.use("*", securityHeaders());
@@ -25,6 +29,12 @@ app.get("/stats", getStats);
 // Error handling middleware
 app.onError((err, c) => {
   console.error("Unhandled error:", err);
+  // Capture unhandled errors in Sentry
+  captureExceptionFromContext(c, err, {
+    path: c.req.path,
+    method: c.req.method,
+    url: c.req.url,
+  });
   return c.json(
     {
       error: "Internal server error",

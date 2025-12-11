@@ -5,6 +5,8 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { GrainOverlay } from '@/components/onboarding/ui/GrainOverlay';
 
+const isDev = process.env.NODE_ENV === 'development';
+
 interface ErrorDetails {
   error?: string;
   origin?: string;
@@ -30,7 +32,7 @@ function AuthCodeErrorContent() {
         sessionStorage.removeItem('auth_error_details');
       }
     } catch (e) {
-      console.debug('Could not read error details:', e);
+      if (isDev) console.debug('Could not read error details:', e);
     }
   }, [searchParams]);
 

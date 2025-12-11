@@ -1,6 +1,7 @@
 import { Context, Next } from "hono";
 import { Env } from "@/index";
 import { ContentfulStatusCode } from "hono/utils/http-status";
+import { captureExceptionFromContext } from "@/lib/sentry";
 
 export class AppError extends Error {
   constructor(
@@ -68,6 +69,13 @@ export const errorHandler = () => {
       }
 
       console.error("Unexpected error:", error);
+      // Capture unexpected errors to Sentry
+      captureExceptionFromContext(c, error, {
+        path: c.req.path,
+        method: c.req.method,
+        userId: c.get("userId") || "anonymous",
+        isOperational: false,
+      });
       const stack = isDevelopment ? { stack: (error as Error).stack } : {};
       return c.json(
         {

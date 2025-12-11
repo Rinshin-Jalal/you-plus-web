@@ -10,6 +10,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useSubscription } from '@/hooks/useSubscription';
 import { FullPageLoader } from '@/components/ui/Loaders';
 
+const isDev = process.env.NODE_ENV === 'development';
+
 /**
  * Onboarding Page
  * 
@@ -43,11 +45,11 @@ export default function OnboardingPage() {
         if (isComplete) {
             // User has COMPLETE onboarding data in localStorage
             // Redirect to setup which will handle auth/subscription checks
-            console.log('[Onboarding] Has complete local data, redirecting to /setup');
+            if (isDev) console.log('[Onboarding] Has complete local data, redirecting to /setup');
             router.replace('/setup');
             return;
         } else if (Object.keys(localData).length > 0) {
-            console.log('[Onboarding] Has partial data, resuming flow...');
+            if (isDev) console.log('[Onboarding] Has partial data, resuming flow...');
         }
 
         // If authenticated, also check backend onboarding status
@@ -58,10 +60,10 @@ export default function OnboardingPage() {
                 // User already completed onboarding on backend
                 // Redirect based on subscription status
                 if (isActive) {
-                    console.log('[Onboarding] Already onboarded + subscribed, redirecting to /dashboard');
+                    if (isDev) console.log('[Onboarding] Already onboarded + subscribed, redirecting to /dashboard');
                     router.replace('/dashboard');
                 } else {
-                    console.log('[Onboarding] Already onboarded but not subscribed, redirecting to /checkout');
+                    if (isDev) console.log('[Onboarding] Already onboarded but not subscribed, redirecting to /checkout');
                     router.replace('/checkout');
                 }
                 return;
@@ -69,7 +71,7 @@ export default function OnboardingPage() {
         }
 
         // No local data and not onboarded on backend - show onboarding
-        console.log('[Onboarding] Showing onboarding flow');
+        if (isDev) console.log('[Onboarding] Showing onboarding flow');
         setChecking(false);
         setShouldShowOnboarding(true);
     }, [authLoading, subLoading, isAuthenticated, onboardingCompleted, isActive, router]);

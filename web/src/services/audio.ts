@@ -1,3 +1,5 @@
+const isDev = process.env.NODE_ENV === 'development';
+
 class AudioService {
   private ctx: AudioContext | null = null;
   private gainNode: GainNode | null = null;
@@ -17,7 +19,7 @@ class AudioService {
     // Always try to resume if suspended (browsers block autoplay)
     if (this.ctx && this.ctx.state === 'suspended') {
       this.ctx.resume().then(() => {
-          console.log("AudioContext resumed successfully");
+          if (isDev) console.log("AudioContext resumed successfully");
       }).catch(err => {
           console.warn("AudioContext resume failed (waiting for gesture):", err);
       });

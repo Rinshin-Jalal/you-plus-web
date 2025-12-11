@@ -21,6 +21,13 @@ let cachedResponse: SubscriptionResponse | null = null;
 let cacheTimestamp: number = 0;
 let cachedUserId: string | null = null;
 
+// Standalone cache clear function for use during signout
+export function clearSubscriptionCache() {
+  cachedResponse = null;
+  cachedUserId = null;
+  cacheTimestamp = 0;
+}
+
 export function useSubscription() {
   const { isAuthenticated, user } = useAuth();
   const [loadedUserId, setLoadedUserId] = useState<string | null>(null);

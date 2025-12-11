@@ -9,6 +9,9 @@ import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { GrainOverlay } from '@/components/onboarding/ui/GrainOverlay';
 import { WitnessLogo } from '@/components/ui/WitnessLogo';
+import { analytics } from '@/services/analytics';
+
+const isDev = process.env.NODE_ENV === 'development';
 
 /**
  * Smart Redirect Logic after authentication:
@@ -34,9 +37,10 @@ import { WitnessLogo } from '@/components/ui/WitnessLogo';
 function FinalizeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { isAuthenticated, loading: authLoading } = useAuth();
+  const { isAuthenticated, user, loading: authLoading } = useAuth();
   const { isActive, onboardingCompleted, loading: subLoading } = useSubscription();
   const [statusMessage, setStatusMessage] = useState('Checking authentication...');
+  const [hasTrackedLogin, setHasTrackedLogin] = useState(false);
 
   useEffect(() => {
     if (authLoading) {
@@ -47,6 +51,18 @@ function FinalizeContent() {
     if (!isAuthenticated) {
       router.replace('/auth/login');
       return;
+    }
+
+    // Track OAuth login completion (only once)
+    if (isAuthenticated && user && !hasTrackedLogin) {
+      // Determine provider from user metadata
+      const provider = user.app_metadata?.provider as 'google' | 'apple' | 'email' || 'email';
+      analytics.authLoginCompleted(provider);
+      analytics.identify(user.id, {
+        createdAt: user.created_at,
+        provider,
+      });
+      setHasTrackedLogin(true);
     }
 
     // Wait for subscription/onboarding check
@@ -61,12 +77,14 @@ function FinalizeContent() {
     // Check if user has onboarding data in localStorage
     const hasLocalData = storageService.hasOnboardingData();
     
-    console.log('[Finalize] Smart redirect:', { 
-      hasLocalData,
-      onboardingCompleted,
-      isActive, 
-      explicitNext 
-    });
+    if (isDev) {
+      console.log('[Finalize] Smart redirect:', { 
+        hasLocalData,
+        onboardingCompleted,
+        isActive, 
+        explicitNext 
+      });
+    }
 
     // Determine the smart redirect destination
     let destination: string;
@@ -101,9 +119,9 @@ function FinalizeContent() {
       setStatusMessage('Welcome!');
     }
 
-    console.log('[Finalize] Redirecting to:', destination);
+    if (isDev) console.log('[Finalize] Redirecting to:', destination);
     router.replace(destination);
-  }, [isAuthenticated, authLoading, subLoading, isActive, onboardingCompleted, router, searchParams]);
+  }, [isAuthenticated, authLoading, subLoading, isActive, onboardingCompleted, router, searchParams, user, hasTrackedLogin]);
 
   return (
     <div className="min-h-screen flex flex-col bg-[#0A0A0A] relative">

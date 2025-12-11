@@ -1,6 +1,8 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { updateSession } from '@/utils/supabase/proxy'
 
+const isDev = process.env.NODE_ENV === 'development'
+
 export async function proxy(request: NextRequest) {
     const { pathname } = request.nextUrl
 
@@ -65,7 +67,7 @@ export async function proxy(request: NextRequest) {
     if (!user) {
         // /checkout/welcome requires auth - redirect to login
         if (isCheckoutWelcomeRoute) {
-            console.log(`[MIDDLEWARE] ${pathname} - checkout/welcome requires auth, redirecting to /auth/login`)
+            if (isDev) console.log(`[MIDDLEWARE] ${pathname} - checkout/welcome requires auth, redirecting to /auth/login`)
             const loginUrl = new URL('/auth/login', request.url)
             loginUrl.searchParams.set('next', pathname)
             return NextResponse.redirect(loginUrl)
@@ -74,17 +76,17 @@ export async function proxy(request: NextRequest) {
         if (isCheckoutRoute) {
             return supabaseResponse
         }
-        console.log(`[MIDDLEWARE] ${pathname} - Not authenticated, redirecting to /auth/login`)
+        if (isDev) console.log(`[MIDDLEWARE] ${pathname} - Not authenticated, redirecting to /auth/login`)
         const loginUrl = new URL('/auth/login', request.url)
         return NextResponse.redirect(loginUrl)
     }
 
-    console.log(`[MIDDLEWARE] ${pathname} - User authenticated: ${claims?.email}`)
+    if (isDev) console.log(`[MIDDLEWARE] ${pathname} - User authenticated: ${claims?.email}`)
 
     // For /checkout: allow subscribed users to access for plan management
     // The page itself will show appropriate UI for current plan
     if (isCheckoutRoute) {
-        console.log(`[MIDDLEWARE] /checkout - Allowing access for plan management`)
+        if (isDev) console.log(`[MIDDLEWARE] /checkout - Allowing access for plan management`)
         return supabaseResponse
     }
 
@@ -99,7 +101,7 @@ export async function proxy(request: NextRequest) {
         const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8787'
 
         if (!accessToken) {
-            console.log(`[MIDDLEWARE] ${pathname} - No access token, redirecting to login`)
+            if (isDev) console.log(`[MIDDLEWARE] ${pathname} - No access token, redirecting to login`)
             const loginUrl = new URL('/auth/login', request.url)
             return NextResponse.redirect(loginUrl)
         }
@@ -130,7 +132,7 @@ export async function proxy(request: NextRequest) {
         if (onboardingCompleted && hasActiveSubscription) {
             // Block access to onboarding and checkout welcome (already done)
             if (pathname.startsWith('/onboarding') || pathname.startsWith('/checkout/welcome')) {
-                console.log(`[MIDDLEWARE] ${pathname} - Fully complete, redirecting to /dashboard`)
+                if (isDev) console.log(`[MIDDLEWARE] ${pathname} - Fully complete, redirecting to /dashboard`)
                 return NextResponse.redirect(new URL('/dashboard', request.url))
             }
             // Allow /checkout for subscription management, allow /dashboard, etc.
@@ -142,7 +144,7 @@ export async function proxy(request: NextRequest) {
         if (!onboardingCompleted && hasActiveSubscription) {
             // Must go to setup (handles post-payment data push + phone capture)
             if (!pathname.startsWith('/setup')) {
-                console.log(`[MIDDLEWARE] ${pathname} - Subscribed but not onboarded, redirecting to /setup`)
+                if (isDev) console.log(`[MIDDLEWARE] ${pathname} - Subscribed but not onboarded, redirecting to /setup`)
                 return NextResponse.redirect(new URL('/setup', request.url))
             }
             // Allow setup flow
@@ -154,7 +156,7 @@ export async function proxy(request: NextRequest) {
         if (onboardingCompleted && !hasActiveSubscription) {
             // Must go to checkout
             if (!pathname.startsWith('/checkout')) {
-                console.log(`[MIDDLEWARE] ${pathname} - Onboarded but not subscribed, redirecting to /checkout`)
+                if (isDev) console.log(`[MIDDLEWARE] ${pathname} - Onboarded but not subscribed, redirecting to /checkout`)
                 return NextResponse.redirect(new URL('/checkout', request.url))
             }
             // Allow /checkout
@@ -169,7 +171,7 @@ export async function proxy(request: NextRequest) {
                 return supabaseResponse
             }
             // Default entry point: Onboarding
-            console.log(`[MIDDLEWARE] ${pathname} - Nothing complete, redirecting to /onboarding`)
+            if (isDev) console.log(`[MIDDLEWARE] ${pathname} - Nothing complete, redirecting to /onboarding`)
             return NextResponse.redirect(new URL('/onboarding', request.url))
         }
 

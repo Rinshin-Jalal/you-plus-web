@@ -3,6 +3,8 @@ import { mergeAudioBlobs } from '@/utils/audioMerge';
 import { ConversionCompleteSchema } from '@/schemas/onboarding';
 import { withRetry, isOnline } from '@/utils/retry';
 
+const isDev = process.env.NODE_ENV === 'development';
+
 export type PushProgress = {
   step: 'validating' | 'merging_audio' | 'uploading' | 'complete' | 'error';
   message: string;
@@ -51,7 +53,7 @@ class StorageService {
   async saveVoice(blob: Blob, stepId: string): Promise<string> {
     // Cache the raw blob for merging later
     voiceBlobCache.set(stepId, blob);
-    console.log(`[Storage] Cached voice blob: ${stepId} (${blob.size} bytes)`);
+    if (isDev) console.log(`[Storage] Cached voice blob: ${stepId} (${blob.size} bytes)`);
     
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -70,7 +72,7 @@ class StorageService {
           
           // Save to localStorage
           localStorage.setItem(this.VOICE_KEY, JSON.stringify(voiceData));
-          console.log(`[Storage] Voice ${stepId} saved (${blob.size} bytes)`);
+          if (isDev) console.log(`[Storage] Voice ${stepId} saved (${blob.size} bytes)`);
           resolve(base64Data);
         } catch (e) {
           console.error('Failed to save voice:', e);
@@ -107,7 +109,7 @@ class StorageService {
       const blob = voiceBlobCache.get(fieldName);
       if (blob) {
         blobs.push(blob);
-        console.log(`[Storage] Found blob for merging: ${fieldName} (${blob.size} bytes)`);
+        if (isDev) console.log(`[Storage] Found blob for merging: ${fieldName} (${blob.size} bytes)`);
       }
     }
 
@@ -121,7 +123,7 @@ class StorageService {
           try {
             const blob = await this.base64ToBlob(data);
             blobs.push(blob);
-            console.log(`[Storage] Converted base64 to blob: ${fieldName} (${blob.size} bytes)`);
+            if (isDev) console.log(`[Storage] Converted base64 to blob: ${fieldName} (${blob.size} bytes)`);
           } catch (e) {
             console.error(`[Storage] Failed to convert ${fieldName} to blob:`, e);
           }
@@ -134,18 +136,18 @@ class StorageService {
       return null;
     }
 
-    console.log(`[Storage] Merging ${blobs.length} voice recordings...`);
+    if (isDev) console.log(`[Storage] Merging ${blobs.length} voice recordings...`);
 
     try {
       const mergedBlob = await mergeAudioBlobs(blobs);
-      console.log(`[Storage] Merged audio: ${mergedBlob.size} bytes, type: ${mergedBlob.type}`);
+      if (isDev) console.log(`[Storage] Merged audio: ${mergedBlob.size} bytes, type: ${mergedBlob.type}`);
 
       // Convert to base64
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onloadend = () => {
           const base64 = reader.result as string;
-          console.log(`[Storage] Merged audio base64 length: ${base64.length}`);
+          if (isDev) console.log(`[Storage] Merged audio base64 length: ${base64.length}`);
           resolve(base64);
         };
         reader.onerror = reject;
@@ -187,7 +189,7 @@ class StorageService {
     localStorage.removeItem(this.VOICE_KEY);
     // Clear the blob cache
     voiceBlobCache.clear();
-    console.log('[Storage] Onboarding data cleared');
+    if (isDev) console.log('[Storage] Onboarding data cleared');
   }
 
   // Check if onboarding data exists
@@ -217,7 +219,7 @@ class StorageService {
     const { formData, voiceData } = this.getAllOnboardingData();
     
     if (!this.hasOnboardingData()) {
-      console.log('[Storage] No onboarding data to push');
+      if (isDev) console.log('[Storage] No onboarding data to push');
       return { success: true };
     }
 
@@ -250,7 +252,7 @@ class StorageService {
     try {
       const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       dataToSend['timezone'] = timezone;
-      console.log(`[Storage] Added timezone: ${timezone}`);
+      if (isDev) console.log(`[Storage] Added timezone: ${timezone}`);
     } catch (e) {
       console.warn('[Storage] Could not detect timezone, using UTC');
       dataToSend['timezone'] = 'UTC';
@@ -258,11 +260,11 @@ class StorageService {
 
     // Add individual voice recordings (stored by field name)
     // Voice recordings are stored with keys like 'future_self_intro_recording', 'why_recording', 'pledge_recording'
-    console.log('[Storage] Voice data keys:', Object.keys(voiceData));
+    if (isDev) console.log('[Storage] Voice data keys:', Object.keys(voiceData));
     for (const [fieldName, voiceInfo] of Object.entries(voiceData)) {
       if (voiceInfo.data) {
         dataToSend[fieldName] = voiceInfo.data;
-        console.log(`[Storage] Added voice field: ${fieldName} (${voiceInfo.size} bytes)`);
+        if (isDev) console.log(`[Storage] Added voice field: ${fieldName} (${voiceInfo.size} bytes)`);
       }
     }
 
@@ -274,12 +276,12 @@ class StorageService {
 
     // Merge all voice recordings into a single audio file for voice cloning
     // This is done client-side because WebM concatenation requires proper audio processing
-    console.log('[Storage] Merging voice recordings for voice cloning...');
+    if (isDev) console.log('[Storage] Merging voice recordings for voice cloning...');
     try {
       const mergedVoice = await this.getMergedVoiceRecording();
       if (mergedVoice) {
         dataToSend['merged_voice_recording'] = mergedVoice;
-        console.log(`[Storage] Added merged voice recording (${mergedVoice.length} chars base64)`);
+        if (isDev) console.log(`[Storage] Added merged voice recording (${mergedVoice.length} chars base64)`);
       } else {
         console.warn('[Storage] Could not create merged voice recording');
       }
@@ -288,7 +290,7 @@ class StorageService {
       // Continue without merged audio - backend can fall back to single recording
     }
 
-    console.log('[Storage] Onboarding data fields being sent:', Object.keys(dataToSend));
+    if (isDev) console.log('[Storage] Onboarding data fields being sent:', Object.keys(dataToSend));
     
     // Validate required voice recordings
     const requiredVoiceFields = ['future_self_intro_recording', 'why_recording', 'pledge_recording'];
@@ -356,7 +358,7 @@ class StorageService {
       
       // Clear local data after successful push
       this.clearOnboardingData();
-      console.log('[Storage] Onboarding data pushed successfully');
+      if (isDev) console.log('[Storage] Onboarding data pushed successfully');
       
       onProgress?.({
         step: 'complete',

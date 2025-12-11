@@ -17,6 +17,8 @@
 //
 // ============================================================================
 
+const isDev = process.env.NODE_ENV === 'development';
+
 export type StepType =
   | 'commentary'
   | 'choice'
@@ -485,7 +487,7 @@ export function isOnboardingComplete(data: Record<string, unknown>): boolean {
   });
 
   if (missingFields.length > 0) {
-    console.log('[OnboardingCheck] Missing fields:', missingFields);
+    if (isDev) console.log('[OnboardingCheck] Missing fields:', missingFields);
     return false;
   }
 

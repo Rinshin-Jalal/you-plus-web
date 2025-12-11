@@ -28,6 +28,7 @@ export const EnvSchema = z.object({
   SUPERMEMORY_API_KEY: z.string().optional(),
   DEBUG_ACCESS_TOKEN: z.string().optional(),
   GEMINI_API_KEY: z.string().optional(), // For returning user personalization
+  SENTRY_DSN: z.string().url().optional(), // Sentry Data Source Name for error tracking
   
   // DodoPayments configuration (for web payments)
   DODO_PAYMENTS_API_KEY: z.string().min(1, "DodoPayments API key is required"),
@@ -128,6 +129,10 @@ export const EnvCategories = {
   
   development: {
     DEBUG_ACCESS_TOKEN: "Debug access token for development endpoints",
+  },
+  
+  monitoring: {
+    SENTRY_DSN: "Sentry Data Source Name for error tracking and monitoring",
   },
   
   cloudflare: {

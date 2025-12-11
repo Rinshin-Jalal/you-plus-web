@@ -1,9 +1,10 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import Dashboard from '@/components/dashboard/Dashboard';
 import { authService } from '@/services/auth';
 import { ActiveUserGuard } from '@/components/shared/AuthGuard';
+import { analytics } from '@/services/analytics';
 
 /**
  * Dashboard Page - Protected by ActiveUserGuard
@@ -16,8 +17,20 @@ import { ActiveUserGuard } from '@/components/shared/AuthGuard';
  * If any condition is missing, redirects to the appropriate step.
  */
 export default function DashboardPage() {
+    const hasTrackedView = useRef(false);
+    
+    // Track dashboard view (only once per mount)
+    useEffect(() => {
+        if (!hasTrackedView.current) {
+            analytics.dashboardViewed();
+            hasTrackedView.current = true;
+        }
+    }, []);
+    
     const handleLogout = async () => {
         try {
+            // Track logout
+            analytics.authLogout();
             await authService.signOut();
             window.location.href = '/';
         } catch (error) {

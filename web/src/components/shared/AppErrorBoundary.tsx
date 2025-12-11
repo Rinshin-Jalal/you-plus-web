@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import * as Sentry from '@sentry/nextjs';
 
 export interface AppErrorBoundaryProps {
   children: React.ReactNode;
@@ -24,7 +25,12 @@ export class AppErrorBoundary extends React.Component<AppErrorBoundaryProps, App
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    // Surface to monitoring when wired (e.g., Sentry)
+    // Capture error in Sentry with component stack
+    Sentry.captureException(error, {
+      extra: {
+        componentStack: errorInfo.componentStack,
+      },
+    });
     console.error('[ErrorBoundary] Caught error:', error, errorInfo);
   }
 

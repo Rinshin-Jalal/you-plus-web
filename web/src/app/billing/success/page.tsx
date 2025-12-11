@@ -3,13 +3,15 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
+import { analytics } from '@/services/analytics';
 
 /**
  * Billing Success Page
  * 
  * After successful payment, this page:
- * 1. Clears temporary checkout data
- * 2. Hands off to /setup (which pushes onboarding data and collects phone)
+ * 1. Tracks checkout completion
+ * 2. Clears temporary checkout data
+ * 3. Hands off to /setup (which pushes onboarding data and collects phone)
  */
 
 export default function BillingSuccessPage() {
@@ -30,6 +32,16 @@ export default function BillingSuccessPage() {
       setProcessing(true);
 
       try {
+        // Track checkout completion
+        // Note: We don't have plan details here, but the event is still valuable
+        // The backend webhook should also track this with full details
+        const pendingPlanId = localStorage.getItem('youplus_pending_plan_id');
+        if (pendingPlanId) {
+          // Determine interval from plan ID pattern or default
+          const interval = pendingPlanId.includes('year') ? 'year' : 'month';
+          analytics.checkoutCompleted(pendingPlanId, interval as 'month' | 'year');
+        }
+
         // Clear temporary checkout data before handing off to setup
         localStorage.removeItem('youplus_guest_checkout_id');
         localStorage.removeItem('youplus_pending_plan_id');

@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@react-three/fiber": "^9.4.2",
+    "@sentry/nextjs": "^10.30.0",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.86.0",
     "html2canvas": "^1.4.1",
@@ -17,6 +18,7 @@
     "libphonenumber-js": "^1.12.31",
     "lucide-react": "^0.555.0",
     "next": "16.0.6",
+    "posthog-js": "^1.304.0",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "react-phone-number-input": "^3.4.14",

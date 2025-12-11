@@ -8,6 +8,7 @@ import { storageService } from '@/services/storage';
 import { ArrowRight, Check, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { WitnessLogo } from '@/components/ui/WitnessLogo';
+import { analytics } from '@/services/analytics';
 
 interface Plan {
   id: string;
@@ -81,10 +82,19 @@ function CheckoutContent() {
   const [isChangingPlan, setIsChangingPlan] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [billingInterval, setBillingInterval] = useState<'month' | 'year'>('year');
+  const [hasTrackedView, setHasTrackedView] = useState(false);
 
   useEffect(() => {
     setHasOnboardingData(storageService.hasOnboardingData());
   }, []);
+
+  // Track checkout page view
+  useEffect(() => {
+    if (!authLoading && !subLoading && !hasTrackedView) {
+      analytics.checkoutViewed(hasOnboardingData, isAuthenticated);
+      setHasTrackedView(true);
+    }
+  }, [authLoading, subLoading, hasOnboardingData, isAuthenticated, hasTrackedView]);
 
   useEffect(() => {
     const fetchPlans = async () => {
@@ -144,6 +154,12 @@ function CheckoutContent() {
     setSelectedPlan(planId);
     setError(null);
     setCheckoutLoading(true);
+
+    // Find the plan to get details for tracking
+    const plan = plans.find(p => p.id === planId);
+    if (plan) {
+      analytics.checkoutStarted(planId, plan.interval);
+    }
 
     try {
       if (!isAuthenticated) {
@@ -346,7 +362,13 @@ function CheckoutContent() {
         <div className="flex justify-center mb-12">
           <div className="inline-flex border border-white/20">
             <button
-              onClick={() => setBillingInterval('month')}
+              onClick={() => {
+                setBillingInterval('month');
+                const monthlyPlan = plans.find(p => p.interval === 'month');
+                if (monthlyPlan) {
+                  analytics.checkoutPlanSelected(monthlyPlan.id, 'month', monthlyPlan.price);
+                }
+              }}
               className={`px-8 py-3 text-sm font-bold uppercase tracking-wide transition-colors ${
                 billingInterval === 'month'
                   ? 'bg-white text-black'
@@ -356,7 +378,13 @@ function CheckoutContent() {
               Monthly
             </button>
             <button
-              onClick={() => setBillingInterval('year')}
+              onClick={() => {
+                setBillingInterval('year');
+                const yearlyPlan = plans.find(p => p.interval === 'year');
+                if (yearlyPlan) {
+                  analytics.checkoutPlanSelected(yearlyPlan.id, 'year', yearlyPlan.price);
+                }
+              }}
               className={`px-8 py-3 text-sm font-bold uppercase tracking-wide transition-colors flex items-center gap-2 ${
                 billingInterval === 'year'
                   ? 'bg-white text-black'

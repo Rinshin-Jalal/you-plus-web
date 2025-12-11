@@ -3,6 +3,8 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { authService } from '@/services/auth';
+import { clearSubscriptionCache } from './useSubscription';
+import { useDashboardStore } from '@/stores/dashboardStore';
 
 export interface AuthContextType {
   user: User | null;
@@ -27,14 +29,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const initAuth = async () => {
       try {
-        console.log('[useAuth] Initializing auth state...');
         const authState = await authService.getAuthState();
-        console.log('[useAuth] Auth state received:', { 
-          hasUser: !!authState.user, 
-          userEmail: authState.user?.email,
-          hasSession: !!authState.session 
-        });
-        
+
         if (mounted) {
           setUser(authState.user);
           setSession(authState.session);
@@ -79,6 +75,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     const result = await authService.signOut();
     if (!result.error) {
+      // Clear all caches to prevent stale data on next login
+      clearSubscriptionCache();
+      useDashboardStore.getState().clearCache();
+      
       setUser(null);
       setSession(null);
     }

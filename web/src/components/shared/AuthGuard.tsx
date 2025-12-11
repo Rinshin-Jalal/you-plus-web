@@ -7,6 +7,8 @@ import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { FullPageLoader } from '@/components/ui/Loaders';
 import { storageService } from '@/services/storage';
 
+const isDev = process.env.NODE_ENV === 'development';
+
 export interface AuthGuardProps {
   children: React.ReactNode;
   redirectTo?: string;
@@ -83,7 +85,7 @@ function ActiveUserGuardInner({ children, fallback }: ActiveUserGuardProps) {
 
     // Check 1: Must be authenticated
     if (!isAuthenticated) {
-      console.log('[ActiveUserGuard] Not authenticated, redirecting to login');
+      if (isDev) console.log('[ActiveUserGuard] Not authenticated, redirecting to login');
       router.replace(`/auth/login?next=${encodeURIComponent(pathname)}`);
       return;
     }
@@ -93,27 +95,27 @@ function ActiveUserGuardInner({ children, fallback }: ActiveUserGuardProps) {
 
     // Check 2: Must be onboarded (either backend flag or has local data to push)
     if (!onboardingCompleted && !hasLocalOnboardingData) {
-      console.log('[ActiveUserGuard] Not onboarded, redirecting to onboarding');
+      if (isDev) console.log('[ActiveUserGuard] Not onboarded, redirecting to onboarding');
       router.replace('/onboarding');
       return;
     }
 
     // If has local data but not pushed yet, redirect to setup to push it
     if (hasLocalOnboardingData && !onboardingCompleted) {
-      console.log('[ActiveUserGuard] Has local data to push, redirecting to setup');
+      if (isDev) console.log('[ActiveUserGuard] Has local data to push, redirecting to setup');
       router.replace('/setup');
       return;
     }
 
     // Check 3: Must be subscribed
     if (!isActive) {
-      console.log('[ActiveUserGuard] Not subscribed, redirecting to checkout');
+      if (isDev) console.log('[ActiveUserGuard] Not subscribed, redirecting to checkout');
       router.replace('/checkout');
       return;
     }
 
     // All checks passed!
-    console.log('[ActiveUserGuard] All checks passed - user is active');
+    if (isDev) console.log('[ActiveUserGuard] All checks passed - user is active');
   }, [authLoading, subLoading, isAuthenticated, isActive, onboardingCompleted, router, pathname]);
 
   // Show loading while checking

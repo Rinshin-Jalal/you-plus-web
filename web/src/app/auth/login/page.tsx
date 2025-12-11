@@ -8,6 +8,7 @@ import { LegalFooter } from '@/components/shared/LegalFooter';
 import { GrainOverlay } from '@/components/onboarding/ui/GrainOverlay';
 import { Loader2, ArrowRight } from 'lucide-react';
 import { WitnessLogo } from '@/components/ui/WitnessLogo';
+import { analytics } from '@/services/analytics';
 
 function LoginContent() {
     const [error, setError] = useState('');
@@ -35,6 +36,10 @@ function LoginContent() {
     const handleSocialLogin = async (provider: 'google' | 'apple') => {
         setLoading(true);
         setError('');
+        
+        // Track login started
+        analytics.authLoginStarted(provider);
+        
         try {
             const callbackUrl = `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextUrl)}`;
             
@@ -61,12 +66,18 @@ function LoginContent() {
         }
         setLoading(true);
         setError('');
+        
+        // Track login started
+        analytics.authLoginStarted('email');
+        
         try {
             const result = await signInWithPassword(email, password);
             if (result.error) {
                 setError(result.error.message);
                 setLoading(false);
             } else {
+                // Track successful login
+                analytics.authLoginCompleted('email');
                 router.replace(nextUrl);
             }
         } catch (err: unknown) {
