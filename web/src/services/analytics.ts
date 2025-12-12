@@ -122,6 +122,35 @@ function redactPII(properties: Record<string, unknown>): Record<string, unknown>
 
 let isInitialized = false;
 
+// Event queue for events fired before init completes
+type QueuedEvent = { type: 'track'; event: AnalyticsEvent; properties?: Record<string, unknown> }
+  | { type: 'identify'; userId: string; traits?: Record<string, unknown> }
+  | { type: 'pageview'; url?: string };
+
+const eventQueue: QueuedEvent[] = [];
+
+/**
+ * Flush queued events after initialization
+ */
+function flushEventQueue(): void {
+  while (eventQueue.length > 0) {
+    const item = eventQueue.shift();
+    if (!item) continue;
+    
+    switch (item.type) {
+      case 'track':
+        posthog.capture(item.event, item.properties ? redactPII(item.properties) : {});
+        break;
+      case 'identify':
+        posthog.identify(item.userId, item.traits ? redactPII(item.traits) : {});
+        break;
+      case 'pageview':
+        posthog.capture('$pageview', item.url ? { $current_url: item.url } : undefined);
+        break;
+    }
+  }
+}
+
 /**
  * Initialize PostHog analytics
  * Call this once in your app's root provider
@@ -140,8 +169,9 @@ export function initAnalytics(): void {
 
   posthog.init(POSTHOG_KEY, {
     api_host: POSTHOG_HOST,
-    // Capture pageviews automatically
-    capture_pageview: true,
+    // Disable automatic pageview - we handle it manually in AnalyticsProvider
+    // to filter PII from query params
+    capture_pageview: false,
     // Capture page leave events
     capture_pageleave: true,
     // Disable session recording by default (enable in PostHog dashboard if needed)
@@ -156,6 +186,8 @@ export function initAnalytics(): void {
       if (isDev) {
         posthogInstance.debug();
       }
+      // Flush any queued events
+      flushEventQueue();
     },
   });
 
@@ -163,18 +195,28 @@ export function initAnalytics(): void {
   if (isDev) console.debug('[Analytics] PostHog initialized');
 }
 
+// Auto-initialize on module load (client-side only)
+if (typeof window !== 'undefined') {
+  initAnalytics();
+}
+
 /**
  * Track an event with optional properties
  * PII is automatically redacted
+ * Events are queued if called before init completes
  */
 export function track(
   event: AnalyticsEvent,
   properties?: Record<string, unknown>
 ): void {
-  if (!ANALYTICS_ENABLED || !isInitialized) {
-    if (isDev) {
-      console.debug('[Analytics] Would track:', event, properties);
-    }
+  if (!ANALYTICS_ENABLED) {
+    if (isDev) console.debug('[Analytics] Would track:', event, properties);
+    return;
+  }
+  
+  // Queue if not initialized yet
+  if (!isInitialized) {
+    eventQueue.push({ type: 'track', event, properties });
     return;
   }
 
@@ -185,9 +227,15 @@ export function track(
 /**
  * Identify a user (call after login)
  * Only pass user ID, never PII
+ * Queued if called before init completes
  */
 export function identify(userId: string, traits?: Record<string, unknown>): void {
-  if (!ANALYTICS_ENABLED || !isInitialized) return;
+  if (!ANALYTICS_ENABLED) return;
+  
+  if (!isInitialized) {
+    eventQueue.push({ type: 'identify', userId, traits });
+    return;
+  }
 
   const safeTraits = traits ? redactPII(traits) : {};
   posthog.identify(userId, safeTraits);
@@ -206,14 +254,21 @@ export function reset(): void {
  */
 export function setUserProperties(properties: Record<string, unknown>): void {
   if (!ANALYTICS_ENABLED || !isInitialized) return;
-  posthog.people.set(redactPII(properties));
+  posthog.setPersonProperties(redactPII(properties));
 }
 
 /**
- * Track page view manually (usually automatic)
+ * Track page view manually
+ * Queued if called before init completes
  */
 export function trackPageView(url?: string): void {
-  if (!ANALYTICS_ENABLED || !isInitialized) return;
+  if (!ANALYTICS_ENABLED) return;
+  
+  if (!isInitialized) {
+    eventQueue.push({ type: 'pageview', url });
+    return;
+  }
+  
   posthog.capture('$pageview', url ? { $current_url: url } : undefined);
 }
 

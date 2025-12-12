@@ -1,7 +1,18 @@
+/**
+ * DodoPayments Webhook Handler
+ *
+ * This webhook is now a thin layer that:
+ * 1. Validates the webhook signature
+ * 2. Parses the payload
+ * 3. Emits domain events to the event bus
+ *
+ * All business logic has been moved to event handlers in @/features/billing/handlers/events.ts
+ */
+
 import { Hono } from 'hono';
 import DodoPayments from 'dodopayments';
 import type { Env } from '@/index';
-import { createSupabaseClient } from '@/features/core/utils/database';
+import { eventBus } from '@/events';
 
 const dodoWebhook = new Hono<{ Bindings: Env }>();
 
@@ -9,13 +20,18 @@ dodoWebhook.post('/', async (c) => {
   const env = c.env;
 
   try {
+    // ═══════════════════════════════════════════════════════════════
+    // VALIDATE CONFIGURATION
+    // ═══════════════════════════════════════════════════════════════
     const secret = env.DODO_PAYMENTS_WEBHOOK_SECRET;
     if (!secret) {
-      console.error('Webhook secret not configured');
+      console.error('[Webhook] Webhook secret not configured');
       return c.json({ error: 'Server not configured' }, 500);
     }
 
-    // Standard Webhooks headers
+    // ═══════════════════════════════════════════════════════════════
+    // VERIFY SIGNATURE
+    // ═══════════════════════════════════════════════════════════════
     const id = c.req.header('webhook-id') || '';
     const timestamp = c.req.header('webhook-timestamp') || '';
     const signatureHeader = c.req.header('webhook-signature') || '';
@@ -29,7 +45,11 @@ dodoWebhook.post('/', async (c) => {
     // Create DodoPayments client for webhook verification
     let environment: 'test_mode' | 'live_mode' = 'test_mode';
     const envValue = env.DODO_PAYMENTS_ENVIRONMENT?.toLowerCase();
-    if (envValue === 'live' || envValue === 'live_mode' || envValue === 'production') {
+    if (
+      envValue === 'live' ||
+      envValue === 'live_mode' ||
+      envValue === 'production'
+    ) {
       environment = 'live_mode';
     }
 
@@ -38,7 +58,7 @@ dodoWebhook.post('/', async (c) => {
       environment: environment,
     });
 
-    // Use SDK's unwrap method for signature verification (handles base64 encoding correctly)
+    // Use SDK's unwrap method for signature verification
     let payload;
     try {
       payload = client.webhooks.unwrap(rawBody, {
@@ -50,164 +70,163 @@ dodoWebhook.post('/', async (c) => {
         key: secret,
       });
     } catch (verifyError) {
-      console.error('Webhook signature verification failed:', verifyError);
+      console.error('[Webhook] Signature verification failed:', verifyError);
       return c.json({ error: 'Invalid signature' }, 401);
     }
 
-    console.log('DodoPayments webhook received:', payload.type);
+    console.log('[Webhook] DodoPayments webhook received:', payload.type);
 
-    // Handle events based on type
-    // The SDK's unwrap returns typed events, but DodoPayments may send additional event types
-    // not yet in the SDK type definitions (e.g., subscription.updated)
+    // ═══════════════════════════════════════════════════════════════
+    // EMIT DOMAIN EVENTS
+    // ═══════════════════════════════════════════════════════════════
     const eventType = payload.type as string;
     const eventData = (payload as any).data;
 
+    // Extract common fields
+    const userId = eventData.metadata?.user_id;
+    const customerId = eventData.customer?.customer_id;
+    const customerEmail = eventData.customer?.email;
+    const customerName = eventData.customer?.name;
+    const subscriptionId = eventData.subscription_id;
+
     switch (eventType) {
-      case 'payment.succeeded':
-        await handlePaymentSucceeded(eventData, env);
-        break;
-      case 'payment.failed':
-        await handlePaymentFailed(eventData, env);
+      // ─────────────────────────────────────────────────────────────────
+      // SUBSCRIPTION EVENTS
+      // ─────────────────────────────────────────────────────────────────
+      case 'subscription.active':
+        if (!userId) {
+          console.error('[Webhook] No user_id in subscription metadata');
+          break;
+        }
+        if (!customerId) {
+          console.error('[Webhook] No customer_id in payload');
+          break;
+        }
+        await eventBus.emit(
+          {
+            type: 'subscription.created',
+            userId,
+            customerId,
+            plan: eventData.product_id || 'unknown',
+            email: customerEmail,
+            customerName,
+          },
+          env
+        );
         break;
 
-      case 'subscription.active':
-        await handleSubscriptionCreated(eventData, env);
-        break;
       case 'subscription.renewed':
       case 'subscription.updated':
-        await handleSubscriptionUpdated(eventData, env);
-        break;
-      case 'subscription.on_hold':
-        await handleSubscriptionOnHold(eventData, env);
-        break;
-      case 'subscription.cancelled':
-        await handleSubscriptionCancelled(eventData, env);
-        break;
-      case 'subscription.failed':
-        await handleSubscriptionFailed(eventData, env);
-        break;
-      case 'subscription.expired':
-        await handleSubscriptionExpired(eventData, env);
-        break;
       case 'subscription.plan_changed':
-        await handleSubscriptionUpdated(eventData, env);
+        if (userId) {
+          await eventBus.emit(
+            {
+              type: 'subscription.renewed',
+              userId,
+              subscriptionId,
+            },
+            env
+          );
+        } else {
+          console.log(`[Webhook] ${eventType}: No userId, skipping event`);
+        }
+        break;
+
+      case 'subscription.on_hold':
+        if (userId) {
+          await eventBus.emit(
+            {
+              type: 'subscription.on_hold',
+              userId,
+              subscriptionId,
+            },
+            env
+          );
+        } else {
+          console.log('[Webhook] subscription.on_hold: No userId, skipping event');
+        }
+        break;
+
+      case 'subscription.cancelled':
+        if (userId) {
+          await eventBus.emit(
+            {
+              type: 'subscription.cancelled',
+              userId,
+              subscriptionId,
+            },
+            env
+          );
+        } else {
+          console.log('[Webhook] subscription.cancelled: No userId, skipping event');
+        }
+        break;
+
+      case 'subscription.failed':
+        if (userId) {
+          await eventBus.emit(
+            {
+              type: 'subscription.failed',
+              userId,
+              subscriptionId,
+            },
+            env
+          );
+        } else {
+          console.log('[Webhook] subscription.failed: No userId, skipping event');
+        }
+        break;
+
+      case 'subscription.expired':
+        if (userId) {
+          await eventBus.emit(
+            {
+              type: 'subscription.expired',
+              userId,
+              subscriptionId,
+            },
+            env
+          );
+        } else {
+          console.log('[Webhook] subscription.expired: No userId, skipping event');
+        }
+        break;
+
+      // ─────────────────────────────────────────────────────────────────
+      // PAYMENT EVENTS
+      // ─────────────────────────────────────────────────────────────────
+      case 'payment.succeeded':
+        await eventBus.emit(
+          {
+            type: 'payment.succeeded',
+            userId,
+            subscriptionId,
+            amountCents: eventData.amount,
+          },
+          env
+        );
+        break;
+
+      case 'payment.failed':
+        await eventBus.emit(
+          {
+            type: 'payment.failed',
+            userId,
+            subscriptionId,
+          },
+          env
+        );
         break;
 
       default:
-        console.log('Unhandled webhook event type:', eventType);
+        console.log('[Webhook] Unhandled event type:', eventType);
     }
 
     return c.json({ received: true }, 200);
   } catch (error) {
-    console.error('Error processing DodoPayments webhook:', error);
+    console.error('[Webhook] Error processing webhook:', error);
     return c.json({ error: 'Webhook processing failed' }, 500);
   }
 });
-
-async function handleSubscriptionCreated(data: any, env: Env) {
-  const supabase = createSupabaseClient(env);
-
-  // Get user_id from metadata (checkout session metadata)
-  const userId = data.metadata?.user_id;
-
-  // DodoPayments customer object has the customer_id
-  const customerId = data.customer?.customer_id;
-  const customerEmail = data.customer?.email;
-
-  if (!userId) {
-    console.error('No user_id in subscription metadata');
-    return;
-  }
-
-  if (!customerId) {
-    console.error('No customer_id found in payload for user:', userId);
-    return;
-  }
-
-  console.log(`Subscription active for user ${userId}, customer ${customerId}`);
-
-  // Check if user exists in public.users
-  const { data: existingUser, error: fetchError } = await supabase
-    .from('users')
-    .select('id, dodo_customer_id')
-    .eq('id', userId)
-    .maybeSingle();
-
-  if (fetchError && fetchError.code !== 'PGRST116') {
-    console.error('Error checking user:', fetchError);
-  }
-
-  // If user doesn't exist in public.users, create them
-  if (!existingUser) {
-    console.log('User not found in public.users, creating...', userId);
-    
-    const { error: insertError } = await supabase
-      .from('users')
-      .insert({
-        id: userId,
-        email: customerEmail || 'unknown@example.com',
-        name: data.customer?.name || 'User',
-        dodo_customer_id: customerId,
-        payment_provider: 'dodopayments',
-        subscription_status: 'active',
-      });
-
-    if (insertError) {
-      console.error('Failed to create user:', insertError);
-      return;
-    }
-    
-    console.log(`User ${userId} created with dodo_customer_id ${customerId}`);
-    return;
-  }
-
-  // User exists, update with dodo_customer_id
-  const { data: updateResult, error: updateUserError } = await supabase
-    .from('users')
-    .update({
-      dodo_customer_id: customerId,
-      payment_provider: 'dodopayments',
-      subscription_status: 'active',
-    })
-    .eq('id', userId)
-    .select();
-
-  if (updateUserError) {
-    console.error('Failed to update user with dodo_customer_id:', updateUserError);
-  } else if (!updateResult || updateResult.length === 0) {
-    console.error('Update returned no rows:', userId);
-  } else {
-    console.log(`User ${userId} updated with dodo_customer_id ${customerId}`);
-  }
-}
-
-// For other subscription events, we just log them since we check DodoPayments API directly
-async function handleSubscriptionUpdated(data: any, _env: Env) {
-  console.log(`Subscription updated: ${data.subscription_id}, status: ${data.status}`);
-}
-
-async function handleSubscriptionCancelled(data: any, _env: Env) {
-  console.log(`Subscription cancelled: ${data.subscription_id}`);
-}
-
-async function handleSubscriptionOnHold(data: any, _env: Env) {
-  console.log(`Subscription on hold: ${data.subscription_id}`);
-}
-
-async function handleSubscriptionFailed(data: any, _env: Env) {
-  console.log(`Subscription failed: ${data.subscription_id}`);
-}
-
-async function handleSubscriptionExpired(data: any, _env: Env) {
-  console.log(`Subscription expired: ${data.subscription_id}`);
-}
-
-async function handlePaymentSucceeded(data: any, _env: Env) {
-  console.log(`Payment succeeded for subscription: ${data.subscription_id}`);
-}
-
-async function handlePaymentFailed(data: any, _env: Env) {
-  console.log(`Payment failed for subscription: ${data.subscription_id}`);
-}
 
 export default dodoWebhook;

@@ -185,19 +185,26 @@ function EngagingLoader({ isProcessing, progress }: EngagingLoaderProps) {
     switch (step) {
       case 'validating': return 'Preparing data';
       case 'merging_audio': return 'Processing voice';
-      case 'uploading': return 'Creating Future Self';
+      case 'uploading': return 'Uploading data';
+      case 'processing': return 'Creating Future Self';
       case 'complete': return 'Complete';
       case 'error': return 'Error';
       default: return 'Processing';
     }
   };
 
-  // Get progress percentage
-  const getProgressPercentage = (step: PushProgress['step']) => {
-    switch (step) {
-      case 'validating': return 15;
-      case 'merging_audio': return 40;
-      case 'uploading': return 70;
+  // Get progress percentage (now driven by backend progress)
+  const getProgressPercentage = (progress: PushProgress) => {
+    // If backend provides progress, use it
+    if (progress.progress !== undefined) {
+      return progress.progress;
+    }
+    // Fallback for local steps
+    switch (progress.step) {
+      case 'validating': return 10;
+      case 'merging_audio': return 25;
+      case 'uploading': return 40;
+      case 'processing': return 60;
       case 'complete': return 100;
       default: return 0;
     }
@@ -244,8 +251,8 @@ function EngagingLoader({ isProcessing, progress }: EngagingLoaderProps) {
         {progress && (
           <div className="mt-8 mb-4">
             <div className="flex justify-center gap-2 mb-3">
-              {['validating', 'merging_audio', 'uploading'].map((stepName, idx) => {
-                const stepOrder = ['validating', 'merging_audio', 'uploading'];
+              {['validating', 'merging_audio', 'uploading', 'processing'].map((stepName, idx) => {
+                const stepOrder = ['validating', 'merging_audio', 'uploading', 'processing'];
                 const currentStepIndex = stepOrder.indexOf(progress.step);
                 const isComplete = idx < currentStepIndex || progress.step === 'complete';
                 const isCurrent = progress.step === stepName;
@@ -259,13 +266,24 @@ function EngagingLoader({ isProcessing, progress }: EngagingLoaderProps) {
                         'bg-white/20'
                       }`}
                     />
-                    {idx < 2 && <div className={`w-8 h-0.5 ${isComplete ? 'bg-[#F97316]' : 'bg-white/20'}`} />}
+                    {idx < 3 && <div className={`w-6 h-0.5 ${isComplete ? 'bg-[#F97316]' : 'bg-white/20'}`} />}
                   </div>
                 );
               })}
             </div>
             <p className="text-sm text-white/60">
-              {getProgressStepLabel(progress.step)}
+              {progress.currentStep ? (
+                // Show backend-provided step message
+                <>
+                  {progress.currentStep === 'transcribing' && 'Transcribing your voice...'}
+                  {progress.currentStep === 'cloning_voice' && 'Creating your personalized voice...'}
+                  {progress.currentStep === 'uploading_audio' && 'Saving your recordings...'}
+                  {progress.currentStep === 'saving_data' && 'Finalizing your Future Self...'}
+                  {!['transcribing', 'cloning_voice', 'uploading_audio', 'saving_data'].includes(progress.currentStep) && getProgressStepLabel(progress.step)}
+                </>
+              ) : (
+                getProgressStepLabel(progress.step)
+              )}
               {progress.attempt && progress.maxAttempts && progress.attempt > 1 && (
                 <span className="text-white/40 ml-2">
                   (Attempt {progress.attempt}/{progress.maxAttempts})
@@ -292,7 +310,7 @@ function EngagingLoader({ isProcessing, progress }: EngagingLoaderProps) {
             {progress ? (
               <div 
                 className="h-full bg-gradient-to-r from-[#F97316] to-[#FB923C] rounded-full transition-all duration-500"
-                style={{ width: `${getProgressPercentage(progress.step)}%` }}
+                style={{ width: `${getProgressPercentage(progress)}%` }}
               />
             ) : (
               <div className="h-full bg-gradient-to-r from-[#F97316] to-[#FB923C] rounded-full animate-progress" />

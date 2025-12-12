@@ -1,0 +1,32 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# YOU+ Agent (Cartesia/Python) .gitignore
+# ═══════════════════════════════════════════════════════════════════════════
+# Note: Root .gitignore handles common patterns (venv, __pycache__, .env, AI agents, etc.)
+
+# Cartesia
+.cartesia/
+
+# Python virtual environments
+.venv/
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Environment (also in root)
+.env
+!.env.example
+
+# Ruff cache
+.ruff_cache/
+
+# MyPy
+.mypy_cache/
+
+# Test artifacts
+htmlcov/
+.coverage

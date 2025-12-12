@@ -1,0 +1,18 @@
+{
+  "name": "daily-call-trigger",
+  "version": "1.0.0",
+  "description": "AWS Lambda function to trigger daily Cartesia calls via EventBridge Scheduler",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "package": "npm run build && cd dist && zip -r ../function.zip .",
+    "deploy": "npm run package && aws lambda update-function-code --function-name daily-call-trigger --zip-file fileb://function.zip"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}

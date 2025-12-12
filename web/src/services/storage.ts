@@ -6,12 +6,16 @@ import { withRetry, isOnline } from '@/utils/retry';
 const isDev = process.env.NODE_ENV === 'development';
 
 export type PushProgress = {
-  step: 'validating' | 'merging_audio' | 'uploading' | 'complete' | 'error';
+  step: 'validating' | 'merging_audio' | 'uploading' | 'processing' | 'complete' | 'error';
   message: string;
   attempt?: number;
   maxAttempts?: number;
   retryingIn?: number;
   isOffline?: boolean;
+  // For async processing
+  jobId?: string;
+  progress?: number;
+  currentStep?: string;
 };
 
 export type PushResult = {
@@ -19,7 +23,33 @@ export type PushResult = {
   error?: string;
   isRetryable?: boolean;
   errorCode?: 'network' | 'timeout' | 'validation' | 'server' | 'unknown';
+  jobId?: string;
 };
+
+// Response from async onboarding endpoint
+interface OnboardingJobResponse {
+  success: boolean;
+  message: string;
+  jobId: string;
+  status: 'processing' | 'pending';
+  pollUrl: string;
+}
+
+// Response from job status endpoint
+interface JobStatusResponse {
+  jobId: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  currentStep?: string;
+  progress?: number;
+  createdAt: string;
+  completedAt?: string;
+  futureSelf?: {
+    id: string;
+    voiceCloned: boolean;
+    pillars: string[];
+  };
+  error?: string;
+}
 
 // In-memory cache for voice blobs (Blobs can't be stored in localStorage)
 // These are used to merge audio on the client side before sending
@@ -324,9 +354,16 @@ class StorageService {
 
     try {
       // Send to backend API with automatic retry
+      // The backend now returns immediately with a jobId
+      let jobResponse: OnboardingJobResponse | null = null;
+      
       await withRetry(
         async () => {
-          await apiClient.post('/api/onboarding/conversion/complete', parsed.data);
+          const response = await apiClient.post<OnboardingJobResponse>(
+            '/api/onboarding/conversion/complete', 
+            parsed.data
+          );
+          jobResponse = response;
         },
         {
           maxAttempts: maxRetries,
@@ -356,16 +393,46 @@ class StorageService {
         }
       );
       
-      // Clear local data after successful push
+      if (!jobResponse) {
+        throw new Error('No response from server');
+      }
+      
+      const { jobId, status } = jobResponse;
+      if (isDev) console.log(`[Storage] Job queued: ${jobId} (${status})`);
+      
+      // Step 4: Poll for job completion
+      onProgress?.({
+        step: 'processing',
+        message: 'Processing your voice recordings...',
+        jobId,
+        progress: 10,
+      });
+      
+      // Poll for job status until complete or failed
+      const pollResult = await this.pollJobStatus(jobId, onProgress);
+      
+      if (!pollResult.success) {
+        return {
+          success: false,
+          error: pollResult.error || 'Processing failed',
+          isRetryable: true,
+          errorCode: 'server',
+          jobId,
+        };
+      }
+      
+      // Clear local data after successful processing
       this.clearOnboardingData();
-      if (isDev) console.log('[Storage] Onboarding data pushed successfully');
+      if (isDev) console.log('[Storage] Onboarding data pushed and processed successfully');
       
       onProgress?.({
         step: 'complete',
         message: 'Your Future Self is ready!',
+        jobId,
+        progress: 100,
       });
       
-      return { success: true };
+      return { success: true, jobId };
     } catch (error: unknown) {
       console.error('[Storage] Failed to push onboarding data:', error);
       
@@ -399,6 +466,88 @@ class StorageService {
         errorCode,
       };
     }
+  }
+
+  // Poll job status until complete or failed
+  private async pollJobStatus(
+    jobId: string,
+    onProgress?: (progress: PushProgress) => void
+  ): Promise<{ success: boolean; error?: string }> {
+    const POLL_INTERVAL = 2000; // 2 seconds
+    const MAX_POLL_TIME = 5 * 60 * 1000; // 5 minutes max
+    const startTime = Date.now();
+    
+    // Step messages for better UX
+    const stepMessages: Record<string, string> = {
+      'queued': 'Preparing your data...',
+      'transcribing': 'Transcribing your voice recordings...',
+      'cloning_voice': 'Creating your personalized voice...',
+      'uploading_audio': 'Saving your recordings...',
+      'saving_data': 'Finalizing your Future Self...',
+      'done': 'Almost there...',
+    };
+    
+    while (Date.now() - startTime < MAX_POLL_TIME) {
+      try {
+        const status = await apiClient.get<JobStatusResponse>(
+          `/api/onboarding/status/${jobId}`
+        );
+        
+        if (isDev) console.log(`[Storage] Job status: ${status.status} (${status.currentStep})`);
+        
+        // Update progress
+        const message = stepMessages[status.currentStep || ''] || 'Processing...';
+        onProgress?.({
+          step: 'processing',
+          message,
+          jobId,
+          progress: status.progress || 50,
+          currentStep: status.currentStep,
+        });
+        
+        // Check terminal states
+        if (status.status === 'completed') {
+          return { success: true };
+        }
+        
+        if (status.status === 'failed') {
+          return { 
+            success: false, 
+            error: status.error || 'Processing failed. Please try again.' 
+          };
+        }
+        
+        // Wait before next poll
+        await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
+        
+      } catch (error) {
+        console.error('[Storage] Error polling job status:', error);
+        
+        // If we can't reach the server, wait and retry
+        if (!isOnline()) {
+          onProgress?.({
+            step: 'processing',
+            message: 'Waiting for connection...',
+            jobId,
+            isOffline: true,
+          });
+          await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL * 2));
+          continue;
+        }
+        
+        // For other errors, fail after a few retries
+        return { 
+          success: false, 
+          error: 'Unable to check processing status. Please refresh the page.' 
+        };
+      }
+    }
+    
+    // Timeout
+    return { 
+      success: false, 
+      error: 'Processing is taking longer than expected. Please refresh the page.' 
+    };
   }
 }
 

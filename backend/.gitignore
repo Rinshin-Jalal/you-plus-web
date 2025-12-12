@@ -1,38 +1,18 @@
 # ═══════════════════════════════════════════════════════════════════════════
-# YOU+ Web (Next.js) .gitignore
+# YOU+ Backend (Cloudflare Worker) .gitignore
 # ═══════════════════════════════════════════════════════════════════════════
 # Note: Root .gitignore handles common patterns (node_modules, .env, AI agents, etc.)
 
-# Next.js
-/.next/
-/out/
-/build/
-next-env.d.ts
-
-# Vercel
-.vercel
-
-# Testing
-/coverage
-
-# TypeScript
-*.tsbuildinfo
-
-# Debug logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
-
 # Trigger.dev
-.trigger
+.trigger/
 
-# AI Agents (also in root, but explicit here)
-.cursor/
-.claude/
-.windsurf/
-.opencode/
+# Cloudflare Wrangler
+.wrangler/
+.mf/
+.miniflare/
+.dev.vars
 
 # Environment (also in root)
 .env*
 !.env.example
+!.env.template

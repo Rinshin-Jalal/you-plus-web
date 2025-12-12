@@ -53,6 +53,14 @@ export const EnvSchema = z.object({
   
   // Cloudflare R2 bucket (automatically provided by Cloudflare)
   AUDIO_BUCKET: z.any(), // R2 bucket binding
+  
+  // AWS EventBridge Scheduler (for per-user call scheduling)
+  AWS_ACCESS_KEY_ID: z.string().min(1, "AWS access key ID is required"),
+  AWS_SECRET_ACCESS_KEY: z.string().min(1, "AWS secret access key is required"),
+  AWS_REGION: z.string().default("us-east-1"),
+  AWS_LAMBDA_FUNCTION_ARN: z.string().min(1, "AWS Lambda function ARN is required"),
+  AWS_SCHEDULER_ROLE_ARN: z.string().min(1, "AWS Scheduler role ARN is required"),
+  AWS_SCHEDULE_GROUP_NAME: z.string().default("youplus-daily-calls"),
 }).passthrough(); // Allow additional environment variables
 
 /**
@@ -137,6 +145,15 @@ export const EnvCategories = {
   
   cloudflare: {
     AUDIO_BUCKET: "Cloudflare R2 bucket for audio storage (automatically provided)",
+  },
+  
+  aws: {
+    AWS_ACCESS_KEY_ID: "AWS access key ID for EventBridge Scheduler",
+    AWS_SECRET_ACCESS_KEY: "AWS secret access key for EventBridge Scheduler",
+    AWS_REGION: "AWS region for EventBridge Scheduler",
+    AWS_LAMBDA_FUNCTION_ARN: "ARN of Lambda function for daily call triggers",
+    AWS_SCHEDULER_ROLE_ARN: "ARN of IAM role for EventBridge Scheduler",
+    AWS_SCHEDULE_GROUP_NAME: "EventBridge schedule group name",
   },
 } as const;
 

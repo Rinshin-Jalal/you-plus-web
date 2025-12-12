@@ -1,5 +1,33 @@
+/**
+ * ⚠️ DEPRECATED - This file is no longer in use
+ * 
+ * Daily call scheduling has been migrated to AWS EventBridge Scheduler.
+ * Each user now gets their own individual schedule that triggers a Lambda function
+ * at their preferred call time.
+ * 
+ * New architecture:
+ * - AWS EventBridge Scheduler: Per-user schedules with native timezone support
+ * - AWS Lambda (/lambda/daily-call-trigger/): Validates user and calls Cartesia API
+ * - CF Worker Scheduler Service (/backend/src/services/scheduler.ts): Manages schedules
+ * 
+ * This file is kept for reference only. The cron trigger in wrangler.toml has been removed.
+ * 
+ * @deprecated Use AWS EventBridge Scheduler instead
+ */
+
 import { createClient } from "@supabase/supabase-js";
 import type { Env } from "@/types/environment";
+
+// Cloudflare Workers types
+interface ScheduledEvent {
+  scheduledTime: number;
+  cron: string;
+}
+
+interface ExecutionContext {
+  waitUntil(promise: Promise<unknown>): void;
+  passThroughOnException(): void;
+}
 
 interface UserToCall {
   id: string;

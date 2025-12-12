@@ -5,13 +5,21 @@ import { combinedRouter } from "@/features";
 
 // Import individual route handlers from features
 import { getHealth, getStats } from "@/features/core/handlers/health";
-import { handleScheduled } from "@/features/core/handlers/scheduled";
 import { corsMiddleware, securityHeaders } from "@/middleware/security";
 import { sentryMiddleware, captureExceptionFromContext } from "@/lib/sentry";
+
+// Event-driven architecture
+import { registerAllEventHandlers } from "@/events";
 
 import { Env, validateEnv } from "@/types/environment";
 // Re-export Env type so other modules can import from "@/index"
 export type { Env } from "@/types/environment";
+
+// ═══════════════════════════════════════════════════════════════════════════
+// REGISTER EVENT HANDLERS
+// ═══════════════════════════════════════════════════════════════════════════
+// This runs once when the worker is initialized
+registerAllEventHandlers();
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -69,6 +77,9 @@ app.notFound((c) => {
         "GET /api/billing/plans",
         "POST /api/billing/cancel",
         "POST /webhook/dodopayments",
+        "POST /webhook/call/completed",
+        "POST /webhook/call/started",
+        "POST /webhook/call/missed",
       ],
     },
     404
@@ -78,8 +89,10 @@ app.notFound((c) => {
 // Feature-level routers - All routes handled by combinedRouter
 app.route("/", combinedRouter);
 
-// Export worker with scheduled handler for cron-based calls
+// Export worker
+// Note: Daily call scheduling is now handled by AWS EventBridge Scheduler
+// Each user gets their own schedule at their preferred call time
+// See: /lambda/daily-call-trigger/ and /backend/src/services/scheduler.ts
 export default {
   fetch: app.fetch,
-  scheduled: handleScheduled,
 };

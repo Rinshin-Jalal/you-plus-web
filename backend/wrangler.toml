@@ -20,10 +20,9 @@ preview_bucket_name = "youplus-audio-recordings-dev"
 enabled = true
 
 
-# Cron triggers for REAL user-scheduled calls
-# Runs every 5 minutes to catch users in their individual time windows
-[triggers]
-crons = ["*/5 * * * *"]  # Every 5 minutes, checks each user's actual schedule
+# Daily call scheduling is now handled by AWS EventBridge Scheduler
+# Each user gets their own schedule at their preferred call time
+# See: /lambda/daily-call-trigger/ and /backend/src/services/scheduler.ts
 
 [vars]
 ENVIRONMENT = "production"
