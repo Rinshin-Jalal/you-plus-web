@@ -5,7 +5,14 @@ YOU+ Agent Services
 External service integrations for the agent.
 """
 
-from .supermemory import supermemory_service, SupermemoryService, UserProfile
+from .supermemory import (
+    supermemory_service,
+    SupermemoryService,
+    UserProfile,
+    get_memory_tools,
+    execute_memory_tool,
+    MEMORY_TOOLS,
+)
 from .trust_score import trust_score_service, TrustScoreService
 
 # Future self service (replaces goals)
@@ -46,6 +53,9 @@ __all__ = [
     "supermemory_service",
     "SupermemoryService",
     "UserProfile",
+    "get_memory_tools",
+    "execute_memory_tool",
+    "MEMORY_TOOLS",
     # Trust score
     "trust_score_service",
     "TrustScoreService",

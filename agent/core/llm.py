@@ -1,33 +1,24 @@
 """
-LLM Client for Background Agents
-================================
+LLM Analysis Functions
+======================
 
-Uses Groq's GPT-OSS-Safeguard-20B for fast, cheap inference on:
+Background analysis functions for:
 - Excuse detection
 - Sentiment analysis
 - Commitment extraction
 - Promise detection
 - Stage/turn detection
 
-This is separate from the main speaking agent (which uses GPT-OSS-120B).
+Uses the shared LLM client from core.llm_client.
 """
 
-import os
 import json
-import aiohttp
 from typing import Optional
-from pathlib import Path
+
 from loguru import logger
 
-# Load .env from agent directory
-from dotenv import load_dotenv
-
-AGENT_DIR = Path(__file__).parent.parent
-load_dotenv(AGENT_DIR / ".env")
-
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-GROQ_MODEL = "openai/gpt-oss-safeguard-20b"  # Fast, cheap for background analysis
-GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
+# Import the shared LLM client
+from core.llm_client import call
 
 # Default max tokens - enough for most JSON responses
 DEFAULT_MAX_TOKENS = 512
@@ -51,38 +42,19 @@ async def llm_analyze(
     Returns:
         LLM response text or None on error
     """
-    if not GROQ_API_KEY:
-        logger.warning("GROQ_API_KEY not set, LLM analysis disabled")
-        return None
-
     messages = []
     if system_prompt:
         messages.append({"role": "system", "content": system_prompt})
     messages.append({"role": "user", "content": prompt})
 
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.post(
-                GROQ_API_URL,
-                headers={
-                    "Authorization": f"Bearer {GROQ_API_KEY}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": GROQ_MODEL,
-                    "messages": messages,
-                    "temperature": temperature,
-                    "max_tokens": max_tokens,
-                },
-                timeout=aiohttp.ClientTimeout(total=10),
-            ) as resp:
-                if resp.status == 200:
-                    data = await resp.json()
-                    return data["choices"][0]["message"]["content"].strip()
-                else:
-                    error = await resp.text()
-                    logger.error(f"Groq API error {resp.status}: {error}")
-                    return None
+        result = await call(
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            timeout=10,
+        )
+        return result.strip() if result else None
     except Exception as e:
         logger.error(f"LLM call failed: {e}")
         return None

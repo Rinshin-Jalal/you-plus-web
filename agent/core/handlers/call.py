@@ -19,6 +19,8 @@ from line.events import (
     UserStartedSpeaking,
     UserStoppedSpeaking,
     UserTranscriptionReceived,
+    ToolCall,
+    ToolResult,
 )
 
 from core.chat_node import FutureYouNode
@@ -39,6 +41,15 @@ except ImportError:
     PersonaController = None
     trust_score_service = None
     PERSONA_AVAILABLE = False
+
+# Memory tools integration
+try:
+    from services.supermemory import execute_memory_tool
+
+    MEMORY_TOOLS_AVAILABLE = True
+except ImportError:
+    execute_memory_tool = None
+    MEMORY_TOOLS_AVAILABLE = False
 
 from agents.detectors import (
     ExcuseDetectorNode,
@@ -124,7 +135,9 @@ async def handle_new_call(system: VoiceAgentSystem, call_request: CallRequest):
     call_aggregator.start()
 
     # Setup event routing
-    _setup_routing(conversation_node, conversation_bridge, agents, call_aggregator)
+    _setup_routing(
+        conversation_node, conversation_bridge, agents, call_aggregator, user_id
+    )
 
     # Start call
     await system.start()
@@ -214,7 +227,9 @@ def _setup_agents(system: VoiceAgentSystem, user_context: dict) -> dict:
     return agents
 
 
-def _setup_routing(conversation_node, conversation_bridge, agents, call_aggregator):
+def _setup_routing(
+    conversation_node, conversation_bridge, agents, call_aggregator, user_id: str
+):
     """Set up event routing between agents."""
     # Main agent receives transcriptions
     conversation_bridge.on(UserTranscriptionReceived).map(conversation_node.add_event)
@@ -253,6 +268,40 @@ def _setup_routing(conversation_node, conversation_bridge, agents, call_aggregat
     conversation_bridge.on(CommitmentIdentified).map(call_aggregator.add_commitment)
     conversation_bridge.on(MemorableQuoteDetected).map(call_aggregator.add_quote)
     conversation_bridge.on(PatternAlert).map(call_aggregator.add_pattern)
+
+    # Memory tool execution routes
+    if MEMORY_TOOLS_AVAILABLE and execute_memory_tool:
+        container_tag = f"user_{user_id}"
+
+        async def handle_tool_call(tool_call: ToolCall) -> ToolResult:
+            """Execute memory tool and return result."""
+            logger.info(f"Executing memory tool: {tool_call.tool_name}")
+            try:
+                result = await execute_memory_tool(
+                    tool_name=tool_call.tool_name,
+                    arguments=tool_call.tool_args,
+                    container_tag=container_tag,
+                )
+                return ToolResult(
+                    tool_name=tool_call.tool_name,
+                    tool_args=tool_call.tool_args,
+                    result=result,
+                    tool_call_id=tool_call.tool_call_id,
+                )
+            except Exception as e:
+                logger.error(f"Memory tool execution failed: {e}")
+                return ToolResult(
+                    tool_name=tool_call.tool_name,
+                    tool_args=tool_call.tool_args,
+                    error=str(e),
+                    tool_call_id=tool_call.tool_call_id,
+                )
+
+        # Route ToolCall events to handler and broadcast results
+        conversation_bridge.on(ToolCall).map(handle_tool_call).broadcast()
+
+        # Route ToolResult events back to conversation node
+        conversation_bridge.on(ToolResult).map(conversation_node.add_event)
 
     # Main response
     (

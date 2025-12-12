@@ -5,14 +5,21 @@ Supermemory Integration for YOU+ Agent
 Uses the official Supermemory Python SDK for:
 - User Profiles (v4 API) - static + dynamic facts about users
 - Memories (v3 API) - storing onboarding data, call transcripts
+- Tool-based Memory (NEW) - LLM can search/add memories during calls
 
-The agent fetches the user's profile before each call to get
-comprehensive context without manual field extraction.
+Architecture:
+- BEFORE CALL: get_user_profile() fetches baseline context
+- DURING CALL: LLM uses searchMemories/addMemory tools as needed
+- AFTER CALL: add_call_transcript() stores full conversation
 
 Profile API: POST /v4/profile
 - Returns { static: string[], dynamic: string[] }
 - static = long-term facts (goal, fears, patterns)
 - dynamic = recent context (current projects, recent calls)
+
+Tool Definitions (OpenAI format):
+- searchMemories: Search user's memory for relevant context
+- addMemory: Store new information about the user
 """
 
 import os
@@ -438,6 +445,166 @@ starting point and should evolve as they progress through their journey.
 The agent should use this information strategically - not all at once,
 but when it's most impactful.
 """
+
+
+# =========================================================================
+# TOOL DEFINITIONS FOR LLM (OpenAI Function Calling Format)
+# =========================================================================
+
+MEMORY_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "searchMemories",
+            "description": "Search the user's memory for relevant context. Use this when you need to recall specific information about the user - their past excuses, commitments, fears, patterns, or anything they've shared before. Returns relevant memories ranked by relevance.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Natural language search query. Be specific. Examples: 'past excuses about being tired', 'their biggest fear', 'what they committed to yesterday', 'patterns when they fail'",
+                    }
+                },
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "addMemory",
+            "description": "Store new information about the user that should be remembered for future calls. Use this when the user shares something important - a new commitment, a breakthrough realization, a fear they revealed, or a pattern you noticed. Don't store routine conversation.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "content": {
+                        "type": "string",
+                        "description": "The information to remember. Write it as a clear statement. Examples: 'User revealed they're afraid of disappointing their father', 'User committed to waking up at 6am every day', 'User tends to make excuses about work stress on Mondays'",
+                    },
+                    "memory_type": {
+                        "type": "string",
+                        "enum": [
+                            "breakthrough",
+                            "commitment",
+                            "fear",
+                            "pattern",
+                            "personal_info",
+                            "quote",
+                        ],
+                        "description": "Type of memory: breakthrough (realization), commitment (promise), fear (what scares them), pattern (behavioral tendency), personal_info (facts about them), quote (memorable thing they said)",
+                    },
+                },
+                "required": ["content", "memory_type"],
+            },
+        },
+    },
+]
+
+
+def get_memory_tools() -> list:
+    """
+    Get the tool definitions for LLM function calling.
+
+    Returns:
+        List of tool definitions in OpenAI format
+    """
+    return MEMORY_TOOLS
+
+
+# =========================================================================
+# TOOL EXECUTION HELPERS
+# =========================================================================
+
+
+async def execute_memory_tool(
+    tool_name: str,
+    arguments: Dict[str, Any],
+    container_tag: str,
+) -> str:
+    """
+    Execute a memory tool call and return the result.
+
+    This is called by the agent when the LLM requests a tool call.
+
+    Args:
+        tool_name: Name of the tool ("searchMemories" or "addMemory")
+        arguments: Tool arguments from LLM
+        container_tag: User's container tag for memory isolation
+
+    Returns:
+        String result to inject back into conversation
+    """
+    if tool_name == "searchMemories":
+        return await _execute_search_memories(
+            query=arguments.get("query", ""),
+            container_tag=container_tag,
+        )
+    elif tool_name == "addMemory":
+        return await _execute_add_memory(
+            content=arguments.get("content", ""),
+            memory_type=arguments.get("memory_type", "personal_info"),
+            container_tag=container_tag,
+        )
+    else:
+        return f"Unknown tool: {tool_name}"
+
+
+async def _execute_search_memories(query: str, container_tag: str) -> str:
+    """Execute searchMemories tool."""
+    if not supermemory_service.enabled:
+        return "Memory search unavailable."
+
+    try:
+        results = await supermemory_service.client.search.memories(
+            q=query,
+            container_tag=container_tag,
+            limit=5,
+        )
+
+        if results.results:
+            memories = []
+            for r in results.results:
+                # Extract the memory content
+                content = r.memory if hasattr(r, "memory") else str(r)
+                memories.append(f"- {content}")
+
+            return "Relevant memories found:\n" + "\n".join(memories)
+        else:
+            return "No relevant memories found for this query."
+
+    except Exception as e:
+        print(f"Memory search error: {e}")
+        return "Memory search failed."
+
+
+async def _execute_add_memory(
+    content: str,
+    memory_type: str,
+    container_tag: str,
+) -> str:
+    """Execute addMemory tool."""
+    if not supermemory_service.enabled:
+        return "Memory storage unavailable."
+
+    try:
+        memory_id = await supermemory_service.add_memory(
+            container_tag=container_tag,
+            content=content,
+            metadata={
+                "type": memory_type,
+                "source": "live_call",
+                "timestamp": datetime.now().isoformat(),
+            },
+        )
+
+        if memory_id:
+            return f"Memory stored successfully."
+        else:
+            return "Failed to store memory."
+
+    except Exception as e:
+        print(f"Memory add error: {e}")
+        return "Memory storage failed."
 
 
 # Singleton instance for easy import

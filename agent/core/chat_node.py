@@ -7,6 +7,10 @@ Now with STAGE-BASED conversation flow:
 - Prevents monologuing and text walls
 
 Uses Groq GPT-OSS-120B for the main speaking agent.
+
+MEMORY TOOLS:
+- searchMemories: LLM can search user's memory for context during calls
+- addMemory: LLM can store new information about the user
 """
 
 import os
@@ -23,7 +27,7 @@ if str(AGENT_DIR) not in sys.path:
 import aiohttp
 from loguru import logger
 
-from line.events import AgentResponse, EndCall
+from line.events import AgentResponse, EndCall, ToolCall, ToolResult
 from line.nodes.conversation_context import ConversationContext
 from line.nodes.reasoning import ReasoningNode
 from line.tools.system_tools import EndCallArgs, end_call
@@ -48,7 +52,21 @@ from conversation.stages.transitions import (
     build_transition_check_prompt,
 )
 from core.llm import llm_analyze
-from core.groq_utils.groq_client import stream_groq_response, GROQ_API_KEY
+from core.llm_client import (
+    stream_response,
+    LLM_API_KEY,
+)
+
+# Memory tools for during-call context retrieval
+try:
+    from services.supermemory import get_memory_tools, execute_memory_tool
+
+    MEMORY_TOOLS_AVAILABLE = True
+except ImportError:
+    get_memory_tools = None
+    execute_memory_tool = None
+    MEMORY_TOOLS_AVAILABLE = False
+    logger.warning("Memory tools not available")
 
 # Persona system integration
 try:
@@ -93,6 +111,7 @@ class FutureYouNode(ReasoningNode):
         temperature: float = DEFAULT_TEMPERATURE,
         max_context_length: int = 100,
         max_output_tokens: int = 150,
+        enable_memory_tools: bool = True,
     ):
         super().__init__(
             system_prompt=system_prompt, max_context_length=max_context_length
@@ -106,6 +125,10 @@ class FutureYouNode(ReasoningNode):
         self.call_memory = call_memory or {}
         self.max_output_tokens = max_output_tokens
         self.persona_controller = persona_controller
+
+        # Memory tools configuration
+        self.enable_memory_tools = enable_memory_tools and MEMORY_TOOLS_AVAILABLE
+        self.container_tag = f"user_{user_id}"  # For memory isolation
 
         # Conversation history for Groq (OpenAI format)
         self.messages: list[dict] = [{"role": "system", "content": system_prompt}]
@@ -138,6 +161,9 @@ class FutureYouNode(ReasoningNode):
         """Log initialization info."""
         logger.info(f"FutureYouNode initialized for user: {self.user_id}")
         logger.info(f"Starting stage: {self.current_stage.value}")
+        logger.info(
+            f"Memory tools: {'enabled' if self.enable_memory_tools else 'disabled'}"
+        )
         if self.call_type:
             logger.info(f"Call type: {self.call_type.name}")
         if self.mood:
@@ -148,18 +174,30 @@ class FutureYouNode(ReasoningNode):
 
     async def process_context(
         self, context: ConversationContext
-    ) -> AsyncGenerator[Union[AgentResponse, EndCall], None]:
-        """Process conversation with STAGE-BASED flow using Groq."""
+    ) -> AsyncGenerator[Union[AgentResponse, EndCall, ToolCall], None]:
+        """Process conversation with STAGE-BASED flow using Groq.
+
+        Memory tools are handled via Line SDK's event system:
+        - Node yields ToolCall events when LLM requests tools
+        - Routes execute tools and broadcast ToolResult
+        - ToolResult events come back via add_event
+        """
         if not context.events:
             logger.info("No messages to process")
             return
 
-        if not GROQ_API_KEY:
-            logger.error("GROQ_API_KEY not set!")
+        if not LLM_API_KEY:
+            logger.error("LLM_API_KEY not set!")
             yield AgentResponse(
                 content="I'm having trouble connecting. Let's try again tomorrow."
             )
             return
+
+        # Check for ToolResult events and add to message history
+        for event in context.events:
+            if isinstance(event, ToolResult):
+                logger.info(f"Received tool result: {event.tool_name}")
+                self._add_tool_result_to_messages(event)
 
         self.total_turns += 1
         self.turns_in_stage += 1
@@ -182,10 +220,10 @@ class FutureYouNode(ReasoningNode):
 
         logger.info(f"Stage: {self.current_stage.value} (turn {self.turns_in_stage})")
 
-        # Stream response from Groq
+        # Stream response from LLM
         full_response = ""
         try:
-            async for chunk in stream_groq_response(
+            async for chunk in stream_response(
                 messages=request_messages,
                 temperature=self.temperature,
                 max_tokens=self.max_output_tokens,
@@ -193,17 +231,77 @@ class FutureYouNode(ReasoningNode):
                 full_response += chunk
                 yield AgentResponse(content=chunk)
         except Exception as e:
-            logger.error(f"Groq API call failed: {e}")
+            logger.error(f"LLM API call failed: {e}")
             yield AgentResponse(
                 content="I'm having trouble connecting. Let's try again tomorrow."
             )
             return
 
-        # Process response
+        # Process response and check for tool call requests
         if full_response:
             self.messages.append({"role": "assistant", "content": full_response})
             logger.info(f'Agent: "{full_response}" ({len(full_response)} chars)')
+
+            # Check if LLM wants to call a memory tool
+            tool_call = self._detect_tool_call_request(full_response)
+            if tool_call:
+                yield tool_call
+
             await self._handle_response_end(full_response, user_message)
+
+    def _add_tool_result_to_messages(self, result: ToolResult) -> None:
+        """Add tool result to message history for context."""
+        if result.success:
+            content = f"[Memory search result: {result.result_str}]"
+        else:
+            content = f"[Memory tool error: {result.error}]"
+
+        # Add as system message so LLM can use the context
+        self.messages.append(
+            {
+                "role": "system",
+                "content": content,
+            }
+        )
+
+    def _detect_tool_call_request(self, response: str) -> Optional[ToolCall]:
+        """
+        Detect if LLM output contains a tool call request.
+
+        The LLM is instructed to use specific patterns like:
+        - [SEARCH_MEMORY: query here]
+        - [ADD_MEMORY: content here | type]
+
+        Returns a ToolCall event if detected, None otherwise.
+        """
+        import re
+
+        # Pattern: [SEARCH_MEMORY: query]
+        search_match = re.search(r"\[SEARCH_MEMORY:\s*(.+?)\]", response, re.IGNORECASE)
+        if search_match:
+            query = search_match.group(1).strip()
+            logger.info(f"Detected memory search request: {query}")
+            return ToolCall(
+                tool_name="searchMemories",
+                tool_args={"query": query},
+            )
+
+        # Pattern: [ADD_MEMORY: content | type]
+        add_match = re.search(
+            r"\[ADD_MEMORY:\s*(.+?)\s*\|\s*(\w+)\]", response, re.IGNORECASE
+        )
+        if add_match:
+            content = add_match.group(1).strip()
+            memory_type = add_match.group(2).strip()
+            logger.info(
+                f"Detected memory add request: {content[:50]}... ({memory_type})"
+            )
+            return ToolCall(
+                tool_name="addMemory",
+                tool_args={"content": content, "memory_type": memory_type},
+            )
+
+        return None
 
     def _detect_promise_response(self, message: str) -> None:
         """Detect YES/NO for promise tracking using word boundaries."""
@@ -352,9 +450,7 @@ class FutureYouNode(ReasoningNode):
             )
 
     def _handle_quote_insight(self, insight: MemorableQuoteDetected) -> None:
-        streak = self.user_context.get("status", {}).get(
-            "current_streak_days", 0
-        )
+        streak = self.user_context.get("status", {}).get("current_streak_days", 0)
         self._quotes_this_call.append(
             {
                 "text": insight.quote_text,
@@ -514,9 +610,7 @@ class FutureYouNode(ReasoningNode):
             updated.get("emotional_peaks", []) + self._peaks_this_call
         )[-10:]
 
-        streak = self.user_context.get("status", {}).get(
-            "current_streak_days", 0
-        )
+        streak = self.user_context.get("status", {}).get("current_streak_days", 0)
         if streak >= 60:
             updated["narrative_arc"] = "mastery"
         elif streak >= 30:
