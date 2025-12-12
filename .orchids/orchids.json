@@ -1,8 +1,0 @@
-{
-  "projectId": "3b418ec0-55b5-45f4-bdd0-654e20c219bf",
-  "createdAt": 1765300585541,
-  "startupCommands": [
-    "cd /Users/rinshin/Code/apps/youplus-web/web && bun install && bun run dev",
-    "cd /Users/rinshin/Code/apps/youplus-web/backend && bun install && bun run dev"
-  ]
-}
