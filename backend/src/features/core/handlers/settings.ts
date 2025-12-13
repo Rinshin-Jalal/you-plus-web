@@ -38,9 +38,6 @@ export const getCallEligibility = async (c: Context) => {
       });
     }
 
-    // Note: Expiration checking is handled by the payment provider
-    // No need to check expiry date here since subscription_status reflects current state
-
     if (!userData.onboarding_completed) {
       return c.json({
         success: true,
@@ -112,11 +109,13 @@ export const getScheduleSettings = async (c: Context) => {
 
 export const updateSubscriptionStatus = async (c: Context) => {
   const userId = getAuthenticatedUserId(c);
-  const { isActive, isEntitled } = await c.req.json();
-
-  if (typeof isActive !== "boolean" || typeof isEntitled !== "boolean") {
+  const body = c.get("validatedJson") as
+    | { isActive: boolean; isEntitled: boolean }
+    | undefined;
+  const isActive = body?.isActive;
+  const isEntitled = body?.isEntitled;
+  if (typeof isActive !== "boolean" || typeof isEntitled !== "boolean")
     return c.json({ error: "Invalid subscription status data" }, 400);
-  }
 
   const env = c.env as Env;
   const supabase = createSupabaseClient(env);
@@ -170,19 +169,12 @@ export const updateSubscriptionStatus = async (c: Context) => {
 
 export const updateScheduleSettings = async (c: Context) => {
   const userId = getAuthenticatedUserId(c);
-  const body = await c.req.json();
-  const { callWindowStart, timezone } = body;
-
-  // Validate input
-  if (!callWindowStart || typeof callWindowStart !== 'string') {
-    return c.json({ error: 'callWindowStart is required (HH:MM:SS format)' }, 400);
-  }
-
-  // Validate time format (HH:MM:SS or HH:MM)
-  const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9](:[0-5][0-9])?$/;
-  if (!timeRegex.test(callWindowStart)) {
-    return c.json({ error: 'Invalid time format. Use HH:MM:SS or HH:MM' }, 400);
-  }
+  const body = c.get("validatedJson") as
+    | { callWindowStart: string; timezone?: string }
+    | undefined;
+  const callWindowStart = body?.callWindowStart;
+  const timezone = body?.timezone;
+  if (!callWindowStart) return c.json({ error: "callWindowStart is required" }, 400);
 
   // Ensure HH:MM:SS format (add :00 if only HH:MM provided)
   const formattedTime = callWindowStart.split(':').length === 2

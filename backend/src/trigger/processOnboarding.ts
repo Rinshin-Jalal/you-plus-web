@@ -13,330 +13,11 @@
 
 import { task, logger } from "@trigger.dev/sdk/v3";
 import { createClient } from "@supabase/supabase-js";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-import {
-  SchedulerClient,
-  CreateScheduleCommand,
-  FlexibleTimeWindowMode,
-  ActionAfterCompletion,
-} from "@aws-sdk/client-scheduler";
-
-// ═══════════════════════════════════════════════════════════════════════════
-// AWS EVENTBRIDGE SCHEDULER (for daily call scheduling)
-// ═══════════════════════════════════════════════════════════════════════════
-
-interface ScheduleConfig {
-  userId: string;
-  callTime: string; // HH:MM format
-  timezone: string;
-  phoneNumber: string;
-  userName?: string;
-}
-
-function timeToCronExpression(callTime: string): string {
-  const [hours, minutes] = callTime.split(':').map(Number);
-  return `cron(${minutes} ${hours} * * ? *)`;
-}
-
-async function createDailyCallSchedule(config: ScheduleConfig): Promise<{ success: boolean; error?: string }> {
-  logger.info(`📅 Creating EventBridge schedule for user ${config.userId}`);
-  
-  const awsRegion = process.env.AWS_REGION || "us-east-1";
-  const lambdaArn = process.env.AWS_LAMBDA_FUNCTION_ARN;
-  const schedulerRoleArn = process.env.AWS_SCHEDULER_ROLE_ARN;
-  const scheduleGroupName = process.env.AWS_SCHEDULE_GROUP_NAME || "youplus-daily-calls";
-  
-  if (!lambdaArn || !schedulerRoleArn) {
-    logger.warn("⚠️ AWS schedule env vars not configured, skipping schedule creation");
-    return { success: false, error: "AWS scheduler not configured" };
-  }
-  
-  const client = new SchedulerClient({
-    region: awsRegion,
-    credentials: {
-      accessKeyId: getEnvVar("AWS_ACCESS_KEY_ID"),
-      secretAccessKey: getEnvVar("AWS_SECRET_ACCESS_KEY"),
-    },
-  });
-  
-  const scheduleName = `daily-call-${config.userId}`;
-  const cronExpression = timeToCronExpression(config.callTime);
-  
-  try {
-    const command = new CreateScheduleCommand({
-      Name: scheduleName,
-      GroupName: scheduleGroupName,
-      ScheduleExpression: cronExpression,
-      ScheduleExpressionTimezone: config.timezone,
-      FlexibleTimeWindow: {
-        Mode: FlexibleTimeWindowMode.OFF,
-      },
-      Target: {
-        Arn: lambdaArn,
-        RoleArn: schedulerRoleArn,
-        Input: JSON.stringify({
-          userId: config.userId,
-          phoneNumber: config.phoneNumber,
-          userName: config.userName,
-          timezone: config.timezone,
-        }),
-      },
-      State: "ENABLED",
-      Description: `Daily accountability call for user ${config.userId}`,
-      ActionAfterCompletion: ActionAfterCompletion.NONE,
-    });
-    
-    await client.send(command);
-    logger.info(`✅ EventBridge schedule created: ${scheduleName}`);
-    
-    return { success: true };
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
-    logger.error(`❌ Failed to create schedule:`, { error: errorMessage });
-    return { success: false, error: errorMessage };
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// TYPES
-// ═══════════════════════════════════════════════════════════════════════════
-
-interface OnboardingPayload {
-  jobId: string;
-  userId: string;
-  
-  // Core identity
-  name?: string;
-  core_identity: string;
-  primary_pillar?: string;
-  dark_future?: string;
-  
-  // Patterns
-  quit_pattern?: string;
-  favorite_excuse?: string;
-  who_disappointed?: string[];
-  
-  // Dynamic pillars
-  selected_pillars: string[];
-  
-  // Voice recordings (base64)
-  future_self_intro_recording: string;
-  why_recording: string;
-  pledge_recording: string;
-  merged_voice_recording?: string;
-  
-  // Settings
-  call_time?: string;
-  timezone?: string;
-  
-  // Dynamic pillar data (keyed by pillar ID)
-  [key: string]: unknown;
-}
-
-interface TranscriptionResult {
-  success: boolean;
-  text?: string;
-  error?: string;
-}
-
-interface VoiceCloneResult {
-  success: boolean;
-  voiceId?: string;
-  error?: string;
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// HELPERS
-// ═══════════════════════════════════════════════════════════════════════════
-
-function getEnvVar(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`);
-  }
-  return value;
-}
-
-function base64ToBuffer(audioBase64: string): { buffer: Buffer; mimeType: string; extension: string } {
-  let cleanBase64 = audioBase64;
-  let mimeType = "audio/webm";
-  
-  if (audioBase64.startsWith("data:")) {
-    const match = audioBase64.match(/data:([^;]+);/);
-    if (match?.[1]) {
-      mimeType = match[1];
-    }
-  }
-  
-  if (audioBase64.includes(",")) {
-    cleanBase64 = audioBase64.split(",")[1] ?? audioBase64;
-  }
-  
-  const buffer = Buffer.from(cleanBase64, "base64");
-  
-  const extensionMap: Record<string, string> = {
-    "audio/webm": "webm",
-    "audio/mp3": "mp3",
-    "audio/mpeg": "mp3",
-    "audio/wav": "wav",
-    "audio/ogg": "ogg",
-    "audio/flac": "flac",
-  };
-  const extension = extensionMap[mimeType] || "webm";
-  
-  return { buffer, mimeType, extension };
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// CARTESIA API FUNCTIONS
-// ═══════════════════════════════════════════════════════════════════════════
-
-async function transcribeAudio(audioBase64: string): Promise<TranscriptionResult> {
-  logger.info("🎤 Starting Cartesia Ink transcription...");
-  
-  try {
-    const { buffer, mimeType, extension } = base64ToBuffer(audioBase64);
-    logger.info(`📦 Audio size: ${buffer.length} bytes, type: ${mimeType}`);
-    
-    // Convert Buffer to Uint8Array for Blob compatibility
-    const uint8Array = new Uint8Array(buffer);
-    const blob = new Blob([uint8Array], { type: mimeType });
-    
-    const formData = new FormData();
-    formData.append("file", blob, `recording.${extension}`);
-    formData.append("model", "ink-whisper");
-    formData.append("language", "en");
-    
-    const response = await fetch("https://api.cartesia.ai/stt", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${getEnvVar("CARTESIA_API_KEY")}`,
-        "Cartesia-Version": "2025-04-16",
-      },
-      body: formData,
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      logger.error(`❌ Cartesia STT error: ${response.status} - ${errorText}`);
-      return { success: false, error: `Transcription failed: ${response.status}` };
-    }
-    
-    const result = await response.json() as { text?: string; duration?: number };
-    logger.info(`✅ Transcription complete: "${result.text?.substring(0, 100)}..."`);
-    
-    return { success: true, text: result.text || "" };
-  } catch (error) {
-    logger.error("❌ Transcription error:", { error });
-    return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
-  }
-}
-
-async function cloneVoice(
-  audioBase64: string,
-  userId: string,
-  userName: string
-): Promise<VoiceCloneResult> {
-  logger.info("🎭 Starting Cartesia voice cloning...");
-  
-  try {
-    const { buffer, mimeType, extension } = base64ToBuffer(audioBase64);
-    logger.info(`📦 Audio for cloning: ${buffer.length} bytes`);
-    
-    if (buffer.length < 10000) {
-      logger.warn("⚠️ Audio may be too short for quality voice cloning");
-    }
-    
-    // Convert Buffer to Uint8Array for Blob compatibility
-    const uint8Array = new Uint8Array(buffer);
-    const blob = new Blob([uint8Array], { type: mimeType });
-    
-    const formData = new FormData();
-    formData.append("clip", blob, `voice_sample.${extension}`);
-    formData.append("name", `${userName || "User"} - Future Self`);
-    formData.append("description", `Voice clone for You+ Future Self. User: ${userId.slice(0, 8)}`);
-    formData.append("language", "en");
-    
-    const response = await fetch("https://api.cartesia.ai/voices/clone", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${getEnvVar("CARTESIA_API_KEY")}`,
-        "Cartesia-Version": "2025-04-16",
-      },
-      body: formData,
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      logger.error(`❌ Voice clone error: ${response.status} - ${errorText}`);
-      return { success: false, error: `Voice cloning failed: ${response.status}` };
-    }
-    
-    const result = await response.json() as { id: string; name: string };
-    logger.info(`✅ Voice cloned! ID: ${result.id}`);
-    
-    return { success: true, voiceId: result.id };
-  } catch (error) {
-    logger.error("❌ Voice cloning error:", { error });
-    return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// R2 UPLOAD VIA S3 API
-// ═══════════════════════════════════════════════════════════════════════════
-
-function createS3Client(): S3Client {
-  return new S3Client({
-    region: "auto",
-    endpoint: getEnvVar("R2_ENDPOINT"), // e.g., https://<account_id>.r2.cloudflarestorage.com
-    credentials: {
-      accessKeyId: getEnvVar("R2_ACCESS_KEY_ID"),
-      secretAccessKey: getEnvVar("R2_SECRET_ACCESS_KEY"),
-    },
-  });
-}
-
-async function uploadToR2(
-  audioBase64: string,
-  userId: string,
-  recordingType: string
-): Promise<string | null> {
-  logger.info(`📤 Uploading ${recordingType} to R2...`);
-  
-  try {
-    const { buffer, mimeType, extension } = base64ToBuffer(audioBase64);
-    const s3 = createS3Client();
-    
-    const timestamp = Date.now();
-    const key = `recordings/${userId}/${recordingType}_${timestamp}.${extension}`;
-    
-    await s3.send(new PutObjectCommand({
-      Bucket: getEnvVar("R2_BUCKET_NAME"),
-      Key: key,
-      Body: buffer,
-      ContentType: mimeType,
-      Metadata: {
-        userId,
-        recordingType,
-        uploadedAt: new Date().toISOString(),
-      },
-    }));
-    
-    const backendUrl = getEnvVar("BACKEND_URL");
-    const audioUrl = `${backendUrl}/audio/${key}`;
-    
-    logger.info(`✅ Uploaded to R2: ${audioUrl}`);
-    return audioUrl;
-  } catch (error) {
-    logger.error(`❌ R2 upload error:`, { error });
-    return null;
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// MAIN TASK
-// ═══════════════════════════════════════════════════════════════════════════
+import { transcribeAudio, cloneVoice } from "./cartesia";
+import { uploadToR2 } from "./r2";
+import { createDailyCallSchedule } from "./scheduler";
+import { getEnvVar, isBase64Audio } from "./utils";
+import type { OnboardingPayload } from "./types";
 
 export const processOnboarding = task({
   id: "process-onboarding",
@@ -375,9 +56,8 @@ export const processOnboarding = task({
       logger.info("📝 [1/4] Transcribing why_recording...");
       
       let theWhy = "";
-      const isBase64 = (s: string) => s.startsWith("data:") || !s.startsWith("http");
       
-      if (isBase64(payload.why_recording)) {
+      if (isBase64Audio(payload.why_recording)) {
         const transcriptionResult = await transcribeAudio(payload.why_recording);
         if (transcriptionResult.success && transcriptionResult.text) {
           theWhy = transcriptionResult.text;
@@ -399,7 +79,7 @@ export const processOnboarding = task({
       let cartesiaVoiceId: string | null = null;
       const voiceSource = payload.merged_voice_recording || payload.why_recording;
       
-      if (isBase64(voiceSource)) {
+      if (isBase64Audio(voiceSource)) {
         const cloneResult = await cloneVoice(
           voiceSource,
           userId,
@@ -424,7 +104,7 @@ export const processOnboarding = task({
       let whyRecordingUrl: string | null = null;
       let pledgeRecordingUrl: string | null = null;
       
-      if (isBase64(payload.future_self_intro_recording)) {
+      if (isBase64Audio(payload.future_self_intro_recording)) {
         futureSelftroUrl = await uploadToR2(
           payload.future_self_intro_recording,
           userId,
@@ -432,7 +112,7 @@ export const processOnboarding = task({
         );
       }
       
-      if (isBase64(payload.why_recording)) {
+      if (isBase64Audio(payload.why_recording)) {
         whyRecordingUrl = await uploadToR2(
           payload.why_recording,
           userId,
@@ -440,7 +120,7 @@ export const processOnboarding = task({
         );
       }
       
-      if (isBase64(payload.pledge_recording)) {
+      if (isBase64Audio(payload.pledge_recording)) {
         pledgeRecordingUrl = await uploadToR2(
           payload.pledge_recording,
           userId,

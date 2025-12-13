@@ -2,9 +2,9 @@ import { Context } from "hono";
 import { createSupabaseClient } from "@/features/core/utils/database";
 import { Env } from "@/types/environment";
 import { getAuthenticatedUserId } from "@/middleware/auth";
-import { ConversionCompleteSchema } from "../schemas";
+import type { ConversionCompleteBody } from "../schemas";
 import { tasks } from "@trigger.dev/sdk/v3";
-import type { processOnboarding } from "@/trigger/process-onboarding";
+import type { processOnboarding } from "@/trigger/processOnboarding";
 
 /**
  * Conversion Onboarding Complete Handler (Async Version)
@@ -24,47 +24,11 @@ export const postConversionOnboardingComplete = async (c: Context) => {
   const userId = getAuthenticatedUserId(c);
   console.log("👤 Authenticated User ID:", userId);
 
-  const body = await c.req.json();
-  console.log("📦 Request body keys:", Object.keys(body));
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // STEP 1: Validate payload
-  // ═══════════════════════════════════════════════════════════════════════════
-  const parsed = ConversionCompleteSchema.safeParse(body);
-  if (!parsed.success) {
-    return c.json({ error: "Invalid onboarding payload", details: parsed.error.flatten() }, 400);
-  }
-
-  const payload = parsed.data;
+  const validatedPayload = c.get("validatedJson") as ConversionCompleteBody | undefined;
+  if (!validatedPayload)
+    return c.json({ error: "Invalid onboarding payload" }, 400);
+  console.log("📦 Request body keys:", Object.keys(validatedPayload));
   const env = c.env as Env;
-
-  const {
-    core_identity,
-    selected_pillars,
-    future_self_intro_recording,
-    why_recording,
-    pledge_recording,
-  } = payload;
-
-  // Validate required fields
-  if (!core_identity) {
-    return c.json({ error: "Missing required field: core_identity" }, 400);
-  }
-
-  if (!selected_pillars || !Array.isArray(selected_pillars) || selected_pillars.length === 0) {
-    return c.json({ error: "Missing required field: selected_pillars (must be an array)" }, 400);
-  }
-
-  // Validate all 3 voice recordings are present
-  if (!future_self_intro_recording) {
-    return c.json({ error: "Missing required field: future_self_intro_recording" }, 400);
-  }
-  if (!why_recording) {
-    return c.json({ error: "Missing required field: why_recording" }, 400);
-  }
-  if (!pledge_recording) {
-    return c.json({ error: "Missing required field: pledge_recording" }, 400);
-  }
 
   const supabase = createSupabaseClient(env);
 
@@ -116,18 +80,11 @@ export const postConversionOnboardingComplete = async (c: Context) => {
     // ═══════════════════════════════════════════════════════════════════════════
     console.log("🚀 Queueing onboarding task to Trigger.dev...");
 
-    // Build the payload for Trigger.dev (include all data + dynamic pillar fields)
-    // Use type assertion since we've already validated with zod
+    // Build the payload for Trigger.dev (includes dynamic pillar fields via schema passthrough)
     const triggerPayload = {
       jobId,
       userId,
-      ...payload,
-      // Include dynamic pillar fields from body (e.g., health_current, health_goal, etc.)
-      ...Object.fromEntries(
-        Object.entries(body).filter(([key]) => 
-          key.includes("_current") || key.includes("_goal") || key.includes("_future")
-        )
-      ),
+      ...validatedPayload,
     } as Parameters<typeof processOnboarding.trigger>[0];
 
     try {
@@ -191,13 +148,11 @@ export const postConversionOnboardingComplete = async (c: Context) => {
  * GET /api/onboarding/status/:jobId
  */
 export const getOnboardingJobStatus = async (c: Context) => {
-  const jobId = c.req.param("jobId");
+  const params = c.get("validatedParams") as { jobId: string } | undefined;
+  const jobId = params?.jobId;
   const userId = getAuthenticatedUserId(c);
   const env = c.env as Env;
-
-  if (!jobId) {
-    return c.json({ error: "Missing jobId parameter" }, 400);
-  }
+  if (!jobId) return c.json({ error: "Missing jobId parameter" }, 400);
 
   const supabase = createSupabaseClient(env);
 

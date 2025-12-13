@@ -6,37 +6,6 @@ import { Env } from "@/index";
 // DATABASE TYPES
 // ============================================================================
 
-export type BigBruhhTone =
-  | "Confrontational"
-  | "ColdMirror"
-  | "Encouraging";
-
-export type CallMood =
-  | "motivated"
-  | "tired"
-  | "defensive"
-  | "honest"
-  | "defeated"
-  | "energized";
-
-export type PersonaType =
-  | "mentor"
-  | "champion"
-  | "drill_sergeant"
-  | "disappointed"
-  | "strategist"
-  | "ally";
-
-export type NarrativeArc =
-  | "early_struggle"
-  | "building_momentum"
-  | "breakthrough"
-  | "maintaining"
-  | "recovery";
-
-export type CallSource = "cartesia" | "elevenlabs";
-export type CallOutcome = "success" | "failure" | "unknown";
-export type RetryReason = "missed" | "declined" | "failed";
 
 // ============================================================================
 // TABLE INTERFACES
@@ -146,9 +115,9 @@ export interface CallMemory {
   open_loops: Array<{ topic: string; mentioned_at: string; resolved: boolean }>;
   last_call_type: string;
   call_type_history: string[];
-  narrative_arc: NarrativeArc;
-  last_mood: CallMood | string;
-  current_persona: PersonaType;
+  narrative_arc: string;
+  last_mood: string;
+  current_persona: string;
   severity_level: number;
   last_commitment?: string;
   last_commitment_time?: string;
@@ -160,7 +129,7 @@ export interface CallAnalytics {
   user_id: string;
   created_at: string;
   call_type: string;
-  mood: CallMood | string;
+  mood: string;
   call_duration_seconds: number;
   call_quality_score: number;
   promise_kept?: boolean;
@@ -173,16 +142,16 @@ export interface CallAnalytics {
   is_retry: boolean;
   retry_attempt_number: number;
   original_call_uuid?: string;
-  retry_reason?: RetryReason;
+  retry_reason?: string;
   acknowledged: boolean;
   acknowledged_at?: string;
   timeout_at?: string;
   conversation_id?: string;
-  source?: CallSource;
+  source?: string;
   audio_url?: string;
   transcript_json?: Record<string, any>;
   transcript_summary?: string;
-  call_successful: CallOutcome;
+  call_successful: "success" | "failure" | "unknown" | null;
   start_time?: string;
   end_time?: string;
   cost_cents?: number;

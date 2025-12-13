@@ -2,34 +2,14 @@ import type { Context } from "hono";
 import type { Env } from "@/index";
 import { createSupabaseClient } from "@/features/core/utils/database";
 
-const E164_REGEX = /^\+[1-9]\d{1,14}$/;
-
 export const updatePhoneNumber = async (c: Context) => {
   const env = c.env as Env;
   const userId = c.get("userId") as string;
 
   try {
-    const body = await c.req.json();
-    const { phone_number } = body;
-
-    // Validate phone number is provided
-    if (!phone_number) {
-      return c.json(
-        { success: false, error: "Phone number is required" },
-        400
-      );
-    }
-
-    // Validate E.164 format
-    if (!E164_REGEX.test(phone_number)) {
-      return c.json(
-        {
-          success: false,
-          error: "Invalid phone number format. Must be E.164 format (e.g., +14155551234)",
-        },
-        400
-      );
-    }
+    const body = c.get("validatedJson") as { phone_number?: string } | undefined;
+    const phone_number = body?.phone_number;
+    if (!phone_number) return c.json({ success: false, error: "Phone number is required" }, 400);
 
     const supabase = createSupabaseClient(env);
 

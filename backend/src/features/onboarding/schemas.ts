@@ -23,6 +23,32 @@ const extractMimeType = (dataUri: string): string | null => {
   return match && match[1] ? match[1] : null;
 };
 
+function validatePillarQuestionFields(
+  data: Record<string, unknown>,
+  ctx: z.RefinementCtx
+): void {
+  const pillars = Array.isArray(data.selected_pillars)
+    ? data.selected_pillars.filter(
+        (p): p is string => typeof p === "string" && p.trim().length > 0
+      )
+    : [];
+
+  for (const pillarId of pillars) {
+    for (const suffix of ["current", "goal", "future"] as const) {
+      const key = `${pillarId}_${suffix}`;
+      const value = data[key];
+
+      if (typeof value === "string" && value.trim().length > 0) continue;
+
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [key],
+        message: `${key} is required`,
+      });
+    }
+  }
+}
+
 const base64Audio = z.string()
   .min(1, "audio required")
   .refine((val) => {
@@ -61,6 +87,9 @@ export const ConversionCompleteSchema = z.object({
   timezone: z.string().optional(),
   future_self_statement: z.string().optional(),
   favorite_excuse_context: z.string().optional(),
-});
+})
+  // Dynamic pillar question fields come in as `${pillarId}_{current|goal|future}`
+  .passthrough()
+  .superRefine((data, ctx) => validatePillarQuestionFields(data, ctx));
 
 export type ConversionCompleteBody = z.infer<typeof ConversionCompleteSchema>;

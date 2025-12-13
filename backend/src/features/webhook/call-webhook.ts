@@ -15,6 +15,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import type { Env } from '@/index';
 import { eventBus } from '@/events';
+import { zodJson } from '@/middleware/zod';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // VALIDATION SCHEMAS
@@ -62,20 +63,9 @@ const callWebhook = new Hono<{ Bindings: Env }>();
  * - XP awards
  * - Achievement checks
  */
-callWebhook.post('/completed', async (c) => {
+callWebhook.post('/completed', zodJson(CallCompletedSchema, { errorMessage: "Invalid payload" }), async (c) => {
   try {
-    const body = await c.req.json();
-    const parsed = CallCompletedSchema.safeParse(body);
-
-    if (!parsed.success) {
-      console.error('[CallWebhook] Invalid payload:', parsed.error.flatten());
-      return c.json(
-        { error: 'Invalid payload', details: parsed.error.flatten() },
-        400
-      );
-    }
-
-    const data = parsed.data;
+    const data = c.get("validatedJson") as z.infer<typeof CallCompletedSchema>;
     console.log(
       `[CallWebhook] Call completed for user ${data.user_id}, call ${data.call_id}`
     );
@@ -116,19 +106,9 @@ callWebhook.post('/completed', async (c) => {
  * Called by Python agent when a call starts.
  * Useful for tracking call initiation.
  */
-callWebhook.post('/started', async (c) => {
+callWebhook.post('/started', zodJson(CallStartedSchema, { errorMessage: "Invalid payload" }), async (c) => {
   try {
-    const body = await c.req.json();
-    const parsed = CallStartedSchema.safeParse(body);
-
-    if (!parsed.success) {
-      return c.json(
-        { error: 'Invalid payload', details: parsed.error.flatten() },
-        400
-      );
-    }
-
-    const data = parsed.data;
+    const data = c.get("validatedJson") as z.infer<typeof CallStartedSchema>;
     console.log(
       `[CallWebhook] Call started for user ${data.user_id}, call ${data.call_id}`
     );
@@ -154,19 +134,9 @@ callWebhook.post('/started', async (c) => {
  *
  * Called when a scheduled call was missed (user didn't answer, timeout, etc.)
  */
-callWebhook.post('/missed', async (c) => {
+callWebhook.post('/missed', zodJson(CallMissedSchema, { errorMessage: "Invalid payload" }), async (c) => {
   try {
-    const body = await c.req.json();
-    const parsed = CallMissedSchema.safeParse(body);
-
-    if (!parsed.success) {
-      return c.json(
-        { error: 'Invalid payload', details: parsed.error.flatten() },
-        400
-      );
-    }
-
-    const data = parsed.data;
+    const data = c.get("validatedJson") as z.infer<typeof CallMissedSchema>;
     console.log(`[CallWebhook] Call missed for user ${data.user_id}`);
 
     await eventBus.emit(
