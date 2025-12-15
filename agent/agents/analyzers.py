@@ -114,10 +114,9 @@ class ExcuseCalloutNode(Node):
         self.excuses_this_call: list[str] = []
 
     def _get_favorite_excuse(self) -> Optional[str]:
-        """Get user's known favorite excuse from onboarding."""
-        identity = self.user_context.get("identity", {})
-        onboarding = identity.get("onboarding_context", {})
-        return onboarding.get("favorite_excuse")
+        """Get user's known favorite excuse from future_self."""
+        future_self = self.user_context.get("future_self", {})
+        return future_self.get("favorite_excuse")
 
     def _get_callout(self, excuse_text: str, callout_type: str) -> str:
         """Get appropriate callout for the excuse."""
@@ -173,10 +172,9 @@ class PatternAnalyzerNode(Node):
         self.current_streak = self._get_streak()
 
     def _get_quit_pattern(self) -> Optional[str]:
-        """Get user's known quit pattern from onboarding."""
-        identity = self.user_context.get("identity", {})
-        onboarding = identity.get("onboarding_context", {})
-        return onboarding.get("quit_pattern")
+        """Get user's known quit pattern from future_self."""
+        future_self = self.user_context.get("future_self", {})
+        return future_self.get("quit_pattern")
 
     def _get_streak(self) -> int:
         """Get current streak."""

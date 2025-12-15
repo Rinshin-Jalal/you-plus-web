@@ -60,34 +60,88 @@ export const rateLimit = (
 };
 
 /**
- * CORS middleware with secure defaults
+ * CORS middleware with environment-aware configuration
  */
 export const corsMiddleware = () => {
   return async (c: Context, next: Next): Promise<Response | void> => {
     const env = c.env as Env;
     const origin = c.req.header("Origin");
+    const environment = env?.ENVIRONMENT || "development";
 
-    // Allowed origins for all environments
-    const allowedOrigins = [
-      "https://you-plus.app", // Production domain
-      "https://youplus.app", // Production domain alt
-      "https://you-plus-staging.app", // Staging domain
-      "http://localhost:3000", // Local Next.js dev
-      "http://localhost:3001", // Local Next.js dev alt port
-      "http://127.0.0.1:3000", // Local dev
-    ];
+    // Build allowed origins based on environment
+    const allowedOrigins: string[] = [];
 
-    // Decide which origin to echo back (or fallback to *)
-    let allowOrigin: string | undefined;
-    if (env?.ENVIRONMENT === "development") {
-      allowOrigin = origin || "*";
-    } else if (origin && (allowedOrigins.includes(origin) || origin.includes("localhost"))) {
-      allowOrigin = origin;
+    // If CORS_ALLOWED_ORIGINS is explicitly set, use it (comma-separated)
+    // Note: CORS_ALLOWED_ORIGINS is optional in the schema, so we check for it safely
+    const corsAllowedOrigins = "CORS_ALLOWED_ORIGINS" in env 
+      ? (env as Record<string, unknown>).CORS_ALLOWED_ORIGINS as string | undefined
+      : undefined;
+    if (corsAllowedOrigins && typeof corsAllowedOrigins === "string") {
+      allowedOrigins.push(...corsAllowedOrigins.split(",").map((o: string) => o.trim()));
+    } else {
+      // Otherwise, derive from environment and FRONTEND_URL
+      const frontendUrl = env.FRONTEND_URL || "http://localhost:3000";
+
+      if (environment === "production") {
+        // Production: strict list
+        allowedOrigins.push(
+          frontendUrl,
+          "https://getyouplus.com",
+          "https://www.getyouplus.com", // www variant
+        );
+      } else if (environment === "staging") {
+        // Staging: staging domain + localhost for testing
+        allowedOrigins.push(
+          frontendUrl,
+          "https://staging.getyouplus.com",
+          "http://localhost:3000",
+          "http://localhost:3001",
+        );
+      } else {
+        // Development: permissive (localhost + common dev ports)
+        allowedOrigins.push(
+          frontendUrl,
+          "http://localhost:3000",
+          "http://localhost:3001",
+          "http://127.0.0.1:3000",
+          "http://127.0.0.1:3001",
+        );
+      }
     }
 
-    // Fallback to wildcard to avoid accidental CORS blocks in non-prod
+    // Decide which origin to echo back
+    let allowOrigin: string | undefined;
+
+    if (environment === "development") {
+      // Development: allow any origin (including ngrok, etc.)
+      allowOrigin = origin || "*";
+    } else if (origin) {
+      // Staging/Production: check against allowed list
+      const isAllowed = allowedOrigins.some(allowed => {
+        // Exact match
+        if (origin === allowed) return true;
+        // For development-like origins in staging, allow localhost
+        if (environment === "staging" && origin.includes("localhost")) return true;
+        return false;
+      });
+
+      if (isAllowed) {
+        allowOrigin = origin;
+      } else {
+        // Log blocked origin for debugging (but don't expose in response)
+        console.warn(`[CORS] Blocked origin: ${origin} (environment: ${environment})`);
+      }
+    }
+
+    // Fallback: use wildcard only in development
     if (!allowOrigin) {
-      allowOrigin = "*";
+      if (environment === "development") {
+        allowOrigin = "*";
+      } else {
+        // In staging/production, reject if origin doesn't match
+        // This prevents accidental CORS blocks but maintains security
+        allowOrigin = allowedOrigins[0] || "*";
+      }
     }
 
     c.header("Access-Control-Allow-Origin", allowOrigin);

@@ -128,12 +128,6 @@ async def _update_trust_scores(
     future_self = user_context.get("future_self", {})
     favorite_excuse = future_self.get("favorite_excuse", "")
 
-    # Fall back to legacy identity if future_self not available
-    if not favorite_excuse:
-        identity = user_context.get("identity", {})
-        onboarding = identity.get("onboarding_context", {})
-        favorite_excuse = onboarding.get("favorite_excuse", "")
-
     used_favorite = (
         any(
             favorite_excuse.lower() in excuse.lower()
@@ -191,12 +185,6 @@ async def _save_excuse_patterns(
     # Get favorite excuse from future_self data
     future_self = user_context.get("future_self", {})
     favorite_excuse = future_self.get("favorite_excuse", "")
-
-    # Fall back to legacy identity if future_self not available
-    if not favorite_excuse:
-        identity = user_context.get("identity", {})
-        onboarding = identity.get("onboarding_context", {})
-        favorite_excuse = onboarding.get("favorite_excuse", "")
 
     for excuse_event in call_aggregator.excuses:
         matches_favorite = (

@@ -46,9 +46,8 @@ class ExcuseDetectorNode(Node):
 
     def _get_favorite_excuse(self) -> Optional[str]:
         """Get user's known favorite excuse from onboarding."""
-        identity = self.user_context.get("identity", {})
-        onboarding = identity.get("onboarding_context", {})
-        return onboarding.get("favorite_excuse")
+        future_self = self.user_context.get("future_self", {})
+        return future_self.get("favorite_excuse")
 
     async def process_context(
         self, context: ConversationContext
@@ -143,9 +142,8 @@ class PromiseDetectorNode(Node):
 
     def _get_favorite_excuse(self) -> Optional[str]:
         """Get user's known favorite excuse from onboarding."""
-        identity = self.user_context.get("identity", {})
-        onboarding = identity.get("onboarding_context", {})
-        return onboarding.get("favorite_excuse")
+        future_self = self.user_context.get("future_self", {})
+        return future_self.get("favorite_excuse")
 
     async def process_context(
         self, context: ConversationContext

@@ -38,6 +38,10 @@ export const EnvSchema = z.object({
   // Frontend URL (for redirects)
   FRONTEND_URL: z.string().url("Frontend URL must be a valid URL").optional().default("http://localhost:3000"),
   
+  // CORS configuration (optional, comma-separated list of allowed origins)
+  // If not set, origins are derived from FRONTEND_URL and ENVIRONMENT
+  CORS_ALLOWED_ORIGINS: z.string().optional(),
+  
   // Environment and deployment
   ENVIRONMENT: z.enum(["development", "staging", "production"], {
     errorMap: (issue, ctx) => {
@@ -133,6 +137,7 @@ export const EnvCategories = {
     ENVIRONMENT: "Application environment (development/staging/production)",
     BACKEND_URL: "Public URL of the backend API",
     FRONTEND_URL: "Public URL of the frontend app",
+    CORS_ALLOWED_ORIGINS: "Comma-separated list of allowed CORS origins (optional, auto-derived if not set)",
   },
   
   development: {

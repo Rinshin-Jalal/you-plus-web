@@ -25,7 +25,7 @@ from core.config import (
     fetch_excuse_patterns,
 )
 from conversation.call_types import select_call_type
-from conversation.mood import select_mood, Mood
+from conversation.mood import select_mood
 
 # Default voice (fallback if user has no clone)
 DEFAULT_VOICE_ID = "a0e99841-438c-4a64-b679-ae501e7d6091"
@@ -52,12 +52,13 @@ async def handle_call_request(call_request: CallRequest):
 
     # Fetch user's context from database
     user_context = await fetch_user_context(user_id)
-    identity = user_context.get("identity", {})
+    future_self = user_context.get("future_self", {})
     status = user_context.get("status", {})
 
-    # Reject if user doesn't exist
-    if not identity:
-        logger.warning(f"Rejecting call: user {user_id} not found")
+    # Reject if user doesn't exist (check future_self table)
+    # future_self will be empty dict {} if user doesn't exist in new DB structure
+    if not future_self or not future_self.get("user_id"):
+        logger.warning(f"Rejecting call: user {user_id} not found in future_self table")
         return None
 
     # Reject if subscription expired
@@ -101,12 +102,13 @@ async def handle_call_request(call_request: CallRequest):
 
     # === CONFIGURE CALL ===
 
-    # Get user's cloned voice ID
-    voice_id = identity.get("cartesia_voice_id") or DEFAULT_VOICE_ID
+    # Get user's cloned voice ID from future_self table
+    voice_id = future_self.get("cartesia_voice_id") or DEFAULT_VOICE_ID
 
     # Get user's preferred language (default to English)
+    # Note: preferred_language is not stored in future_self table, defaulting to "en"
     # Cartesia supports: en, es, fr, de, it, pt, pl, zh, ja, hi, ko
-    preferred_language = identity.get("preferred_language", "en")
+    preferred_language = "en"
 
     # Build experimental voice controls based on mood
     # See: https://docs.cartesia.ai/line/agent-patterns/experimental-emotion

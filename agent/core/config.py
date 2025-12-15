@@ -165,16 +165,24 @@ async def build_system_prompt_v2(
 
     Falls back to legacy build_system_prompt if Supermemory unavailable.
     """
-    identity = user_context.get("identity", {})
+    future_self = user_context.get("future_self", {})
+    pillars = user_context.get("pillars", [])
     status = user_context.get("status", {})
 
-    # Get user name from users table (not identity anymore)
+    # Get user name from users table
     users_data = user_context.get("users", {})
-    name = users_data.get("name") or identity.get("name", "")
+    name = users_data.get("name", "")
     name_ref = name if name else "you"
 
-    # Core scheduling info (from identity table)
-    commitment = identity.get("daily_commitment", "what you said you'd do")
+    # Get commitment from primary pillar (from future_self system)
+    primary_pillar_name = future_self.get("primary_pillar", "body")
+    primary_pillar = next(
+        (p for p in pillars if p.get("pillar") == primary_pillar_name),
+        pillars[0] if pillars else {},
+    )
+    commitment = primary_pillar.get(
+        "non_negotiable", future_self.get("core_identity", "what you said you'd do")
+    )
     current_streak = status.get("current_streak_days", 0)
     total_calls = status.get("total_calls_completed", 0)
     next_milestone = get_next_milestone(current_streak)
@@ -203,11 +211,19 @@ async def build_system_prompt_v2(
         else:
             print(f"📭 No Supermemory profile for {user_id}, using fallback")
 
-    # Fallback to legacy onboarding_context if no Supermemory profile
+    # Fallback to future_self data if no Supermemory profile
     if not psychological_context:
-        psychological_context = _build_legacy_psychological_context(
-            identity.get("onboarding_context", {})
-        )
+        # Build onboarding_context-like dict from future_self fields
+        onboarding_data = {
+            "goal": future_self.get("core_identity", ""),
+            "the_why": future_self.get("the_why", ""),
+            "dark_future": future_self.get("dark_future", ""),
+            "quit_pattern": future_self.get("quit_pattern", ""),
+            "favorite_excuse": future_self.get("favorite_excuse", ""),
+            "who_disappointed": future_self.get("who_disappointed", []),
+            "fears": future_self.get("fears", []),
+        }
+        psychological_context = _build_legacy_psychological_context(onboarding_data)
         recent_context = "First call or Supermemory unavailable."
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -822,10 +838,12 @@ def build_first_message(
     IMPORTANT: The first message should be SHORT and wait for response.
     Don't dump everything at once. This starts a conversation.
     """
-    identity = user_context.get("identity", {})
+    future_self = user_context.get("future_self", {})
     status = user_context.get("status", {})
 
-    name = identity.get("name", "")
+    # Get user name from users table
+    users_data = user_context.get("users", {})
+    name = users_data.get("name", "")
     current_streak = status.get("current_streak_days", 0)
 
     # Get hook based on mood's opener style
@@ -1192,12 +1210,13 @@ async def build_system_prompt_v3(
             excuse_data=excuse_data,
         )
 
-    identity = user_context.get("identity", {})
+    future_self = user_context.get("future_self", {})
+    pillars = user_context.get("pillars", [])
     status = user_context.get("status", {})
 
     # Get user name from users table
     users_data = user_context.get("users", {})
-    name = users_data.get("name") or identity.get("name", "")
+    name = users_data.get("name", "")
     name_ref = name if name else "you"
 
     # Core stats
@@ -1226,9 +1245,16 @@ async def build_system_prompt_v3(
             if checkin_summary and build_pillar_checkin_summary_context:
                 pillars_context += build_pillar_checkin_summary_context(checkin_summary)
 
-    # Fall back to legacy single commitment if no pillars
+    # Fall back to primary pillar commitment if no pillars context
     if not pillars_context:
-        commitment = identity.get("daily_commitment", "what you said you'd do")
+        primary_pillar_name = future_self.get("primary_pillar", "body")
+        primary_pillar = next(
+            (p for p in pillars if p.get("pillar") == primary_pillar_name),
+            pillars[0] if pillars else {},
+        )
+        commitment = primary_pillar.get(
+            "non_negotiable", future_self.get("core_identity", "what you said you'd do")
+        )
         pillars_context = f"""
 # CURRENT COMMITMENT
 Tonight's commitment: "{commitment}"
@@ -1256,9 +1282,17 @@ Tonight's commitment: "{commitment}"
             )
 
     if not psychological_context:
-        psychological_context = _build_legacy_psychological_context(
-            identity.get("onboarding_context", {})
-        )
+        # Build onboarding_context-like dict from future_self fields
+        onboarding_data = {
+            "goal": future_self.get("core_identity", ""),
+            "the_why": future_self.get("the_why", ""),
+            "dark_future": future_self.get("dark_future", ""),
+            "quit_pattern": future_self.get("quit_pattern", ""),
+            "favorite_excuse": future_self.get("favorite_excuse", ""),
+            "who_disappointed": future_self.get("who_disappointed", []),
+            "fears": future_self.get("fears", []),
+        }
+        psychological_context = _build_legacy_psychological_context(onboarding_data)
         recent_context = "First call or Supermemory unavailable."
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -1404,12 +1438,12 @@ async def build_system_prompt_v4(
             persona_controller=persona_controller,
         )
 
-    identity = user_context.get("identity", {})
+    future_self = user_context.get("future_self", {})
     status = user_context.get("status", {})
 
     # Get user name from users table
     users_data = user_context.get("users", {})
-    name = users_data.get("name") or identity.get("name", "")
+    name = users_data.get("name", "")
     name_ref = name if name else "you"
 
     # Core stats
@@ -1479,9 +1513,17 @@ async def build_system_prompt_v4(
             )
 
     if not psychological_context:
-        psychological_context = _build_legacy_psychological_context(
-            identity.get("onboarding_context", {})
-        )
+        # Build onboarding_context-like dict from future_self fields
+        onboarding_data = {
+            "goal": future_self.get("core_identity", ""),
+            "the_why": future_self.get("the_why", ""),
+            "dark_future": future_self.get("dark_future", ""),
+            "quit_pattern": future_self.get("quit_pattern", ""),
+            "favorite_excuse": future_self.get("favorite_excuse", ""),
+            "who_disappointed": future_self.get("who_disappointed", []),
+            "fears": future_self.get("fears", []),
+        }
+        psychological_context = _build_legacy_psychological_context(onboarding_data)
         recent_context = "First call or Supermemory unavailable."
 
     # ─────────────────────────────────────────────────────────────────────────

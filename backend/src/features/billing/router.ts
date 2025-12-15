@@ -360,7 +360,7 @@ billing.post('/checkout/create-guest', async (c) => {
     const dodo = createDodoPaymentsService(env);
 
     const guestId = `guest_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-    const guestEmail = email || `${guestId}@guest.youplus.app`;
+    const guestEmail = email || `${guestId}@guest.getyouplus.com`;
     console.log('[guest-checkout] Creating customer:', { guestId, guestEmail });
 
     const customer = await dodo.ensureCustomer(guestId, guestEmail);

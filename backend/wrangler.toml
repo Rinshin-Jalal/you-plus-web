@@ -6,8 +6,18 @@ compatibility_flags = ["nodejs_compat"]
 [env.production]
 name = "you-plus-consequence-engine-prod"
 
+[env.production.vars]
+ENVIRONMENT = "production"
+DODO_PAYMENTS_ENVIRONMENT = "live_mode"
+FRONTEND_URL = "https://getyouplus.com"
+
 [env.staging]
 name = "you-plus-consequence-engine-staging"
+
+[env.staging.vars]
+ENVIRONMENT = "staging"
+DODO_PAYMENTS_ENVIRONMENT = "test_mode"
+FRONTEND_URL = "https://staging.getyouplus.com"
 
 # R2 bucket binding for audio file storage
 [[r2_buckets]]
@@ -25,12 +35,12 @@ enabled = true
 # See: /lambda/daily-call-trigger/ and /backend/src/services/scheduler.ts
 
 [vars]
-ENVIRONMENT = "production"
+ENVIRONMENT = "development"
 BACKEND_URL = "https://you-plus-consequence-engine.rinzhinjalal.workers.dev"
 
-# DodoPayments Configuration
-DODO_PAYMENTS_ENVIRONMENT = "test_mode"  # Change to "live_mode" for production
-FRONTEND_URL = "http://localhost:3000"  # Change to production URL when deploying
+# Development defaults
+DODO_PAYMENTS_ENVIRONMENT = "test_mode"
+FRONTEND_URL = "http://localhost:3000"
 
 # Secrets to set via wrangler secret put:
 # SUPABASE_URL
