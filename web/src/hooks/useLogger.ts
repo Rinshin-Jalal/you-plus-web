@@ -1,6 +1,6 @@
 'use client';
 
-import * as Sentry from '@sentry/nextjs';
+import posthog from 'posthog-js';
 import { useCallback, useMemo } from 'react';
 
 type LogLevel = 'debug' | 'info' | 'warn' | 'error';
@@ -14,9 +14,9 @@ interface Logger {
   info: (message: string, context?: LogContext) => void;
   warn: (message: string, context?: LogContext) => void;
   error: (message: string | Error, context?: LogContext) => void;
-  /** Capture an exception to Sentry with optional context */
+  /** Capture an exception to PostHog with optional context */
   captureException: (error: Error, context?: LogContext) => void;
-  /** Add a breadcrumb for debugging */
+  /** Log a breadcrumb (console only - PostHog auto-captures exceptions) */
   breadcrumb: (message: string, category?: string, data?: LogContext) => void;
 }
 
@@ -65,15 +65,8 @@ function log(level: LogLevel, message: string, context?: LogContext, component?:
     }
   }
 
-  // Send to Sentry for warn and error levels (or all in development)
-  if (level === 'warn' || level === 'error') {
-    Sentry.addBreadcrumb({
-      category: component || 'app',
-      message,
-      level: severityMap[level],
-      data: fullContext,
-    });
-  }
+  // PostHog auto-captures exceptions via __enable_exception_autocapture
+  // No need to manually track breadcrumbs - they're part of session replay
 }
 
 /**
@@ -94,26 +87,26 @@ export function createLogger(component: string): Logger {
       const errorMessage = message instanceof Error ? message.message : message;
       log('error', errorMessage, context, component);
       
-      // Also capture exceptions for Error objects
-      if (message instanceof Error) {
-        Sentry.captureException(message, {
+      // Capture exceptions in PostHog
+      if (message instanceof Error && typeof window !== 'undefined') {
+        posthog.captureException(message, {
           extra: { component, ...context },
         });
       }
     },
     captureException: (error: Error, context?: LogContext) => {
       log('error', error.message, context, component);
-      Sentry.captureException(error, {
-        extra: { component, ...context },
-      });
+      if (typeof window !== 'undefined') {
+        posthog.captureException(error, {
+          extra: { component, ...context },
+        });
+      }
     },
     breadcrumb: (message: string, category?: string, data?: LogContext) => {
-      Sentry.addBreadcrumb({
-        category: category || component,
-        message,
-        level: 'info',
-        data,
-      });
+      // PostHog auto-captures via session replay - just log to console
+      if (isDevelopment) {
+        console.debug(`[${category || component}]`, message, data);
+      }
     },
   };
 }
@@ -167,8 +160,8 @@ export function useLogger(componentName: string): Logger {
       const errorMessage = message instanceof Error ? message.message : message;
       log('error', errorMessage, context, componentName);
 
-      if (message instanceof Error) {
-        Sentry.captureException(message, {
+      if (message instanceof Error && typeof window !== 'undefined') {
+        posthog.captureException(message, {
           extra: { component: componentName, ...context },
         });
       }
@@ -179,21 +172,21 @@ export function useLogger(componentName: string): Logger {
   const captureException = useCallback(
     (err: Error, context?: LogContext) => {
       log('error', err.message, context, componentName);
-      Sentry.captureException(err, {
-        extra: { component: componentName, ...context },
-      });
+      if (typeof window !== 'undefined') {
+        posthog.captureException(err, {
+          extra: { component: componentName, ...context },
+        });
+      }
     },
     [componentName]
   );
 
   const breadcrumb = useCallback(
     (message: string, category?: string, data?: LogContext) => {
-      Sentry.addBreadcrumb({
-        category: category || componentName,
-        message,
-        level: 'info',
-        data,
-      });
+      // PostHog auto-captures via session replay - just log to console
+      if (isDevelopment) {
+        console.debug(`[${category || componentName}]`, message, data);
+      }
     },
     [componentName]
   );

@@ -1,7 +1,7 @@
 'use client';
 
-import * as Sentry from '@sentry/nextjs';
 import { useEffect } from 'react';
+import posthog from 'posthog-js';
 
 export default function GlobalError({
   error,
@@ -11,7 +11,11 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
-    Sentry.captureException(error);
+    // PostHog automatically captures exceptions with __enable_exception_autocapture
+    // But we can also manually capture for better context
+    if (typeof window !== 'undefined') {
+      posthog.captureException(error);
+    }
   }, [error]);
 
   return (

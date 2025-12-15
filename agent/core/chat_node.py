@@ -54,7 +54,7 @@ from conversation.stages.transitions import (
 from core.llm import llm_analyze
 from core.llm_client import (
     stream_response,
-    LLM_API_KEY,
+    BEDROCK_API_KEY,
 )
 
 # Memory tools for during-call context retrieval
@@ -186,8 +186,8 @@ class FutureYouNode(ReasoningNode):
             logger.info("No messages to process")
             return
 
-        if not LLM_API_KEY:
-            logger.error("LLM_API_KEY not set!")
+        if not BEDROCK_API_KEY:
+            logger.error("BEDROCK_API_KEY not set!")
             yield AgentResponse(
                 content="I'm having trouble connecting. Let's try again tomorrow."
             )

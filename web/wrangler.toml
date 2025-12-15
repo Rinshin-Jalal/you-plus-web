@@ -1,0 +1,11 @@
+main = ".open-next/worker.js"
+name = "youplus-web"
+# Must be after 2025-08-15 for Sentry support (requires https module)
+compatibility_date = "2025-12-15"
+# Required for Sentry to work on Cloudflare Workers
+compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = ".open-next/assets"
+binding = "ASSETS"
+

@@ -6,27 +6,26 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "preview": "CLOUDFLARE_BUILD=true opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "deploy": "CLOUDFLARE_BUILD=true opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
   },
   "dependencies": {
-    "@react-three/fiber": "^9.4.2",
-    "@sentry/nextjs": "^10.30.0",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.86.0",
     "@trigger.dev/sdk": "^4.2.0",
-    "html2canvas": "^1.4.1",
-    "jspdf": "^3.0.4",
     "libphonenumber-js": "^1.12.31",
     "lucide-react": "^0.555.0",
-    "next": "16.0.6",
+    "next": "^16.0.10",
     "posthog-js": "^1.304.0",
     "react": "19.2.0",
     "react-dom": "19.2.0",
     "react-phone-number-input": "^3.4.14",
-    "three": "^0.181.2",
     "zustand": "^5.0.9"
   },
   "devDependencies": {
+    "@opennextjs/cloudflare": "^1.14.6",
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",
@@ -35,12 +34,13 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@types/three": "^0.181.0",
     "eslint": "^9",
     "eslint-config-next": "16.0.6",
     "jest": "^30.2.0",
     "playwright": "^1.57.0",
+    "posthog-node": "^5.17.2",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "wrangler": "^4.54.0"
   }
 }

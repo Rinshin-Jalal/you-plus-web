@@ -48,7 +48,7 @@ This Cloudflare Worker-based system orchestrates:
 
 5. **Identity Extraction** (`/services/identity-extractor.ts`)
 
-   - Transcribes voice recordings using OpenAI Whisper
+   - Transcribes voice recordings using Cartesia Ink STT
    - Extracts psychological insights from responses
    - Creates comprehensive user profiles
    - Generates personalized call scripts
@@ -83,7 +83,8 @@ Set these secrets in Cloudflare:
 ```bash
 wrangler secret put SUPABASE_URL
 wrangler secret put SUPABASE_ANON_KEY
-wrangler secret put OPENAI_API_KEY
+wrangler secret put BEDROCK_API_KEY
+wrangler secret put BEDROCK_REGION
 wrangler secret put ELEVENLABS_API_KEY
 wrangler secret put R2_ACCESS_KEY_ID
 wrangler secret put R2_SECRET_ACCESS_KEY

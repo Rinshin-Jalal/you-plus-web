@@ -6,12 +6,12 @@ Uses the standard OpenAI SDK to communicate with AWS Bedrock's
 OpenAI-compatible inference endpoint.
 
 Configuration via environment variables:
-- LLM_API_KEY: API key for authentication
-- LLM_BASE_URL: Base URL for the API endpoint
-- LLM_MODEL: Model ID to use
+- BEDROCK_API_KEY: AWS Bedrock API key for authentication
+- BEDROCK_REGION: AWS region (e.g., us-west-2)
+- BEDROCK_MODEL: Model ID to use (default: openai.gpt-oss-20b-1:0)
 
-For AWS Bedrock, the base URL format is typically:
-https://bedrock-runtime.{region}.amazonaws.com/model/{model-id}/converse-stream
+For AWS Bedrock, the base URL format is:
+https://bedrock-runtime.{region}.amazonaws.com/openai/v1
 """
 
 import os
@@ -22,21 +22,48 @@ from openai import AsyncOpenAI
 
 
 # Configuration from environment variables
-LLM_API_KEY = os.getenv("LLM_API_KEY")
-LLM_BASE_URL = os.getenv("LLM_BASE_URL")
-LLM_MODEL = os.getenv("LLM_MODEL")
+BEDROCK_API_KEY = os.getenv("BEDROCK_API_KEY")
+BEDROCK_REGION = os.getenv("BEDROCK_REGION", "us-west-2")
+BEDROCK_MODEL = os.getenv("BEDROCK_MODEL", "openai.gpt-oss-20b-1:0")
+
+# Legacy support - check for old LLM_* variables if BEDROCK_* not set
+if not BEDROCK_API_KEY:
+    BEDROCK_API_KEY = os.getenv("LLM_API_KEY")
+if not BEDROCK_REGION or BEDROCK_REGION == "us-west-2":
+    # Try to extract region from LLM_BASE_URL if provided
+    llm_base_url = os.getenv("LLM_BASE_URL", "")
+    if llm_base_url and "bedrock-runtime" in llm_base_url:
+        # Extract region from URL like https://bedrock-runtime.us-west-2.amazonaws.com/...
+        parts = llm_base_url.split("bedrock-runtime.")
+        if len(parts) > 1:
+            region_part = parts[1].split(".amazonaws.com")[0]
+            if region_part:
+                BEDROCK_REGION = region_part
+if not BEDROCK_MODEL or BEDROCK_MODEL == "openai.gpt-oss-20b-1:0":
+    BEDROCK_MODEL = os.getenv("LLM_MODEL", BEDROCK_MODEL)
+
+
+def get_bedrock_endpoint(region: str) -> str:
+    """Get the Bedrock OpenAI-compatible endpoint URL for the given region."""
+    return f"https://bedrock-runtime.{region}.amazonaws.com/openai/v1"
 
 # Initialize async client
 _client: Optional[AsyncOpenAI] = None
 
 
 def _get_client() -> AsyncOpenAI:
-    """Get or create the async OpenAI client."""
+    """Get or create the async OpenAI client configured for AWS Bedrock."""
     global _client
     if _client is None:
+        if not BEDROCK_API_KEY:
+            raise ValueError("BEDROCK_API_KEY environment variable is required")
+        
+        endpoint = get_bedrock_endpoint(BEDROCK_REGION)
+        logger.info(f"Initializing Bedrock client: endpoint={endpoint}, model={BEDROCK_MODEL}")
+        
         _client = AsyncOpenAI(
-            api_key=LLM_API_KEY,
-            base_url=LLM_BASE_URL,
+            api_key=BEDROCK_API_KEY,
+            base_url=endpoint,
         )
     return _client
 
@@ -62,14 +89,14 @@ async def stream_response(
     Raises:
         ValueError: If API key is not set
     """
-    if not LLM_API_KEY:
-        raise ValueError("LLM_API_KEY not set")
+    if not BEDROCK_API_KEY:
+        raise ValueError("BEDROCK_API_KEY not set")
 
     client = _get_client()
 
     try:
         stream = await client.chat.completions.create(
-            model=LLM_MODEL,
+            model=BEDROCK_MODEL,
             messages=messages,
             temperature=temperature,
             max_tokens=max_tokens,
@@ -104,15 +131,15 @@ async def call(
     Returns:
         Full response content or None on error
     """
-    if not LLM_API_KEY:
-        logger.error("LLM_API_KEY not set")
+    if not BEDROCK_API_KEY:
+        logger.error("BEDROCK_API_KEY not set")
         return None
 
     client = _get_client()
 
     try:
         response = await client.chat.completions.create(
-            model=LLM_MODEL,
+            model=BEDROCK_MODEL,
             messages=messages,
             temperature=temperature,
             max_tokens=max_tokens,

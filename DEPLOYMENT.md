@@ -11,7 +11,7 @@ Complete guide to deploying all YOU+ services and configuring environment variab
                                     
     ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
     │   NEXT.JS WEB   │     │   CF WORKER     │     │  CARTESIA AGENT │
-    │   (Vercel)      │────▶│   (Cloudflare)  │────▶│  (Cartesia)     │
+    │  (CF Pages)     │────▶│   (Cloudflare)  │────▶│  (Cartesia)     │
     │                 │     │                 │     │                 │
     │ - Onboarding UI │     │ - REST API      │     │ - Voice AI      │
     │ - Dashboard     │     │ - Webhooks      │     │ - Outbound calls│
@@ -47,8 +47,7 @@ Complete guide to deploying all YOU+ services and configuring environment variab
 | Platform | Purpose | Sign Up |
 |----------|---------|---------|
 | Supabase | Database & Auth | https://supabase.com |
-| Cloudflare | Worker API & R2 Storage | https://cloudflare.com |
-| Vercel | Next.js Frontend | https://vercel.com |
+| Cloudflare | Worker API, Pages & R2 Storage | https://cloudflare.com |
 | Trigger.dev | Background Jobs | https://trigger.dev |
 | Cartesia | Voice AI Agent | https://cartesia.ai |
 | AWS | Daily Call Scheduling | https://aws.amazon.com |
@@ -127,7 +126,8 @@ npx wrangler login
 npx wrangler secret put SUPABASE_URL
 npx wrangler secret put SUPABASE_ANON_KEY
 npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
-npx wrangler secret put OPENAI_API_KEY
+npx wrangler secret put BEDROCK_API_KEY
+npx wrangler secret put BEDROCK_REGION
 npx wrangler secret put CARTESIA_API_KEY
 npx wrangler secret put DODO_PAYMENTS_API_KEY
 npx wrangler secret put DODO_PAYMENTS_WEBHOOK_SECRET
@@ -142,9 +142,47 @@ npx wrangler deploy
 
 ---
 
-## 3. AWS Setup (Daily Call Scheduling)
+## 3. AWS Bedrock Setup (AI/LLM)
 
-### 3.1 Create IAM User for CLI
+### 3.1 Generate Bedrock API Key
+
+1. Go to https://console.aws.amazon.com/bedrock/
+2. Navigate to **API keys** in the left sidebar
+3. Click **Create API key**
+4. Give it a name (e.g., `youplus-bedrock-key`)
+5. Copy the API key immediately (you won't be able to see it again)
+
+| Variable | Value |
+|----------|-------|
+| `BEDROCK_API_KEY` | Your Bedrock API key |
+| `BEDROCK_REGION` | AWS region (e.g., `us-west-2`) |
+
+**Note:** Bedrock uses the OpenAI-compatible API format, so we use the same `openai` npm package but configure it to point to Bedrock's endpoint.
+
+### 3.2 Supported Models
+
+Bedrock supports various OpenAI-compatible models. The default model used is `openai.gpt-oss-20b-1:0`. You can check available models in your region via the AWS Bedrock console.
+
+### 3.3 Agent Configuration (Python)
+
+The Python agent uses the same Bedrock configuration. Set these environment variables:
+
+```bash
+# Required
+BEDROCK_API_KEY=...  # Your Bedrock API key
+BEDROCK_REGION=us-west-2  # AWS region
+
+# Optional (defaults shown)
+BEDROCK_MODEL=openai.gpt-oss-20b-1:0  # Model to use
+```
+
+**Legacy Support:** The agent will automatically fall back to `LLM_API_KEY`, `LLM_BASE_URL`, and `LLM_MODEL` if `BEDROCK_*` variables are not set, but you should migrate to the new `BEDROCK_*` variables.
+
+---
+
+## 4. AWS Setup (Daily Call Scheduling)
+
+### 4.1 Create IAM User for CLI
 
 1. Go to https://console.aws.amazon.com/iam/
 2. Click **Users** > **Create user**
@@ -164,13 +202,13 @@ npx wrangler deploy
 | `AWS_SECRET_ACCESS_KEY` | `...` (40 characters) |
 | `AWS_REGION` | `us-east-1` |
 
-### 3.2 Configure AWS CLI
+### 4.2 Configure AWS CLI
 ```bash
 aws configure
 # Enter: Access Key ID, Secret Key, us-east-1, json
 ```
 
-### 3.3 Run Infrastructure Setup
+### 4.3 Run Infrastructure Setup
 ```bash
 cd infrastructure
 chmod +x setup-eventbridge.sh
@@ -189,7 +227,7 @@ Schedule Group: youplus-daily-calls
 | `AWS_SCHEDULER_ROLE_ARN` | `arn:aws:iam::...:role/youplus-scheduler-role` |
 | `AWS_SCHEDULE_GROUP_NAME` | `youplus-daily-calls` |
 
-### 3.4 Deploy Lambda Function
+### 4.4 Deploy Lambda Function
 
 1. Go to https://console.aws.amazon.com/lambda/
 2. Click **Create function**
@@ -239,7 +277,9 @@ arn:aws:lambda:us-east-1:123456789:function:youplus-daily-call-trigger
 
 ---
 
-## 4. Trigger.dev Setup
+## 5. Trigger.dev Setup
+
+**What Trigger.dev does:** Runs heavy background jobs that would timeout on Cloudflare Workers. The main job is `process-onboarding` which transcribes audio, clones voices, uploads to R2, saves to database, and creates AWS schedules.
 
 ### Create Account & Project
 1. Go to https://trigger.dev
@@ -259,22 +299,39 @@ export default defineConfig({
 ### Set Environment Variables
 In Trigger.dev dashboard > **Environment Variables**:
 
-| Variable | Value | Description |
-|----------|-------|-------------|
-| `SUPABASE_URL` | `https://xxx.supabase.co` | Supabase project URL |
-| `SUPABASE_SERVICE_ROLE_KEY` | `eyJ...` | Service role key |
-| `CARTESIA_API_KEY` | `sk-...` | For voice cloning |
-| `R2_ENDPOINT` | `https://xxx.r2.cloudflarestorage.com` | R2 endpoint |
-| `R2_ACCESS_KEY_ID` | `...` | R2 access key |
-| `R2_SECRET_ACCESS_KEY` | `...` | R2 secret key |
-| `R2_BUCKET_NAME` | `youplus-audio-recordings` | Bucket name |
-| `BACKEND_URL` | `https://your-worker.workers.dev` | Backend URL |
-| `AWS_ACCESS_KEY_ID` | `AKIA...` | For schedule creation |
-| `AWS_SECRET_ACCESS_KEY` | `...` | For schedule creation |
-| `AWS_REGION` | `us-east-1` | AWS region |
-| `AWS_LAMBDA_FUNCTION_ARN` | `arn:aws:lambda:...` | Lambda ARN |
-| `AWS_SCHEDULER_ROLE_ARN` | `arn:aws:iam:...` | Scheduler role ARN |
-| `AWS_SCHEDULE_GROUP_NAME` | `youplus-daily-calls` | Schedule group |
+**Required - Database Access:**
+| Variable | Value | Used For |
+|----------|-------|----------|
+| `SUPABASE_URL` | `https://xxx.supabase.co` | Save onboarding data, update job status |
+| `SUPABASE_SERVICE_ROLE_KEY` | `eyJ...` | Full database access for background jobs |
+
+**Required - Voice Processing:**
+| Variable | Value | Used For |
+|----------|-------|----------|
+| `CARTESIA_API_KEY` | `sk-...` | Transcribe audio recordings + clone user's voice |
+
+**Required - Audio Storage:**
+| Variable | Value | Used For |
+|----------|-------|----------|
+| `R2_ENDPOINT` | `https://xxx.r2.cloudflarestorage.com` | Upload recordings to R2 (via S3 API) |
+| `R2_ACCESS_KEY_ID` | `...` | R2 authentication |
+| `R2_SECRET_ACCESS_KEY` | `...` | R2 authentication |
+| `R2_BUCKET_NAME` | `youplus-audio-recordings` | Target bucket for uploads |
+| `BACKEND_URL` | `https://your-worker.workers.dev` | Generate public URLs for recordings |
+
+**Required - Daily Call Scheduling:**
+| Variable | Value | Used For |
+|----------|-------|----------|
+| `AWS_ACCESS_KEY_ID` | `AKIA...` | Create EventBridge schedules |
+| `AWS_SECRET_ACCESS_KEY` | `...` | AWS authentication |
+| `AWS_LAMBDA_FUNCTION_ARN` | `arn:aws:lambda:...` | Target for scheduled calls |
+| `AWS_SCHEDULER_ROLE_ARN` | `arn:aws:iam:...` | IAM role for EventBridge |
+
+**Optional - Defaults Available:**
+| Variable | Default | Used For |
+|----------|---------|----------|
+| `AWS_REGION` | `us-east-1` | AWS region for EventBridge |
+| `AWS_SCHEDULE_GROUP_NAME` | `youplus-daily-calls` | Schedule group name |
 
 ### Deploy Tasks
 ```bash
@@ -284,31 +341,98 @@ npx trigger.dev deploy
 
 ---
 
-## 5. Cartesia Agent Setup
+## 6. Cartesia Agent Setup (Python Voice Agent)
+
+**What the agent does:** This is the Python voice agent that makes the actual phone calls to users. It runs on Cartesia's infrastructure and uses AI (Bedrock) to have conversations.
 
 ### Create Account
 1. Go to https://cartesia.ai
 2. Sign up and get API key
+3. From Dashboard > API Keys, copy your API key
 
-### Get Credentials
+### Configure Environment Variables
 
-| Variable | Where to find |
-|----------|---------------|
-| `CARTESIA_API_KEY` | Dashboard > API Keys |
-| `CARTESIA_AGENT_ID` | After deploying agent (see below) |
+Create `.env` file in the `agent/` directory:
 
-### Deploy Agent
 ```bash
 cd agent
-cartesia auth login
-cartesia deploy
+touch .env
 ```
 
-After deployment, you'll get an Agent ID. Save it!
+Edit `agent/.env` with the following variables:
+
+**Required Variables:**
+```bash
+# AI/LLM - Powers the conversation
+BEDROCK_API_KEY=...  # AWS Bedrock API key from AWS Console
+BEDROCK_REGION=us-west-2  # AWS region
+
+# Database - User data and call history
+SUPABASE_URL=https://xxx.supabase.co
+SUPABASE_SERVICE_KEY=eyJ...  # Same as SUPABASE_SERVICE_ROLE_KEY
+
+# Backend - Webhooks and logging
+BACKEND_URL=https://your-worker.workers.dev
+```
+
+**Optional Variables:**
+```bash
+# Model selection (defaults to openai.gpt-oss-20b-1:0)
+BEDROCK_MODEL=openai.gpt-oss-20b-1:0
+
+# Advanced memory system (optional)
+SUPERMEMORY_API_KEY=sm_...
+```
+
+**Note:** The agent also supports legacy `LLM_*` environment variables for backward compatibility, but you should use `BEDROCK_*` for new deployments.
+
+### Install Dependencies (if testing locally)
+
+This project uses `uv` for dependency management (defined in `pyproject.toml`):
+
+```bash
+cd agent
+
+# Install uv if you don't have it
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Install dependencies
+uv sync
+
+# Or use the venv that's already there
+source path/to/venv/bin/activate
+```
+
+### Deploy Agent
+
+```bash
+cd agent
+
+# Login to Cartesia
+cartesia auth login
+
+# Deploy the agent
+cartesia deploy
+
+# Save the Agent ID shown after deployment!
+```
+
+After deployment, you'll get an `CARTESIA_AGENT_ID` like `agent_abc123`. Save this for:
+- Backend worker configuration
+- Lambda function configuration
+
+### Test Agent Locally (optional)
+
+```bash
+cd agent
+python main.py
+# Or test a call flow:
+python tests/test_local.py
+```
 
 ---
 
-## 6. DodoPayments Setup
+## 7. DodoPayments Setup
 
 ### Create Account
 1. Go to https://dodopayments.com
@@ -328,30 +452,37 @@ Set webhook URL to: `https://your-worker.workers.dev/webhook/dodopayments`
 
 ---
 
-## 7. Vercel Setup (Frontend)
+## 8. Frontend Deployment (Next.js)
 
-### Deploy
+Uses OpenNext.js to deploy Next.js to Cloudflare Workers.
+
+### Deploy Commands
+
 ```bash
 cd web
-npx vercel
+
+# Test locally with Cloudflare runtime
+npm run preview
+
+# Deploy to Cloudflare Workers
+npm run deploy
 ```
 
 ### Environment Variables
-In Vercel dashboard > Settings > Environment Variables:
+
+Set in Cloudflare Pages dashboard or via `wrangler secret`:
 
 | Variable | Value |
 |----------|-------|
 | `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key |
-| `NEXT_PUBLIC_API_URL` | `https://your-worker.workers.dev` |
-| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe/Dodo publishable key |
-| `NEXT_PUBLIC_POSTHOG_KEY` | PostHog project key (optional) |
+| `NEXT_PUBLIC_API_URL` | Your backend URL |
+| `NEXT_PUBLIC_POSTHOG_KEY` | PostHog key (optional) |
 | `NEXT_PUBLIC_POSTHOG_HOST` | `https://us.i.posthog.com` |
-| `NEXT_PUBLIC_SENTRY_DSN` | Sentry DSN (optional) |
 
 ---
 
-## 8. Optional Services
+## 9. Optional Services
 
 ### PostHog (Analytics)
 1. Go to https://posthog.com
@@ -388,7 +519,8 @@ SUPABASE_ANON_KEY=eyJ...
 SUPABASE_SERVICE_ROLE_KEY=eyJ...
 
 # AI Services
-OPENAI_API_KEY=sk-...
+BEDROCK_API_KEY=...  # AWS Bedrock API key (OpenAI-compatible)
+BEDROCK_REGION=us-west-2  # AWS Bedrock region
 CARTESIA_API_KEY=sk-...
 CARTESIA_AGENT_ID=agent_...
 GEMINI_API_KEY=...  # Optional
@@ -427,32 +559,37 @@ FRONTEND_URL=http://localhost:3000
 
 ### Trigger.dev
 
-Set in Trigger.dev dashboard:
+Set in Trigger.dev dashboard. All variables below are used by the `process-onboarding` task which:
+1. Transcribes audio recordings (needs Cartesia)
+2. Clones user's voice (needs Cartesia)
+3. Uploads recordings to storage (needs R2)
+4. Saves to database (needs Supabase)
+5. Creates daily call schedule (needs AWS)
 
 ```bash
-# Database
+# Database - Save onboarding data
 SUPABASE_URL=https://xxx.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=eyJ...
 
-# Voice
+# Voice - Transcribe + clone voice
 CARTESIA_API_KEY=sk-...
 
-# Storage (R2)
+# Storage - Upload recordings to R2 via S3 API
 R2_ENDPOINT=https://xxx.r2.cloudflarestorage.com
 R2_ACCESS_KEY_ID=...
 R2_SECRET_ACCESS_KEY=...
 R2_BUCKET_NAME=youplus-audio-recordings
 
-# Backend
+# Backend - Generate public URLs
 BACKEND_URL=https://your-worker.workers.dev
 
-# AWS Scheduling
+# AWS - Create EventBridge schedule for daily calls
 AWS_ACCESS_KEY_ID=AKIA...
 AWS_SECRET_ACCESS_KEY=...
-AWS_REGION=us-east-1
+AWS_REGION=us-east-1  # Optional, defaults to us-east-1
 AWS_LAMBDA_FUNCTION_ARN=arn:aws:lambda:...
 AWS_SCHEDULER_ROLE_ARN=arn:aws:iam:...
-AWS_SCHEDULE_GROUP_NAME=youplus-daily-calls
+AWS_SCHEDULE_GROUP_NAME=youplus-daily-calls  # Optional, has default
 ```
 
 ---
@@ -471,29 +608,46 @@ BACKEND_WEBHOOK_URL=https://your-worker.workers.dev
 
 ---
 
-### Cartesia Agent
+### Cartesia Agent (Python)
 
-Set in `agent/.env`:
+Set in `agent/.env` file. The agent needs these to:
+1. Make AI-powered conversations (Bedrock)
+2. Fetch user data from database (Supabase)
+3. Send call results to backend (Backend URL)
 
 ```bash
-GEMINI_API_KEY=...
+# Required - AI for conversations
+BEDROCK_API_KEY=...  # AWS Bedrock API key
+BEDROCK_REGION=us-west-2  # AWS region
+
+# Required - Database access
 SUPABASE_URL=https://xxx.supabase.co
 SUPABASE_SERVICE_KEY=eyJ...  # Same as SERVICE_ROLE_KEY
-SUPERMEMORY_API_KEY=sm_...
+
+# Required - Backend webhooks
 BACKEND_URL=https://your-worker.workers.dev
+
+# Optional - Advanced features
+BEDROCK_MODEL=openai.gpt-oss-20b-1:0  # Has default
+SUPERMEMORY_API_KEY=sm_...  # For advanced memory system
 ```
 
 ---
 
-### Frontend (Vercel)
+### Frontend (Cloudflare Pages)
 
-Set in Vercel dashboard:
+Set in Cloudflare Pages dashboard:
 
 ```bash
+# Required
 NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
 NEXT_PUBLIC_API_URL=https://your-worker.workers.dev
+
+# Payments
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_...
+
+# Optional - Analytics & Monitoring
 NEXT_PUBLIC_POSTHOG_KEY=phc_...
 NEXT_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com
 NEXT_PUBLIC_SENTRY_DSN=https://...@sentry.io/...
@@ -508,10 +662,10 @@ SENTRY_AUTH_TOKEN=...
 
 1. **Supabase** - Run migrations
 2. **AWS** - Create IAM user, run setup script, deploy Lambda
-3. **Cloudflare** - Deploy Worker with secrets
+3. **Cloudflare Worker** - Deploy backend with secrets
 4. **Trigger.dev** - Set env vars, deploy tasks
 5. **Cartesia** - Deploy agent
-6. **Vercel** - Deploy frontend
+6. **Cloudflare Pages** - Deploy frontend with OpenNext.js
 
 ---
 

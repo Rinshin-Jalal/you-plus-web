@@ -36,12 +36,7 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-[#FAFAFA] relative">
       <GrainOverlay />
-      
-      {/* Dev buttons */}
-      <div className="fixed bottom-4 right-4 z-[999] flex flex-col gap-2">
-        <button onClick={() => router.push('/dashboard')} className="bg-white/10 text-white text-xs px-3 py-1.5 backdrop-blur font-mono">[Dev] Dashboard</button>
-        <button onClick={() => router.push('/call')} className="bg-[#F97316] text-black text-xs px-3 py-1.5 font-mono">[Dev] Call</button>
-      </div>
+
 
       {/* Nav */}
       <nav className="fixed top-0 left-0 right-0 z-50 bg-[#0A0A0A]/90 backdrop-blur-md border-b border-white/10">

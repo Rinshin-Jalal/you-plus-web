@@ -176,6 +176,10 @@ export function initAnalytics(): void {
     capture_pageleave: true,
     // Disable session recording by default (enable in PostHog dashboard if needed)
     disable_session_recording: false,
+    // Exception autocapture enabled in project settings (Error tracking section)
+    // https://posthog.com/docs/error-tracking/installation/nextjs
+    // @ts-ignore - __enable_exception_autocapture not yet in types
+    __enable_exception_autocapture: true,
     // Respect Do Not Track
     respect_dnt: true,
     // Persistence across sessions

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import * as Sentry from '@sentry/nextjs';
+import posthog from 'posthog-js';
 
 export interface AppErrorBoundaryProps {
   children: React.ReactNode;
@@ -25,12 +25,14 @@ export class AppErrorBoundary extends React.Component<AppErrorBoundaryProps, App
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    // Capture error in Sentry with component stack
-    Sentry.captureException(error, {
-      extra: {
-        componentStack: errorInfo.componentStack,
-      },
-    });
+    // Capture error in PostHog with component stack
+    if (typeof window !== 'undefined') {
+      posthog.captureException(error, {
+        extra: {
+          componentStack: errorInfo.componentStack,
+        },
+      });
+    }
     console.error('[ErrorBoundary] Caught error:', error, errorInfo);
   }
 

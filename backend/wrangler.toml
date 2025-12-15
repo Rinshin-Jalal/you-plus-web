@@ -46,7 +46,8 @@ FRONTEND_URL = "http://localhost:3000"
 # SUPABASE_URL
 # SUPABASE_ANON_KEY
 # SUPABASE_SERVICE_ROLE_KEY
-# OPENAI_API_KEY
+# BEDROCK_API_KEY (AWS Bedrock API key for OpenAI-compatible API)
+# BEDROCK_REGION (AWS Bedrock region, e.g., us-west-2)
 #
 # LiveKit Configuration (NEW)
 # LIVEKIT_API_KEY

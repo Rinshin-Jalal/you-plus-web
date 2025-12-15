@@ -17,8 +17,9 @@ export const EnvSchema = z.object({
   SUPABASE_ANON_KEY: z.string().min(1, "Supabase anon key is required"),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1, "Supabase service role key is required"),
   
-  // OpenAI configuration
-  OPENAI_API_KEY: z.string().min(1, "OpenAI API key is required"),
+  // AWS Bedrock configuration (OpenAI-compatible API)
+  BEDROCK_API_KEY: z.string().min(1, "AWS Bedrock API key is required"),
+  BEDROCK_REGION: z.string().min(1, "AWS Bedrock region is required").default("us-west-2"),
 
   // Cartesia configuration (agent uses this for voice calls)
   CARTESIA_API_KEY: z.string().min(1, "Cartesia API key is required"),
@@ -117,7 +118,8 @@ export const EnvCategories = {
   },
   
   ai: {
-    OPENAI_API_KEY: "OpenAI API key for embeddings and AI processing",
+    BEDROCK_API_KEY: "AWS Bedrock API key for embeddings and AI processing (OpenAI-compatible)",
+    BEDROCK_REGION: "AWS Bedrock region (e.g., us-west-2)",
     CARTESIA_API_KEY: "Cartesia API key for STT (Ink) and TTS (Sonic-3)",
     CARTESIA_AGENT_ID: "Deployed Cartesia Line agent ID for outbound calls",
     GEMINI_API_KEY: "Gemini API key for returning user personalization (optional)",
