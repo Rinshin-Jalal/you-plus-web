@@ -492,8 +492,9 @@ export default function LandingPage() {
               
               <div className="text-xs font-mono uppercase tracking-[0.3em] text-black/50 mb-4">SIMPLE PRICING</div>
               
-              <div className="text-6xl md:text-7xl font-black text-black mb-2">$6.99</div>
-              <p className="text-lg text-black/60 mb-10">/week after 7-day free trial</p>
+              <div className="text-6xl md:text-7xl font-black text-black mb-2">$4.99</div>
+              <p className="text-lg text-black/60 mb-2">/week</p>
+              <p className="text-sm text-black/50 mb-10">or $49.99 / 6 months</p>
 
               <div className="space-y-4 mb-10">
                 {[

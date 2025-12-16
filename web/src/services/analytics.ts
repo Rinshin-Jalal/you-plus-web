@@ -399,13 +399,13 @@ export const analytics = {
   checkoutViewed: (hasOnboardingData: boolean, isAuthenticated: boolean) => 
     track(AnalyticsEvents.CHECKOUT_VIEWED, { hasOnboardingData, isAuthenticated }),
   
-  checkoutPlanSelected: (planId: string, interval: 'month' | 'year', priceInCents: number) => 
+  checkoutPlanSelected: (planId: string, interval: 'week' | 'six_month' | 'month' | 'year', priceInCents: number) => 
     track(AnalyticsEvents.CHECKOUT_PLAN_SELECTED, { planId, interval, priceInCents }),
   
-  checkoutStarted: (planId: string, interval: 'month' | 'year') => 
+  checkoutStarted: (planId: string, interval: 'week' | 'six_month' | 'month' | 'year') => 
     track(AnalyticsEvents.CHECKOUT_STARTED, { planId, interval }),
   
-  checkoutCompleted: (planId: string, interval: 'month' | 'year') => 
+  checkoutCompleted: (planId: string, interval: 'week' | 'six_month' | 'month' | 'year') => 
     track(AnalyticsEvents.CHECKOUT_COMPLETED, { planId, interval }),
   
   checkoutFailed: (planId: string, error?: string) => 

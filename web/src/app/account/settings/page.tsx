@@ -75,6 +75,17 @@ function SettingsContent() {
     loadSubscription();
   }, [loadProfile, loadPreferences, loadSubscription]);
 
+  // If we have a subscription, preload plans so we can show the correct interval label (/wk, /6mo, etc.)
+  useEffect(() => {
+    if (!subscription) return;
+    if (plans.length > 0) return;
+    // Fire and forget
+    void (async () => {
+      await loadPlans();
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subscription]);
+
   const loadPlans = async () => {
     setIsLoadingPlans(true);
     const fetchedPlans = await paymentService.getPlans();
@@ -168,6 +179,17 @@ function SettingsContent() {
       style: 'currency',
       currency: currency || 'USD',
     }).format(amount);
+  };
+
+  const getPlanIntervalLabel = (p?: Partial<Plan> | null) => {
+    if (!p) return null;
+    const interval = p.interval;
+    const count = p.interval_count ?? 1;
+    if (interval === 'week') return 'wk';
+    if (interval === 'month' && count === 6) return '6mo';
+    if (interval === 'month') return 'mo';
+    if (interval === 'year') return 'yr';
+    return interval || null;
   };
 
   const timezones = [
@@ -353,6 +375,12 @@ function SettingsContent() {
             
             {subscription && (
               <div className="mb-6 p-6 border border-white/20 bg-white/5">
+                {(() => {
+                  const currentPlan = plans.find(
+                    (p) => subscription.planId === p.id || subscription.planId === p.product_id
+                  );
+                  const suffix = getPlanIntervalLabel(currentPlan);
+                  return (
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="font-bold text-white text-lg">
@@ -372,10 +400,13 @@ function SettingsContent() {
                   </div>
                   {subscription.amountCents && (
                     <p className="text-2xl font-black text-white">
-                      {formatPrice(subscription.amountCents, subscription.currency)}<span className="text-sm font-normal text-white/50">/mo</span>
+                      {formatPrice(subscription.amountCents, subscription.currency)}
+                      {suffix && <span className="text-sm font-normal text-white/50">/{suffix}</span>}
                     </p>
                   )}
                 </div>
+                  );
+                })()}
               </div>
             )}
 
@@ -400,6 +431,7 @@ function SettingsContent() {
                     {plans.map((plan) => {
                       const isCurrentPlan = subscription?.planId === plan.id || subscription?.planId === plan.product_id;
                       const priceCents = plan.price_cents || plan.price || 0;
+                      const suffix = getPlanIntervalLabel(plan);
                       
                       return (
                         <div
@@ -426,7 +458,7 @@ function SettingsContent() {
                               <p className="font-black text-white text-xl">
                                 {formatPrice(priceCents, plan.currency)}
                                 <span className="text-sm font-normal text-white/50">
-                                  /{plan.interval || 'month'}
+                                  {suffix ? `/${suffix}` : ''}
                                 </span>
                               </p>
                               {!isCurrentPlan && subscription?.hasActiveSubscription && (

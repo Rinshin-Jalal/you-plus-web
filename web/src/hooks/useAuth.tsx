@@ -11,7 +11,6 @@ export interface AuthContextType {
   session: Session | null;
   loading: boolean;
   signInWithGoogle: (redirectTo?: string) => Promise<{ error: Error | null }>;
-  signInWithApple: (redirectTo?: string) => Promise<{ error: Error | null }>;
   signInWithPassword: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<{ error: Error | null }>;
   isAuthenticated: boolean;
@@ -64,10 +63,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return authService.signInWithGoogle(redirectTo);
   };
 
-  const signInWithApple = async (redirectTo?: string) => {
-    return authService.signInWithApple(redirectTo);
-  };
-
   const signInWithPassword = async (email: string, password: string) => {
     return authService.signInWithPassword(email, password);
   };
@@ -90,7 +85,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     session,
     loading,
     signInWithGoogle,
-    signInWithApple,
     signInWithPassword,
     signOut,
     isAuthenticated: !!user,

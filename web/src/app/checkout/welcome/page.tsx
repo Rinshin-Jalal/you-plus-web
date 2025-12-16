@@ -14,7 +14,8 @@ interface Plan {
   name: string;
   price: number;
   currency: string;
-  interval: 'month' | 'year';
+  interval: string;
+  interval_count?: number;
   features: string[];
 }
 
@@ -32,10 +33,11 @@ interface OnboardingData {
 const DEFAULT_PLANS: Plan[] = [
   {
     id: 'pdt_NhtaHsMWnOV7xl3qHzBuE',
-    name: 'Pro Monthly',
-    price: 49900,
-    currency: 'INR',
-    interval: 'month',
+    name: 'Pro Weekly',
+    price: 499,
+    currency: 'USD',
+    interval: 'week',
+    interval_count: 1,
     features: [
       'Daily AI coaching calls',
       'Personalized guidance',
@@ -46,16 +48,16 @@ const DEFAULT_PLANS: Plan[] = [
   },
   {
     id: 'pdt_E0kK0u7ZB7yRi9icsBCjA',
-    name: 'Pro Yearly',
-    price: 499000,
-    currency: 'INR',
-    interval: 'year',
+    name: 'Pro 6-Month',
+    price: 4999,
+    currency: 'USD',
+    interval: 'month',
+    interval_count: 6,
     features: [
-      'Everything in Monthly',
-      '2 months free',
-      'Annual discount',
-      'VIP support',
-      'Early access to features',
+      'Everything in Weekly',
+      'Best value pricing',
+      'Priority support',
+      'Unlimited access',
     ],
   },
 ];
@@ -73,7 +75,7 @@ function WelcomeCheckoutContent() {
   const [loading, setLoading] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [billingInterval, setBillingInterval] = useState<'month' | 'year'>('year');
+  const [billingInterval, setBillingInterval] = useState<'week' | 'six_month'>('six_month');
   
   // Onboarding data
   const [onboardingData, setOnboardingData] = useState<OnboardingData>({});
@@ -214,8 +216,9 @@ function WelcomeCheckoutContent() {
               id: p.product_id || p.id,
               name: p.name || defaultPlan?.name || 'Plan',
               price: p.price_cents ?? p.price ?? defaultPlan?.price ?? 0,
-              currency: p.currency || defaultPlan?.currency || 'INR',
+              currency: p.currency || defaultPlan?.currency || 'USD',
               interval: p.interval || defaultPlan?.interval || 'month',
+              interval_count: p.interval_count ?? defaultPlan?.interval_count,
               features: (p.features && p.features.length > 0) 
                 ? p.features 
                 : defaultPlan?.features || [],
@@ -248,32 +251,28 @@ function WelcomeCheckoutContent() {
 
   const formatPrice = (cents: number, currency: string) => {
     const symbol = currency === 'INR' ? '₹' : '$';
-    const amount = (cents / 100).toFixed(0);
+    const decimals = currency === 'INR' ? 0 : 2;
+    const amount = (cents / 100).toFixed(decimals);
     return `${symbol}${amount}`;
   };
 
-  const formatMonthlyPrice = (plan: Plan) => {
-    const symbol = plan.currency === 'INR' ? '₹' : '$';
-    if (plan.interval === 'year') {
-      const monthlyAmount = Math.round(plan.price / 12 / 100);
-      return `${symbol}${monthlyAmount}`;
-    }
-    return `${symbol}${Math.round(plan.price / 100)}`;
-  };
+  const isWeekly = (p: Plan) => p.interval === 'week';
+  const isSixMonth = (p: Plan) => p.interval === 'month' && (p.interval_count ?? 1) === 6;
+  const getIntervalSuffix = (p: Plan) => (isWeekly(p) ? 'wk' : isSixMonth(p) ? '6mo' : p.interval);
 
   const getSelectedPlan = () => {
-    return plans.find(p => p.interval === billingInterval) || plans[0];
+    if (billingInterval === 'week') {
+      return plans.find(isWeekly) || plans[0];
+    }
+    return plans.find(isSixMonth) || plans[0];
   };
 
-  const getYearlySavings = () => {
-    const monthlyPlan = plans.find(p => p.interval === 'month');
-    const yearlyPlan = plans.find(p => p.interval === 'year');
-    if (monthlyPlan && yearlyPlan) {
-      const yearlyIfMonthly = monthlyPlan.price * 12;
-      const savings = yearlyIfMonthly - yearlyPlan.price;
-      return savings > 0 ? Math.round(savings / 100) : 0;
-    }
-    return 0;
+  const getSixMonthSavingsCents = () => {
+    const weekly = plans.find(isWeekly);
+    const sixMonth = plans.find(isSixMonth);
+    if (!weekly || !sixMonth) return 0;
+    const costIfWeekly = weekly.price * 26;
+    return Math.max(0, costIfWeekly - sixMonth.price);
   };
 
   if (loading) {
@@ -285,6 +284,7 @@ function WelcomeCheckoutContent() {
   }
 
   const plan = getSelectedPlan();
+  const isSixMonthSelected = plan ? (plan.interval === 'month' && (plan.interval_count ?? 1) === 6) : false;
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-white">
@@ -396,31 +396,31 @@ function WelcomeCheckoutContent() {
         <div className="flex justify-center mb-12">
           <div className="inline-flex border border-white/20">
             <button
-              onClick={() => setBillingInterval('month')}
+              onClick={() => setBillingInterval('week')}
               className={`px-8 py-3 text-sm font-bold uppercase tracking-wide transition-colors ${
-                billingInterval === 'month'
+                billingInterval === 'week'
                   ? 'bg-white text-black'
                   : 'bg-transparent text-white/60 hover:text-white'
               }`}
             >
-              Monthly
+              Weekly
             </button>
             <button
-              onClick={() => setBillingInterval('year')}
+              onClick={() => setBillingInterval('six_month')}
               className={`px-8 py-3 text-sm font-bold uppercase tracking-wide transition-colors flex items-center gap-2 ${
-                billingInterval === 'year'
+                billingInterval === 'six_month'
                   ? 'bg-white text-black'
                   : 'bg-transparent text-white/60 hover:text-white'
               }`}
             >
-              Yearly
-              {getYearlySavings() > 0 && (
+              6 Months
+              {getSixMonthSavingsCents() > 0 && (
                 <span className={`text-xs px-2 py-0.5 ${
-                  billingInterval === 'year' 
+                  billingInterval === 'six_month' 
                     ? 'bg-[#F97316] text-white' 
                     : 'bg-[#F97316] text-white'
                 }`}>
-                  SAVE {formatPrice(getYearlySavings() * 100, plans[0]?.currency || 'USD')}
+                  SAVE {formatPrice(getSixMonthSavingsCents(), plans[0]?.currency || 'USD')}
                 </span>
               )}
             </button>
@@ -430,23 +430,23 @@ function WelcomeCheckoutContent() {
         {/* Plan Card - Same as real checkout */}
         {plan && (
           <div className="max-w-lg mx-auto">
-            <div className={`relative ${plan.interval === 'year' ? 'bg-[#F97316]' : 'bg-[#0A0A0A] border border-white/20'}`}>
+            <div className={`relative ${isSixMonthSelected ? 'bg-[#F97316]' : 'bg-[#0A0A0A] border border-white/20'}`}>
 
               <div className="p-10 md:p-12">
                 
                 {/* Plan Name */}
                 <h2 className={`text-2xl font-black uppercase tracking-tight mb-2 ${
-                  plan.interval === 'year' ? 'text-[#0A0A0A]' : 'text-white'
+                  isSixMonthSelected ? 'text-[#0A0A0A]' : 'text-white'
                 }`}>
                   You+ Pro
                 </h2>
 
-                <p className={`text-sm mb-8 ${plan.interval === 'year' ? 'text-[#0A0A0A]/70' : 'text-white/50'}`}>
-                  {plan.interval === 'year' ? 'Best value - billed annually' : 'Flexible monthly billing'}
+                <p className={`text-sm mb-8 ${isSixMonthSelected ? 'text-[#0A0A0A]/70' : 'text-white/50'}`}>
+                  {isSixMonthSelected ? 'Best value - billed every 6 months' : 'Flexible weekly billing'}
                 </p>
 
                 {/* Price */}
-                {plan.interval === 'year' ? (
+                {isSixMonthSelected ? (
                   <div className="relative mb-6 inline-block">
                     {/* Offset shadow layer */}
                     <div className="absolute inset-0 bg-[#0A0A0A] translate-x-2 translate-y-2" />
@@ -454,10 +454,10 @@ function WelcomeCheckoutContent() {
                     <div className="relative bg-white px-5 py-4 border-4 border-[#0A0A0A]">
                       <div className="flex items-baseline gap-1">
                         <span className="text-5xl md:text-6xl font-black text-[#0A0A0A] tracking-tighter">
-                          {formatMonthlyPrice(plan)}
+                          {formatPrice(plan.price, plan.currency)}
                         </span>
                         <span className="text-lg font-bold text-[#0A0A0A]/60">
-                          /mo
+                          /{getIntervalSuffix(plan)}
                         </span>
                       </div>
                     </div>
@@ -470,24 +470,24 @@ function WelcomeCheckoutContent() {
                     <div className="relative bg-[#0A0A0A] px-5 py-4 border-4 border-[#F97316]">
                       <div className="flex items-baseline gap-1">
                         <span className="text-5xl md:text-6xl font-black text-[#F97316] tracking-tighter">
-                          {formatMonthlyPrice(plan)}
+                          {formatPrice(plan.price, plan.currency)}
                         </span>
                         <span className="text-lg font-bold text-[#F97316]/60">
-                          /mo
+                          /{getIntervalSuffix(plan)}
                         </span>
                       </div>
                     </div>
                   </div>
                 )}
                 
-                {plan.interval === 'year' && (
+                {isSixMonthSelected && (
                   <p className="text-sm mb-8 text-[#0A0A0A]/60">
-                    {formatPrice(plan.price, plan.currency)} billed annually
+                    {formatPrice(plan.price, plan.currency)} billed every 6 months
                   </p>
                 )}
-                {plan.interval === 'month' && (
+                {!isSixMonthSelected && (
                   <p className="text-sm mb-8 text-white/40">
-                    Billed monthly
+                    Billed weekly
                   </p>
                 )}
 
@@ -496,11 +496,11 @@ function WelcomeCheckoutContent() {
                   {getPersonalizedFeatures().slice(0, 5).map((feature, index) => (
                     <div key={index} className="flex items-center gap-4">
                       <div className={`w-5 h-5 flex items-center justify-center ${
-                        plan.interval === 'year' ? 'bg-[#0A0A0A]' : 'bg-[#F97316]'
+                        isSixMonthSelected ? 'bg-[#0A0A0A]' : 'bg-[#F97316]'
                       }`}>
-                        <Check size={12} className={plan.interval === 'year' ? 'text-[#F97316]' : 'text-black'} />
+                        <Check size={12} className={isSixMonthSelected ? 'text-[#F97316]' : 'text-black'} />
                       </div>
-                      <span className={plan.interval === 'year' ? 'text-[#0A0A0A]' : 'text-white/80'}>
+                      <span className={isSixMonthSelected ? 'text-[#0A0A0A]' : 'text-white/80'}>
                         {feature}
                       </span>
                     </div>
@@ -512,7 +512,7 @@ function WelcomeCheckoutContent() {
                   onClick={() => handleCheckout(plan.id)}
                   disabled={checkoutLoading}
                   className={`w-full py-5 font-black text-lg uppercase tracking-wide transition-colors flex items-center justify-center gap-3 disabled:opacity-50 ${
-                    plan.interval === 'year'
+                    isSixMonthSelected
                       ? 'bg-[#0A0A0A] text-white hover:bg-[#1A1A1A]' 
                       : 'bg-[#F97316] text-black hover:bg-[#FB923C]'
                   }`}

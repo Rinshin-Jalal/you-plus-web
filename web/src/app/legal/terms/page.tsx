@@ -70,7 +70,7 @@ export default function TermsOfServicePage() {
               4. Account Registration
             </h2>
             <ul className="list-disc pl-6 text-white/70 space-y-2">
-              <li>You must create an account using Google or Apple sign-in</li>
+              <li>You must create an account using Google sign-in</li>
               <li>You are responsible for maintaining the security of your account</li>
               <li>You must provide accurate information during onboarding</li>
               <li>You may not share your account with others or create multiple accounts</li>
@@ -105,7 +105,7 @@ export default function TermsOfServicePage() {
 
             <h3 className="text-lg font-bold mt-6 mb-3 text-white">6.2 Automatic Renewal</h3>
             <p className="text-white/70 leading-relaxed">
-              Subscriptions automatically renew at the end of each billing period (monthly or yearly) unless you cancel before the renewal date. You authorize us to charge your payment method on file for each renewal.
+              Subscriptions automatically renew at the end of each billing period (weekly or every 6 months) unless you cancel before the renewal date. You authorize us to charge your payment method on file for each renewal.
             </p>
 
             <h3 className="text-lg font-bold mt-6 mb-3 text-white">6.3 Cancellation</h3>

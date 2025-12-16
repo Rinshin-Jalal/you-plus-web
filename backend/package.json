@@ -1,14 +1,5 @@
 {
-  "name": "you-plus-consequence-engine",
-  "version": "1.0.0",
-  "description": "Backend consequence engine for YOU+ daily accountability system",
-  "main": "src/index.ts",
-  "scripts": {
-    "dev": "wrangler dev",
-    "deploy": "wrangler deploy",
-    "build": "tsc",
-    "test": "jest --passWithNoTests"
-  },
+  "author": "YOU+ Team",
   "dependencies": {
     "@aws-sdk/client-s3": "^3.948.0",
     "@aws-sdk/client-scheduler": "^3.948.0",
@@ -17,7 +8,7 @@
     "@hono/node-server": "^1.7.0",
     "@sentry/cloudflare": "^10.30.0",
     "@supabase/supabase-js": "^2.39.0",
-    "@trigger.dev/sdk": "^4.2.0",
+    "@trigger.dev/sdk": "4.3.0",
     "date-fns": "^3.0.6",
     "dodopayments": "^2.6.1",
     "hono": "^4.10.4",
@@ -27,8 +18,9 @@
     "tslib": "^2.8.1",
     "zod": "^3.22.4"
   },
+  "description": "Backend consequence engine for YOU+ daily accountability system",
   "devDependencies": {
-    "@trigger.dev/build": "^4.2.0",
+    "@trigger.dev/build": "4.3.0",
     "@types/jest": "^29.5.14",
     "@types/node": "^20.10.6",
     "jest": "^29.7.0",
@@ -43,6 +35,14 @@
     "cloudflare",
     "consequence-engine"
   ],
-  "author": "YOU+ Team",
-  "license": "MIT"
+  "license": "MIT",
+  "main": "src/index.ts",
+  "name": "you-plus-consequence-engine",
+  "scripts": {
+    "build": "tsc",
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev",
+    "test": "jest --passWithNoTests"
+  },
+  "version": "1.0.0"
 }

@@ -55,8 +55,11 @@ function FinalizeContent() {
 
     // Track OAuth login completion (only once)
     if (isAuthenticated && user && !hasTrackedLogin) {
-      // Determine provider from user metadata
-      const provider = user.app_metadata?.provider as 'google' | 'apple' | 'email' || 'email';
+      // Determine provider from user metadata (Apple users may still exist historically)
+      const rawProvider = String(user.app_metadata?.provider || '');
+      const provider = (rawProvider === 'google' || rawProvider === 'email' || rawProvider === 'apple')
+        ? rawProvider
+        : 'email';
       analytics.authLoginCompleted(provider);
       analytics.identify(user.id, {
         createdAt: user.created_at,

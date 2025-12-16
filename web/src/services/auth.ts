@@ -31,25 +31,12 @@ class AuthService {
     }
   }
 
-  async signInWithApple(redirectTo?: string): Promise<{ error: Error | null }> {
-    try {
-      const result = await supabaseAuth.signInWithApple(redirectTo);
-
-      if (result.error) {
-        console.error('Apple sign-in error:', result.error);
-        return { error: result.error };
-      }
-
-      return { error: null };
-    } catch (error) {
-      console.error('Unexpected Apple sign-in error:', error);
-      return { error: error as Error };
-    }
-  }
-
   // FOR TESTING ONLY - Email/Password sign in
   async signInWithPassword(email: string, password: string): Promise<{ error: Error | null }> {
     try {
+      if (process.env.NODE_ENV !== 'development') {
+        return { error: new Error('Email/password auth is disabled.') };
+      }
       const result = await supabaseAuth.signInWithPassword(email, password);
 
       if (result.error) {

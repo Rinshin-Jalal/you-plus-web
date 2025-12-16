@@ -45,7 +45,7 @@ export default function PrivacyPolicyPage() {
             
             <h3 className="text-lg font-bold mt-6 mb-3 text-white">2.1 Account Information</h3>
             <ul className="list-disc pl-6 text-white/70 space-y-2">
-              <li>Name and email address (via Google or Apple sign-in)</li>
+              <li>Name and email address (via Google sign-in)</li>
               <li>Profile information from your OAuth provider</li>
               <li>Timezone and preferred call times</li>
             </ul>
@@ -120,7 +120,6 @@ export default function PrivacyPolicyPage() {
                 <tbody className="divide-y divide-white/10">
                   <tr><td className="py-3 px-4">Supabase</td><td className="py-3 px-4">Authentication & database</td><td className="py-3 px-4">Account data, app data</td></tr>
                   <tr><td className="py-3 px-4">Google (OAuth)</td><td className="py-3 px-4">Sign-in</td><td className="py-3 px-4">Email, name, profile picture</td></tr>
-                  <tr><td className="py-3 px-4">Apple (OAuth)</td><td className="py-3 px-4">Sign-in</td><td className="py-3 px-4">Email, name</td></tr>
                   <tr><td className="py-3 px-4">DodoPayments</td><td className="py-3 px-4">Payment processing (web)</td><td className="py-3 px-4">Email, payment details</td></tr>
                   <tr><td className="py-3 px-4">Google Gemini</td><td className="py-3 px-4">AI personalization</td><td className="py-3 px-4">Onboarding context, goals</td></tr>
                   <tr><td className="py-3 px-4">Cartesia</td><td className="py-3 px-4">Voice synthesis & cloning</td><td className="py-3 px-4">Voice recordings</td></tr>

@@ -120,50 +120,6 @@ export const auth = {
     return { error: null }
   },
 
-  async signInWithApple(redirectTo?: string): Promise<{ error: Error | null }> {
-    const client = getClient()
-    const currentOrigin = window.location.origin
-    // Always callback to /auth/callback, with optional next param for final destination
-    const callbackUrl = redirectTo 
-      ? `${currentOrigin}/auth/callback?next=${encodeURIComponent(redirectTo)}`
-      : `${currentOrigin}/auth/callback`
-    
-    // Log origin for debugging PKCE issues
-    console.debug('[AUTH] Starting Apple OAuth from origin:', currentOrigin)
-    console.debug('[AUTH] Callback URL:', callbackUrl)
-    console.debug('[AUTH] Final redirect after auth:', redirectTo || '/dashboard')
-    
-    const { data, error } = await client.auth.signInWithOAuth({
-      provider: 'apple',
-      options: {
-        redirectTo: callbackUrl,
-      },
-    })
-
-    if (error) {
-      console.error('[AUTH] Apple OAuth error:', error)
-      return { error }
-    }
-
-    // Verify PKCE verifier was stored (SSR package uses cookies, not localStorage)
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const projectRef = supabaseUrl?.match(/https?:\/\/([^.]*)/)?.[1]
-    if (projectRef) {
-      const verifierKey = `sb-${projectRef}-auth-code-verifier`
-      const cookieVerifier = document.cookie.split('; ').find(c => c.startsWith(verifierKey))
-      const localStorageVerifier = window.localStorage.getItem(verifierKey)
-      console.debug('[AUTH] PKCE verifier stored:', { 
-        key: verifierKey, 
-        inCookie: !!cookieVerifier,
-        inLocalStorage: !!localStorageVerifier,
-      })
-    }
-
-    if (data?.url) window.location.href = data.url
-
-    return { error: null }
-  },
-
   async signOut(): Promise<{ error: Error | null }> {
     const client = getClient()
     const { error } = await client.auth.signOut({ scope: 'global' })
@@ -173,6 +129,9 @@ export const auth = {
   // FOR TESTING ONLY - Email/Password sign in (auto-creates account if doesn't exist)
   async signInWithPassword(email: string, password: string): Promise<{ error: Error | null }> {
     const client = getClient()
+    if (process.env.NODE_ENV !== 'development') {
+      return { error: new Error('Email/password auth is disabled.') }
+    }
     console.debug('[AUTH] Signing in with email/password (TEST MODE)')
     
     // Try to sign in first

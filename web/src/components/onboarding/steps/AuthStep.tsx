@@ -9,11 +9,12 @@ interface AuthStepProps {
 }
 
 export const AuthStep = ({ data, onComplete }: AuthStepProps) => {
-  const { signInWithGoogle, signInWithApple, signInWithPassword, isAuthenticated } = useAuth();
-  const [isLoading, setIsLoading] = useState<'google' | 'apple' | 'email' | null>(null);
+  const { signInWithGoogle, signInWithPassword, isAuthenticated } = useAuth();
+  const [isLoading, setIsLoading] = useState<'google' | 'email' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const isDev = process.env.NODE_ENV === 'development';
 
   const name = (data?.name as string) || (data?.[4] as string) || 'there';
 
@@ -33,24 +34,6 @@ export const AuthStep = ({ data, onComplete }: AuthStepProps) => {
       const result = await signInWithGoogle('/checkout/welcome');
       if (result.error) {
         setError('Failed to sign in with Google. Please try again.');
-        setIsLoading(null);
-      }
-      // If successful, the page will redirect
-    } catch {
-      setError('Something went wrong. Please try again.');
-      setIsLoading(null);
-    }
-  };
-
-  const handleAppleSignIn = async () => {
-    setIsLoading('apple');
-    setError(null);
-
-    try {
-      // Redirect to welcome checkout (personalized for onboarding users) after auth
-      const result = await signInWithApple('/checkout/welcome');
-      if (result.error) {
-        setError('Failed to sign in with Apple. Please try again.');
         setIsLoading(null);
       }
       // If successful, the page will redirect
@@ -141,69 +124,47 @@ export const AuthStep = ({ data, onComplete }: AuthStepProps) => {
           )}
         </button>
 
-        {/* Apple Sign In */}
-        <button
-          onClick={handleAppleSignIn}
-          disabled={isLoading !== null}
-          className={`w-full p-4 border-2 border-white/10 bg-white/5 
-                     hover:border-white/30 hover:bg-white/10 
-                     transition-all duration-200 
-                     flex items-center justify-center gap-3
-                     disabled:opacity-50 disabled:cursor-not-allowed
-                     group`}
-        >
-          {isLoading === 'apple' ? (
-            <div className="w-6 h-6 border-2 border-t-[#F97316] border-white/20 rounded-full animate-spin" />
-          ) : (
-            <>
-              {/* Apple Icon */}
-              <svg className="w-6 h-6 text-white group-hover:text-[#F97316] transition-colors" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.53 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
-              </svg>
-              <span className="font-mono font-bold text-white group-hover:text-[#F97316] transition-colors">
-                Continue with Apple
-              </span>
-            </>
-          )}
-        </button>
+        {isDev && (
+          <>
+            {/* Divider */}
+            <div className="flex items-center gap-4 my-4">
+              <div className="flex-1 h-px bg-white/10"></div>
+              <span className="text-xs text-white/40 uppercase tracking-wide font-mono">or for testing</span>
+              <div className="flex-1 h-px bg-white/10"></div>
+            </div>
 
-        {/* Divider */}
-        <div className="flex items-center gap-4 my-4">
-          <div className="flex-1 h-px bg-white/10"></div>
-          <span className="text-xs text-white/40 uppercase tracking-wide font-mono">or for testing</span>
-          <div className="flex-1 h-px bg-white/10"></div>
-        </div>
-
-        {/* Email/Password Form - FOR TESTING */}
-        <form onSubmit={handleEmailPasswordSignIn} className="space-y-3">
-          <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            disabled={isLoading !== null}
-            className="w-full p-4 border-2 border-white/10 bg-white/5 text-white font-mono placeholder:text-white/40 focus:outline-none focus:border-[#F97316] transition-colors disabled:opacity-50"
-          />
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            disabled={isLoading !== null}
-            className="w-full p-4 border-2 border-white/10 bg-white/5 text-white font-mono placeholder:text-white/40 focus:outline-none focus:border-[#F97316] transition-colors disabled:opacity-50"
-          />
-          <button
-            type="submit"
-            disabled={isLoading !== null}
-            className="w-full p-4 bg-[#F97316] text-black font-mono font-bold hover:bg-[#FB923C] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isLoading === 'email' ? (
-              <div className="w-6 h-6 border-2 border-t-black border-black/20 rounded-full animate-spin mx-auto" />
-            ) : (
-              'Sign in with Email'
-            )}
-          </button>
-        </form>
+            {/* Email/Password Form - FOR TESTING */}
+            <form onSubmit={handleEmailPasswordSignIn} className="space-y-3">
+              <input
+                type="email"
+                placeholder="Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={isLoading !== null}
+                className="w-full p-4 border-2 border-white/10 bg-white/5 text-white font-mono placeholder:text-white/40 focus:outline-none focus:border-[#F97316] transition-colors disabled:opacity-50"
+              />
+              <input
+                type="password"
+                placeholder="Password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={isLoading !== null}
+                className="w-full p-4 border-2 border-white/10 bg-white/5 text-white font-mono placeholder:text-white/40 focus:outline-none focus:border-[#F97316] transition-colors disabled:opacity-50"
+              />
+              <button
+                type="submit"
+                disabled={isLoading !== null}
+                className="w-full p-4 bg-[#F97316] text-black font-mono font-bold hover:bg-[#FB923C] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoading === 'email' ? (
+                  <div className="w-6 h-6 border-2 border-t-black border-black/20 rounded-full animate-spin mx-auto" />
+                ) : (
+                  'Sign in with Email'
+                )}
+              </button>
+            </form>
+          </>
+        )}
       </div>
 
       {/* Error Message */}
