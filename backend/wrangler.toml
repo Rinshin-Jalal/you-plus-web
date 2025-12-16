@@ -19,6 +19,13 @@ ENVIRONMENT = "staging"
 DODO_PAYMENTS_ENVIRONMENT = "test_mode"
 FRONTEND_URL = "https://staging.getyouplus.com"
 
+# Use the dev bucket for staging to keep prod clean
+[[env.staging.r2_buckets]]
+binding = "AUDIO_BUCKET"
+bucket_name = "youplus-audio-recordings-dev"
+preview_bucket_name = "youplus-audio-recordings-dev"
+
+
 # R2 bucket binding for audio file storage
 [[r2_buckets]]
 binding = "AUDIO_BUCKET"

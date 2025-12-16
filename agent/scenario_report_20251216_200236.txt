@@ -1,0 +1,32 @@
+SCENARIO TEST REPORT
+======================================================================
+Date: 2025-12-16 20:02:36
+LLM: bedrock
+
+
+======================================================================
+SCENARIO 1: The Perfect Day
+======================================================================
+Description: User kept their promise and is feeling great
+Persona: Motivated user who did the work and is proud
+Turns: 5
+Final Stage: close
+Completed: True
+
+TRANSCRIPT:
+[Agent] . Day 7. Impress me.
+[You] hey!
+[Agent] <reasoning>We have user said "hey!" The assistant must respond acknowledging that. Should be brief, match energy, not ask multiple questions. Just acknowledge. Possibly "Hey! Great to hear from you." That's one or two sentences. No additional question.</reasoning>Hey! Glad you’re back.
+[You] yeah feeling good today
+[Agent] <reasoning>User: "yeah feeling good today". We need to acknowledge. "Nice to hear you're feeling good." That's it.</reasoning>Nice to hear you’re feeling good.
+[You] yes I did! finished the whole thing
+[Agent] <reasoning>We need to ask: "Did you follow through on your commitment today?" or similar. Provide only one question.</reasoning>Did you stick to what you promised yourself today?
+[You] it felt amazing honestly, like I'm finally becoming that person
+[Agent] <reasoning>User says "it felt amazing honestly, like I'm finally becoming that person". That's yes. So ask "How did it feel?" or similar. Provide single.</reasoning>How did it feel to get through it?
+[You] yeah you're right, I am different now
+[Agent] <reasoning>The user said: "yeah you're right, I am different now". That means they acknowledged change. We need to deliver a powerful moment. As per guidelines: Validate: "You did something today most people can't." Identity: "You're becoming someone who keeps promises." Progress: "Look at the gap between day 1 and now." Should we combine? We must produce one powerful statement, maximum 2-3 sentences. We can also add a pause. For example: "You did something today most people can't. Look at the gap between day 1 and now." That's two sentences. Add a pause: <break time='1s' /> maybe.
+
+We need to follow voice guidelines. Show a pause after the main statement. Let's craft: "You did something today most people can't. <break time='1s'/> Look at the gap between day 1 and now." That is 2 sentences. That works.</reasoning>You did something today most people can’t. <break time='1s'/> Look at the gap between day 1 and now.
+[You] tomorrow 7am, same thing, 2 hours of coding
+[Agent] <reasoning>The user said: "tomorrow 7am, same thing, 2 hours of coding". That's specific: action=2 hours of coding, time=7am. So we confirm: "7am, 2 hours of coding. Got it." Then move to close. The close: maybe "See you tomorrow." But we should only confirm and then close. The guidelines: "If they give time + action, CONFIRM and move on." So we respond: "7am, 2 hours of coding. Got it." Then close: "See you tomorrow." But we need to do it in one or two sentences. We can combine: "7am, 2 hours of coding. Got it." That's two sentences. That's fine. Then close: "See you tomorrow." That's a third sentence. But the rule says: Once you confirm, move to close immediately. So we can just give the confirmation and the closing. The instructions: "CONFIRM and move on: '7am. 30 minutes. Got it.'" That is one sentence. We can add "Got it." So maybe we do: "7am, 2 hours of coding. Got it." Then close: "See you tomorrow." But we might combine: "7am, 2 hours of coding. Got it." Then a new turn for close. We can do it in one turn? The rule says "Once you have time + action: Confirm it briefly. Move to CLOSE immediately." So we should do a brief confirmation, then close. Possibly in the same turn or next? We can do: "7am, 2 hours of coding. Got it. See you tomorrow." That's two sentences. That satisfies 1-2 sentences. Let's do that.</reasoning>7am, 2 hours of coding. Got it. See you tomorrow.
+[Agent] <reasoning>We need to close with anticipation, open loop. Shouldn't repeat commitment. Provide 1-2 sentences. e.g., "Tomorrow, I'm going to show you something that will make the next two days feel like a walk in the park." Or like guidance. Let's produce a concise line: "Tomorrow, I'm going to give you a little secret that will make the next two weeks feel like a breeze." That's 1 sentence. Or 2. Add "See you at 7." But that repeats commitment. They said not to repeat. So maybe: "Tomorrow, I've got a surprise for you if you keep this up." That is 1 sentence. Good.</reasoning>Tomorrow, I’ve got a surprise that will make the next two weeks feel like a breeze. See you at 7.

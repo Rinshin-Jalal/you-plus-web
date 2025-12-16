@@ -9,3 +9,11 @@ compatibility_flags = ["nodejs_compat"]
 directory = ".open-next/assets"
 binding = "ASSETS"
 
+[env.staging]
+name = "youplus-web-staging"
+
+[env.staging.vars]
+NEXT_PUBLIC_API_URL = "https://you-plus-consequence-engine-staging.rinzhinjalal.workers.dev"
+
+
+

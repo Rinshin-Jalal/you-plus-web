@@ -12,6 +12,7 @@ dependencies = [
     "uvicorn==0.35.0",
     "supermemory>=3.8.0",
     "openai>=1.0.0",
+    "websockets>=15.0.1",
 ]
 
 [build-system]

@@ -11,6 +11,12 @@ next-env.d.ts
 
 # Vercel
 .vercel
+.open-next/
+.build/
+.wrangler/
+.mf/
+.miniflare/
+.dev.vars
 
 # Testing
 /coverage

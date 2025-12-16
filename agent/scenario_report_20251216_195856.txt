@@ -1,0 +1,18 @@
+SCENARIO TEST REPORT
+======================================================================
+Date: 2025-12-16 19:58:56
+LLM: groq
+
+
+======================================================================
+SCENARIO 1: The Perfect Day
+======================================================================
+Description: User kept their promise and is feeling great
+Persona: Motivated user who did the work and is proud
+Turns: 0
+Final Stage: 
+Completed: False
+Error: build_system_prompt() missing 1 required positional argument: 'user_id'
+
+TRANSCRIPT:
+
