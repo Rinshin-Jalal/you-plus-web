@@ -25,6 +25,8 @@ import { PillarSelection } from '@/components/onboarding/steps/PillarSelection';
 import { PillarPrimary } from '@/components/onboarding/steps/PillarPrimary';
 import { PillarQuestions } from '@/components/onboarding/steps/PillarQuestions';
 import { AuthStep } from '@/components/onboarding/steps/AuthStep';
+import { VoicePreference, VoicePreferenceChoice } from '@/components/onboarding/steps/VoicePreference';
+import { VoiceSelection } from '@/components/onboarding/steps/VoiceSelection';
 
 const MIN_VOICE_DURATION = 15; // 15 seconds minimum recording
 const STEP_TRANSITION_DELAY = 600; // ms delay between steps
@@ -51,6 +53,9 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
   const [voiceState, setVoiceState] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [recordingInterval, setRecordingInterval] = useState<NodeJS.Timeout | null>(null);
+  
+  // Voice selection state
+  const [selectedPresetVoice, setSelectedPresetVoice] = useState<string | null>(null);
   
   // Analytics tracking
   const hasTrackedStart = useRef(false);
@@ -196,8 +201,13 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
       else if (stepIndex < allSteps.length - 1) {
         // Skip the pillar_questions placeholder if we're not in that phase
         const nextIdx = stepIndex + 1;
-        if (allSteps[nextIdx]?.type === 'pillar_questions') {
+        const nextStep = allSteps[nextIdx];
+        
+        if (nextStep?.type === 'pillar_questions') {
           // This shouldn't happen normally, but just in case
+          setStepIndex(nextIdx + 1);
+        } else if (nextStep?.type === 'voice_selection' && data.voice_preference === 'clone') {
+          // If user chose to clone voice, skip the voice_selection step
           setStepIndex(nextIdx + 1);
         } else {
           setStepIndex(nextIdx);
@@ -307,6 +317,64 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
   };
 
   const canStopRecording = recordingTime >= MIN_VOICE_DURATION;
+
+  // ============================================================================
+  // VOICE PREFERENCE & SELECTION HANDLERS
+  // ============================================================================
+
+  const handleVoicePreferenceSelect = (preference: VoicePreferenceChoice) => {
+    // Save the voice preference
+    const newData = { 
+      ...data, 
+      voice_preference: preference,
+      voice_source: preference === 'clone' ? 'cloned' : 'preset'
+    };
+    setData(newData);
+
+    // Transition to next step
+    setIsTransitioning(true);
+    setIsVisible(false);
+    audioService.playBinauralBurst();
+
+    setTimeout(() => {
+      if (preference === 'clone') {
+        // Skip voice_selection step (step 30) and go directly to card (step 31)
+        // Voice will be cloned from existing recordings (why_recording/pledge_recording)
+        setStepIndex(stepIndex + 2);
+      } else {
+        // Go to voice_selection step (step 30) to pick a preset voice
+        setStepIndex(stepIndex + 1);
+      }
+
+      setTimeout(() => {
+        setIsVisible(true);
+        setIsTransitioning(false);
+      }, 100);
+    }, STEP_TRANSITION_DELAY);
+  };
+
+  const handleVoiceSelect = (voiceId: string) => {
+    setSelectedPresetVoice(voiceId);
+    setData(prev => ({ ...prev, preset_voice_id: voiceId }));
+  };
+
+  const handleVoiceSelectionContinue = () => {
+    if (!selectedPresetVoice) return;
+
+    setIsTransitioning(true);
+    setIsVisible(false);
+    audioService.playBinauralBurst();
+
+    setTimeout(() => {
+      // After voice selection (step 30), go to card step (step 31)
+      setStepIndex(stepIndex + 1);
+
+      setTimeout(() => {
+        setIsVisible(true);
+        setIsTransitioning(false);
+      }, 100);
+    }, STEP_TRANSITION_DELAY);
+  };
 
   // ============================================================================
   // MASCOT EXPRESSION
@@ -507,6 +575,24 @@ export default function OnboardingFlow({ onFinish }: { onFinish: () => void }) {
               key={currentStep.id}
               selectedPillars={Array.isArray(data.selected_pillars) ? data.selected_pillars : []}
               onSelect={handlePrimaryPillarSelect}
+            />
+          )}
+
+          {/* VOICE PREFERENCE */}
+          {currentStep.type === 'voice_preference' && (
+            <VoicePreference
+              key={currentStep.id}
+              onSelect={handleVoicePreferenceSelect}
+            />
+          )}
+
+          {/* VOICE SELECTION */}
+          {currentStep.type === 'voice_selection' && (
+            <VoiceSelection
+              key={currentStep.id}
+              selected={selectedPresetVoice}
+              onSelect={handleVoiceSelect}
+              onContinue={handleVoiceSelectionContinue}
             />
           )}
 

@@ -72,24 +72,33 @@ export const processOnboarding = task({
       await updateJob({ current_step: "cloning_voice", progress: 30 });
       
       // ─────────────────────────────────────────────────────────────────────
-      // STEP 2: Clone voice
+      // STEP 2: Handle voice (clone or preset)
       // ─────────────────────────────────────────────────────────────────────
-      logger.info("🎭 [2/4] Cloning voice...");
+      logger.info("🎭 [2/4] Processing voice...");
       
       let cartesiaVoiceId: string | null = null;
-      const voiceSource = payload.merged_voice_recording || payload.why_recording;
       
-      if (isBase64Audio(voiceSource)) {
-        const cloneResult = await cloneVoice(
-          voiceSource,
-          userId,
-          payload.name || "User"
-        );
+      if (payload.voice_source === 'preset' && payload.preset_voice_id) {
+        // User selected a preset voice - use it directly (no cloning needed)
+        cartesiaVoiceId = payload.preset_voice_id;
+        logger.info(`✅ Using preset voice: ${cartesiaVoiceId}`);
+      } else {
+        // Clone user's voice (default behavior)
+        const voiceSource = payload.merged_voice_recording || payload.why_recording;
         
-        if (cloneResult.success && cloneResult.voiceId) {
-          cartesiaVoiceId = cloneResult.voiceId;
-        } else {
-          logger.warn(`Voice cloning failed: ${cloneResult.error}`);
+        if (isBase64Audio(voiceSource)) {
+          const cloneResult = await cloneVoice(
+            voiceSource,
+            userId,
+            payload.name || "User"
+          );
+          
+          if (cloneResult.success && cloneResult.voiceId) {
+            cartesiaVoiceId = cloneResult.voiceId;
+            logger.info(`✅ Voice cloned! ID: ${cartesiaVoiceId}`);
+          } else {
+            logger.warn(`Voice cloning failed: ${cloneResult.error}`);
+          }
         }
       }
       
@@ -100,17 +109,8 @@ export const processOnboarding = task({
       // ─────────────────────────────────────────────────────────────────────
       logger.info("📤 [3/4] Uploading recordings to R2...");
       
-      let futureSelftroUrl: string | null = null;
       let whyRecordingUrl: string | null = null;
       let pledgeRecordingUrl: string | null = null;
-      
-      if (isBase64Audio(payload.future_self_intro_recording)) {
-        futureSelftroUrl = await uploadToR2(
-          payload.future_self_intro_recording,
-          userId,
-          "future_self_intro"
-        );
-      }
       
       if (isBase64Audio(payload.why_recording)) {
         whyRecordingUrl = await uploadToR2(
@@ -183,10 +183,10 @@ export const processOnboarding = task({
           who_disappointed: Array.isArray(payload.who_disappointed) 
             ? payload.who_disappointed 
             : [],
-          future_self_intro_url: futureSelftroUrl,
           why_recording_url: whyRecordingUrl,
           pledge_recording_url: pledgeRecordingUrl,
           cartesia_voice_id: cartesiaVoiceId,
+          voice_source: payload.voice_source || 'cloned',
           supermemory_container_id: userId,
           selected_pillars: payload.selected_pillars,
         }, { onConflict: "user_id" })

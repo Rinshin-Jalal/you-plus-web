@@ -43,6 +43,29 @@ const base64Audio = z.string()
     return ALLOWED_AUDIO_TYPES.includes(mimeType);
   }, { message: `Invalid audio type. Allowed: ${ALLOWED_AUDIO_TYPES.join(', ')}` });
 
+// Optional audio - same validation but allows empty string for preset voice users
+const optionalBase64Audio = z.string()
+  .optional()
+  .refine((val) => {
+    if (!val || val === '') return true; // Allow empty
+    if (val.startsWith('http://') || val.startsWith('https://')) return true;
+    const size = getBase64DataSize(val);
+    return size >= MIN_AUDIO_SIZE;
+  }, { message: `Audio too small (minimum ${MIN_AUDIO_SIZE / 1024}KB required)` })
+  .refine((val) => {
+    if (!val || val === '') return true; // Allow empty
+    if (val.startsWith('http://') || val.startsWith('https://')) return true;
+    const size = getBase64DataSize(val);
+    return size <= MAX_AUDIO_SIZE;
+  }, { message: `Audio too large (maximum ${MAX_AUDIO_SIZE / (1024 * 1024)}MB allowed)` })
+  .refine((val) => {
+    if (!val || val === '') return true; // Allow empty
+    if (val.startsWith('http://') || val.startsWith('https://')) return true;
+    const mimeType = extractMimeType(val);
+    if (!mimeType) return true;
+    return ALLOWED_AUDIO_TYPES.includes(mimeType);
+  }, { message: `Invalid audio type. Allowed: ${ALLOWED_AUDIO_TYPES.join(', ')}` });
+
 export const ConversionCompleteSchema = z.object({
   name: z.string().optional(),
   times_tried: z.union([z.number(), z.string()]).optional(),
@@ -53,14 +76,32 @@ export const ConversionCompleteSchema = z.object({
   favorite_excuse: z.string().optional(),
   who_disappointed: z.array(z.string()).optional(),
   selected_pillars: z.array(z.string()).min(1, 'selected_pillars required'),
-  future_self_intro_recording: base64Audio,
+  
+  // Voice preference: 'cloned' (use user's recordings) or 'preset' (use curated voice)
+  voice_source: z.enum(['cloned', 'preset']).default('cloned'),
+  
+  // Preset voice ID - required if voice_source is 'preset'
+  preset_voice_id: z.string().optional(),
+  
+  // Voice recordings - always required (used for transcription and optionally for cloning)
   why_recording: base64Audio,
   pledge_recording: base64Audio,
   merged_voice_recording: z.string().optional(),
+  
   call_time: z.string().optional(),
   timezone: z.string().optional(),
   future_self_statement: z.string().optional(),
   favorite_excuse_context: z.string().optional(),
+}).refine((data) => {
+  // If voice_source is 'preset', preset_voice_id is required
+  if (data.voice_source === 'preset' && !data.preset_voice_id) {
+    return false;
+  }
+  // If voice_source is 'cloned', we use why_recording/pledge_recording for cloning
+  // No additional fields needed
+  return true;
+}, {
+  message: "If using preset voice, preset_voice_id is required.",
 });
 
 export type ConversionCompletePayload = z.infer<typeof ConversionCompleteSchema>;

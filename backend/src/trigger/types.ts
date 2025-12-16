@@ -20,8 +20,14 @@ export interface OnboardingPayload {
   // Dynamic pillars
   selected_pillars: string[];
   
-  // Voice recordings (base64)
-  future_self_intro_recording: string;
+  // Voice preference: 'cloned' (use user's recordings) or 'preset' (use curated voice)
+  voice_source?: 'cloned' | 'preset';
+  
+  // Preset voice ID - used when voice_source is 'preset'
+  preset_voice_id?: string;
+  
+  // Voice recordings (base64) - always required for transcription
+  // why_recording is also used for voice cloning when voice_source is 'cloned'
   why_recording: string;
   pledge_recording: string;
   merged_voice_recording?: string;

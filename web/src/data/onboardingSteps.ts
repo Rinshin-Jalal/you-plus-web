@@ -29,6 +29,8 @@ export type StepType =
   | 'pillar_selection'
   | 'pillar_primary'
   | 'pillar_questions'
+  | 'voice_preference'
+  | 'voice_selection'
   | 'card'
   | 'auth';
 
@@ -309,27 +311,16 @@ export const STEPS: OnboardingStep[] = [
   },
 
   // ==========================================================================
-  // ACT 7: VOICE 1 - DARK FUTURE (Step 20)
-  // This recording is used for voice cloning
+  // ACT 7: THE WHY (Steps 20-22)
   // ==========================================================================
   {
     id: 20,
-    type: 'voice',
-    label: "Now say it out loud.",
-    subtext: "What happens if you don't change? Be brutally honest. This is for you."
-  },
-
-  // ==========================================================================
-  // ACT 8: THE WHY (Steps 21-23)
-  // ==========================================================================
-  {
-    id: 21,
     type: 'input',
     label: "Complete this: I am becoming...",
     placeholder: "I am becoming..."
   },
   {
-    id: 22,
+    id: 21,
     type: 'commentary',
     dynamicLines: (data) => {
       const identity = String(data['core_identity'] || 'someone new');
@@ -341,22 +332,22 @@ export const STEPS: OnboardingStep[] = [
     }
   },
   {
-    id: 23,
+    id: 22,
     type: 'voice',
     label: "Why does this matter to you?",
     subtext: "Speak from your heart. I'm listening."
   },
 
   // ==========================================================================
-  // ACT 9: THE SYSTEM (Steps 24-26)
+  // ACT 8: THE SYSTEM (Steps 23-25)
   // ==========================================================================
   {
-    id: 24,
+    id: 23,
     type: 'time',
     label: "What time should I check in with you?"
   },
   {
-    id: 25,
+    id: 24,
     type: 'choice',
     label: "Can I interrupt your day to hold you accountable?",
     choices: [
@@ -365,7 +356,7 @@ export const STEPS: OnboardingStep[] = [
     ]
   },
   {
-    id: 26,
+    id: 25,
     type: 'slider',
     label: "How many strikes before I get ruthless?",
     min: 1,
@@ -373,17 +364,17 @@ export const STEPS: OnboardingStep[] = [
   },
 
   // ==========================================================================
-  // ACT 10: THE PLEDGE (Steps 27-29)
+  // ACT 9: THE PLEDGE (Steps 26-28)
   // ==========================================================================
   {
-    id: 27,
+    id: 26,
     type: 'slider',
     label: "Right now, how much do you believe you can do this?",
     min: 1,
     max: 10
   },
   {
-    id: 28,
+    id: 27,
     type: 'commentary',
     dynamicLines: (data) => {
       const score = data['belief_score'] || 5;
@@ -392,22 +383,41 @@ export const STEPS: OnboardingStep[] = [
     }
   },
   {
-    id: 29,
+    id: 28,
     type: 'voice',
     label: "Make your pledge.",
     subtext: "Promise yourself. Out loud. I'm recording this."
   },
 
   // ==========================================================================
-  // ACT 11: SEAL THE DEAL (Steps 30-31)
+  // ACT 10: VOICE PREFERENCE (Steps 29-30)
+  // After all recordings are done, ask how they want their Future Self to sound
   // ==========================================================================
   {
+    id: 29,
+    type: 'voice_preference',
+    label: "Your Future Self's Voice",
+    subtext: "I'll be calling you as your Future Self. How should I sound?"
+  },
+  // Step 30: Voice Selection (shown ONLY if user chooses "Choose a Voice")
+  // If user chose "Use My Voice", this step is skipped and voice is cloned from recordings
+  {
     id: 30,
+    type: 'voice_selection',
+    label: "Choose Your Future Self's Voice",
+    subtext: "Select the voice that resonates with you"
+  },
+
+  // ==========================================================================
+  // ACT 11: SEAL THE DEAL (Steps 31-32)
+  // ==========================================================================
+  {
+    id: 31,
     type: 'card',
     label: "Your Commitment"
   },
   {
-    id: 31,
+    id: 32,
     type: 'auth',
     label: "Lock it in"
   }
@@ -433,14 +443,15 @@ export const STEP_FIELD_MAP: Record<string | number, string> = {
   17: 'primary_fear',
   18: 'hidden_fear',
   19: 'dark_future',
-  20: 'future_self_intro_recording',  // Voice: dark future scenario (used for voice cloning)
-  21: 'core_identity',
-  23: 'why_recording',  // Voice: why this matters (transcribed to the_why)
-  24: 'call_time',  // Renamed from check_in_time to match backend
-  25: 'allow_interruptions',
-  26: 'strikes_allowed',
-  27: 'belief_score',
-  29: 'pledge_recording'  // Voice: the pledge (used for voice cloning)
+  20: 'core_identity',
+  22: 'why_recording',  // Voice: why this matters (transcribed to the_why)
+  23: 'call_time',
+  24: 'allow_interruptions',
+  25: 'strikes_allowed',
+  26: 'belief_score',
+  28: 'pledge_recording',  // Voice: the pledge
+  29: 'voice_preference',  // Choice: "Use My Voice" or "Choose a Voice" (after all recordings)
+  30: 'preset_voice_id',  // Selected preset voice ID - only if user chose "Choose a Voice"
 };
 
 /**
@@ -475,21 +486,58 @@ export function getStepsAfterPillars(): OnboardingStep[] {
 
 /**
  * Check if onboarding is complete (all fields present)
+ * Handles conditional fields based on voice_preference choice
  */
 export function isOnboardingComplete(data: Record<string, unknown>): boolean {
-  // Get all required field names from the map
-  const requiredFields = Object.values(STEP_FIELD_MAP);
+  // Core required fields (always required)
+  const coreRequiredFields = [
+    'change_attempts',
+    'name',
+    'age',
+    'gender',
+    'selected_pillars',
+    'primary_pillar',
+    'failure_pattern',
+    'previous_attempts',
+    'quit_pattern',
+    'favorite_excuse',
+    'who_disappointed',
+    'primary_fear',
+    'hidden_fear',
+    'dark_future',
+    'core_identity',
+    'why_recording',
+    'call_time',
+    'allow_interruptions',
+    'strikes_allowed',
+    'belief_score',
+    'pledge_recording',
+    'voice_preference',  // This determines which voice source is used
+  ];
 
-  // Check if every required field exists in the data
-  const missingFields = requiredFields.filter(field => {
+  // Check core required fields
+  const missingCoreFields = coreRequiredFields.filter(field => {
     const value = data[field];
     return value === undefined || value === null || value === '';
   });
 
-  if (missingFields.length > 0) {
-    if (isDev) console.log('[OnboardingCheck] Missing fields:', missingFields);
+  if (missingCoreFields.length > 0) {
+    if (isDev) console.log('[OnboardingCheck] Missing core fields:', missingCoreFields);
     return false;
   }
+
+  // Check conditional voice fields based on voice_preference
+  const voicePreference = data['voice_preference'];
+  
+  // If user chose preset voice, they must have selected one
+  if (voicePreference === 'preset') {
+    if (!data['preset_voice_id']) {
+      if (isDev) console.log('[OnboardingCheck] Missing preset_voice_id for preset voice selection');
+      return false;
+    }
+  }
+  // If user chose 'clone', we use the existing recordings (why_recording/pledge_recording)
+  // No additional fields needed
 
   return true;
 }

@@ -238,6 +238,10 @@ export function getExpressionForStep(
       return 'listening';
     case 'voice':
       return 'encouraging';
+    case 'voice_preference':
+      return 'thinking';
+    case 'voice_selection':
+      return 'listening';
     case 'time':
       return 'listening';
     case 'pillar_selection':

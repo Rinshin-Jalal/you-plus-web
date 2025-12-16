@@ -40,6 +40,7 @@ export function base64ToBuffer(audioBase64: string): { buffer: Buffer; mimeType:
   return { buffer, mimeType, extension };
 }
 
-export function isBase64Audio(s: string): boolean {
+export function isBase64Audio(s: string | undefined | null): s is string {
+  if (!s) return false;
   return s.startsWith("data:") || !s.startsWith("http");
 }
