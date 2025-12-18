@@ -1,0 +1,52 @@
+================================
+VOICE VISUALIZER UI COMPARISON
+================================
+
+CURRENT iOS (VoiceRecorder.swift):
+==================================
+Button:
+- Rounded rectangle button (12px border radius)
+- 60x60 size
+- Icon: mic.fill (filled microphone)
+- Colors:
+  * Recording + canStop: Green (#22c55e)
+  * Recording + !canStop: Orange (#F97316)
+  * Not recording: Orange (#F97316)
+- No border style
+- Disabled state: grayed out
+
+Progress Indicators (TO BE REMOVED):
+- Status dots (3 circles at top left)
+- Status label text ("READY" / "Xs")
+- Progress line marker (vertical dashed line)
+
+WEB UI (VoiceVisualizer.tsx):
+=============================
+Button:
+- Square/Rectangular button (no border radius)
+- 24x24 size (w-24 h-24 = 96x96px)
+- Border: 2px width, color changes based on state
+- Icon: 
+  * Recording: Square icon (stop symbol, size 32)
+  * Not recording: Mic icon (size 36, strokeWidth 2)
+- States & Colors:
+  * Not recording: border-white/30, text-white/70, bg-transparent, scale normal
+    - Hover: bg-[#F97316], border-[#F97316], text-black
+  * Recording + canStop: border-[#22c55e], bg-[#22c55e], text-black, scale-110
+  * Recording + !canStop: border-[#F97316], bg-transparent, text-[#F97316], scale-105, cursor-not-allowed
+- Transitions: duration-300
+- Text label below button: "Tap to Record" / "Keep Going..." / "Tap to Stop"
+
+KEY DIFFERENCES:
+===============
+1. Button Size: iOS 60x60 vs Web 96x96 (web is 40% larger)
+2. Border: iOS has no border, Web has 2px border
+3. Border Radius: iOS rounded corners, Web sharp corners
+4. Idle State: iOS solid color, Web has transparent bg with colored border
+5. Hover: Web has hover state (orange bg), iOS doesn't
+6. Scale Effect: Web uses scale-110 and scale-105, iOS doesn't
+7. Icon Style: iOS uses "mic.fill" (solid), Web uses "Mic" (outline, strokeWidth 2)
+8. Recording Icon: iOS has mic, Web has Square (stop symbol)
+9. Text: Web has descriptive text below, iOS has only helper text
+10. Progress Indicators: iOS has status dots/label/line, Web has only timer in header
+

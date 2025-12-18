@@ -13,7 +13,6 @@ struct MegaInput: View {
             Text(title)
                 .font(AppTheme.Fonts.mono(14))
                 .foregroundColor(AppTheme.secondaryAccent)
-                .textCase(.uppercase)
                 .kerning(1.2)
             
             ZStack(alignment: .leading) {
@@ -21,7 +20,6 @@ struct MegaInput: View {
                     Text(placeholder)
                         .font(AppTheme.Fonts.heavy(32))
                         .foregroundColor(AppTheme.text.opacity(0.3))
-                        .textCase(.uppercase)
                 }
                 
                 if isSecure {

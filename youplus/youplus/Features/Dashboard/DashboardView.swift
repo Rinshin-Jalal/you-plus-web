@@ -21,7 +21,7 @@ struct DashboardView: View {
                     }
                 }
                 .padding()
-                .background(Color.black.opacity(0.5))
+                .background(AppTheme.blackAbsolute)
                 
                 ScrollView {
                     VStack(spacing: 24) {

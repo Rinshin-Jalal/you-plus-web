@@ -6,6 +6,16 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		0E865BB92EF27F9B00ACF1EB /* Auth in Frameworks */ = {isa = PBXBuildFile; productRef = 0E865BB82EF27F9B00ACF1EB /* Auth */; };
+		0E865BBB2EF27F9B00ACF1EB /* Functions in Frameworks */ = {isa = PBXBuildFile; productRef = 0E865BBA2EF27F9B00ACF1EB /* Functions */; };
+		0E865BBD2EF27F9B00ACF1EB /* PostgREST in Frameworks */ = {isa = PBXBuildFile; productRef = 0E865BBC2EF27F9B00ACF1EB /* PostgREST */; };
+		0E865BBF2EF27F9B00ACF1EB /* Realtime in Frameworks */ = {isa = PBXBuildFile; productRef = 0E865BBE2EF27F9B00ACF1EB /* Realtime */; };
+		0E865BC12EF27F9B00ACF1EB /* Storage in Frameworks */ = {isa = PBXBuildFile; productRef = 0E865BC02EF27F9B00ACF1EB /* Storage */; };
+		0E865BC42EF27FA900ACF1EB /* Supabase in Frameworks */ = {isa = PBXBuildFile; productRef = 0E865BC32EF27FA900ACF1EB /* Supabase */; };
+		0E865BD62EF29ACE00ACF1EB /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = 0E865BD52EF29ACE00ACF1EB /* Lottie */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		0E865B5C2EF1BF4D00ACF1EB /* youplus.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = youplus.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -23,6 +33,13 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0E865BBD2EF27F9B00ACF1EB /* PostgREST in Frameworks */,
+				0E865BD62EF29ACE00ACF1EB /* Lottie in Frameworks */,
+				0E865BBB2EF27F9B00ACF1EB /* Functions in Frameworks */,
+				0E865BC42EF27FA900ACF1EB /* Supabase in Frameworks */,
+				0E865BB92EF27F9B00ACF1EB /* Auth in Frameworks */,
+				0E865BC12EF27F9B00ACF1EB /* Storage in Frameworks */,
+				0E865BBF2EF27F9B00ACF1EB /* Realtime in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -33,6 +50,7 @@
 			isa = PBXGroup;
 			children = (
 				0E865B5E2EF1BF4D00ACF1EB /* youplus */,
+				0E865BC22EF27FA900ACF1EB /* Frameworks */,
 				0E865B5D2EF1BF4D00ACF1EB /* Products */,
 			);
 			sourceTree = "<group>";
@@ -43,6 +61,13 @@
 				0E865B5C2EF1BF4D00ACF1EB /* youplus.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		0E865BC22EF27FA900ACF1EB /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -65,6 +90,13 @@
 			);
 			name = youplus;
 			packageProductDependencies = (
+				0E865BB82EF27F9B00ACF1EB /* Auth */,
+				0E865BBA2EF27F9B00ACF1EB /* Functions */,
+				0E865BBC2EF27F9B00ACF1EB /* PostgREST */,
+				0E865BBE2EF27F9B00ACF1EB /* Realtime */,
+				0E865BC02EF27F9B00ACF1EB /* Storage */,
+				0E865BC32EF27FA900ACF1EB /* Supabase */,
+				0E865BD52EF29ACE00ACF1EB /* Lottie */,
 			);
 			productName = youplus;
 			productReference = 0E865B5C2EF1BF4D00ACF1EB /* youplus.app */;
@@ -94,6 +126,10 @@
 			);
 			mainGroup = 0E865B532EF1BF4D00ACF1EB;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				0E865BB72EF27F9B00ACF1EB /* XCRemoteSwiftPackageReference "supabase-swift" */,
+				0E865BD42EF29ACE00ACF1EB /* XCRemoteSwiftPackageReference "lottie-spm" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 0E865B5D2EF1BF4D00ACF1EB /* Products */;
 			projectDirPath = "";
@@ -253,6 +289,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "We need access to your microphone to record voice messages during your onboarding. Your recordings are encrypted and secure.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -284,6 +321,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "We need access to your microphone to record voice messages during your onboarding. Your recordings are encrypted and secure.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -328,6 +366,63 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		0E865BB72EF27F9B00ACF1EB /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/supabase/supabase-swift";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.5.1;
+			};
+		};
+		0E865BD42EF29ACE00ACF1EB /* XCRemoteSwiftPackageReference "lottie-spm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/airbnb/lottie-spm.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 4.5.2;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		0E865BB82EF27F9B00ACF1EB /* Auth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0E865BB72EF27F9B00ACF1EB /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Auth;
+		};
+		0E865BBA2EF27F9B00ACF1EB /* Functions */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0E865BB72EF27F9B00ACF1EB /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Functions;
+		};
+		0E865BBC2EF27F9B00ACF1EB /* PostgREST */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0E865BB72EF27F9B00ACF1EB /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = PostgREST;
+		};
+		0E865BBE2EF27F9B00ACF1EB /* Realtime */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0E865BB72EF27F9B00ACF1EB /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Realtime;
+		};
+		0E865BC02EF27F9B00ACF1EB /* Storage */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0E865BB72EF27F9B00ACF1EB /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Storage;
+		};
+		0E865BC32EF27FA900ACF1EB /* Supabase */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0E865BB72EF27F9B00ACF1EB /* XCRemoteSwiftPackageReference "supabase-swift" */;
+			productName = Supabase;
+		};
+		0E865BD52EF29ACE00ACF1EB /* Lottie */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0E865BD42EF29ACE00ACF1EB /* XCRemoteSwiftPackageReference "lottie-spm" */;
+			productName = Lottie;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 0E865B542EF1BF4D00ACF1EB /* Project object */;
 }

@@ -4,42 +4,41 @@ struct BrutalChoice: View {
     let title: String
     let selected: Bool
     var action: () -> Void
-    
+
     var body: some View {
         Button(action: action) {
-            HStack {
+            HStack(spacing: 16) {
+                // Text (calm, not shouting)
                 Text(title)
-                    .font(AppTheme.Fonts.heavy(20))
-                    .foregroundColor(selected ? .black : AppTheme.text)
-                    .textCase(.uppercase)
+                    .font(AppTheme.Fonts.body(16)) // Regular weight, not bold
+                    .foregroundColor(selected ? AppTheme.whiteSoft : AppTheme.whiteMuted)
                     .multilineTextAlignment(.leading)
-                
+                    .lineLimit(3)
+
                 Spacer()
                 
+                // Subtle indicator (only when selected)
                 if selected {
-                    Image(systemName: "checkmark")
-                        .font(.system(size: 20, weight: .bold))
-                        .foregroundColor(.black)
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 20))
+                        .foregroundColor(AppTheme.darkOrange) // Orange = intent
                 }
             }
-            .padding(.horizontal, 24)
-            .padding(.vertical, 24)
+            .padding(.horizontal, 18)
+            .padding(.vertical, 16)
             .background(
-                ZStack {
-                    if selected {
-                        AppTheme.accent
-                    } else {
-                        Color.clear
-                        
-                        // Border
-                        Rectangle()
-                            .stroke(AppTheme.text.opacity(0.3), lineWidth: 2)
-                    }
-                }
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(selected ? AppTheme.orangeMist : AppTheme.Glass.background) // Glass cards
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .strokeBorder(
+                                selected ? AppTheme.darkOrange.opacity(0.3) : AppTheme.Glass.border,
+                                lineWidth: 1
+                            )
+                    )
             )
         }
         .buttonStyle(PlainButtonStyle())
-        .scaleEffect(selected ? 1.02 : 1.0)
-        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: selected)
+        .animation(PremiumAnimations.slowFade, value: selected)
     }
 }
