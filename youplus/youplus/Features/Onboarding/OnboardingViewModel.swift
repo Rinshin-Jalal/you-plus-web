@@ -32,9 +32,12 @@ class OnboardingViewModel: ObservableObject {
         self.steps = allSteps // Initially load all base steps
         // loadPersistedAnswers() // Commented out for testing
         setupMockData() // Inject mock data for testing
-        
+
+        // Auto-detect and capture device timezone
+        answers["timezone"] = TimeZone.current.identifier
+
         // If we need to inject dynamic steps (like pillar questions), we'll do it as we progress
-        // or pre-calculate them if possible. 
+        // or pre-calculate them if possible.
         // For this implementation, we will follow the web logic:
         // ACT 4: PILLAR QUESTIONS (Dynamic - inserted after step 9)
     }

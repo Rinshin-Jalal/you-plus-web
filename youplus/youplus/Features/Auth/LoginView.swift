@@ -31,10 +31,16 @@ struct LoginView: View {
                     CustomTextField(placeholder: "Password", text: $password, isSecure: true)
                     
                     if let errorMessage = authManager.errorMessage {
-                        Text(errorMessage)
-                            .font(AppTheme.Fonts.mono(12))
-                            .foregroundColor(.red.opacity(0.8))
-                            .lineLimit(3)
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(errorMessage)
+                                .font(AppTheme.Fonts.mono(11))
+                                .foregroundColor(.white)
+                                .lineLimit(10)
+                                .textSelection(.enabled)
+                        }
+                        .padding(12)
+                        .background(Color.red.opacity(0.2))
+                        .border(Color.red.opacity(0.5), width: 1)
                     }
                     
                     BrutalButton(

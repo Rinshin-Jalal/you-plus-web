@@ -48,21 +48,55 @@ class APIClient {
         var request = URLRequest(url: endpoint)
         request.httpMethod = "GET"
         request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
-        
+
         let (data, response) = try await session.data(for: request)
-        
+
         guard let httpResponse = response as? HTTPURLResponse else {
             throw APIError.invalidResponse
         }
-        
+
         guard httpResponse.statusCode == 200 else {
             let errorResponse = try? JSONDecoder().decode(ErrorResponse.self, from: data)
             throw APIError.serverError(errorResponse?.error ?? "Unknown error")
         }
-        
+
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         return try decoder.decode(OnboardingStatusResponse.self, from: data)
+    }
+
+    func updateProfile(
+        name: String? = nil,
+        timezone: String? = nil,
+        accessToken: String
+    ) async throws -> UserProfileResponse {
+        let endpoint = baseURL.appendingPathComponent("api/core/profile")
+        var request = URLRequest(url: endpoint)
+        request.httpMethod = "PUT"
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let payload: [String: String?] = [
+            "name": name,
+            "timezone": timezone
+        ]
+
+        let encoder = JSONEncoder()
+        request.httpBody = try encoder.encode(payload)
+
+        let (data, response) = try await session.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIError.invalidResponse
+        }
+
+        guard httpResponse.statusCode == 200 else {
+            let errorResponse = try? JSONDecoder().decode(ErrorResponse.self, from: data)
+            throw APIError.serverError(errorResponse?.error ?? "Unknown error")
+        }
+
+        let decoder = JSONDecoder()
+        return try decoder.decode(UserProfileResponse.self, from: data)
     }
 }
 
@@ -247,6 +281,25 @@ struct FutureSelfResponse: Codable {
         case id
         case voiceCloned = "voiceCloned"
         case pillars = "pillars"
+    }
+}
+
+struct UserProfileResponse: Codable {
+    let user: UserProfile?
+
+    enum CodingKeys: String, CodingKey {
+        case user
+    }
+}
+
+struct UserProfile: Codable {
+    let id: String
+    let email: String
+    let name: String?
+    let timezone: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id, email, name, timezone
     }
 }
 

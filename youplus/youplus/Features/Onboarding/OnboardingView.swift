@@ -2,9 +2,9 @@ import SwiftUI
 
 struct OnboardingView: View {
     @EnvironmentObject private var authManager: AuthManager
+    @EnvironmentObject private var vm: OnboardingViewModel
     @Environment(\.dismiss) private var dismiss
-    
-    @StateObject private var vm = OnboardingViewModel()
+
     @StateObject private var audioRecorder = AudioRecorderService()
     @AppStorage("onboarding_completed") private var onboardingCompleted: Bool = false
     
