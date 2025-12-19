@@ -40,14 +40,14 @@ export async function generateAccessToken(
       },
       body: JSON.stringify({
         grants: {
-          agents: {
-            // Grant access to agent streaming (WebSocket calls)
-            // This scope is limited to agent connections only
-          },
+          // Grant access to agent voice calls (WebSocket)
+          agent: true,
+          // Also grant TTS and STT in case needed
+          tts: true,
+          stt: true,
         },
         // Token expires in 1 hour
-        // Clients should request a new token before expiry
-        ttl: 3600,
+        expires_in: 3600,
       }),
     });
 

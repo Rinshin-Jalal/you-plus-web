@@ -4,7 +4,7 @@ import Combine
 
 /// Manages WebSocket connection to Cartesia agent for real-time voice calls
 @MainActor
-class WebSocketVoiceService: NSObject, ObservableObject {
+class WebSocketVoiceService: NSObject, ObservableObject, URLSessionWebSocketDelegate {
     // MARK: - Published Properties
     @Published var isConnected = false
     @Published var isCallActive = false
@@ -12,17 +12,23 @@ class WebSocketVoiceService: NSObject, ObservableObject {
     @Published var callDuration: TimeInterval = 0
 
     // MARK: - Private Properties
-    private var webSocketTask: URLSessionWebSocketTask?
+    private var webSocket: URLSessionWebSocketTask?
+    private var session: URLSession?
     private var audioEngine = AVAudioEngine()
     private var playerNode = AVAudioPlayerNode()
     private var pingTimer: Timer?
     private var durationTimer: Timer?
-    private var receiveTask: Task<Void, Never>?
+    private var streamId: String?
+    private var streamAcknowledged = false
+    private var streamAcknowledgedContinuation: CheckedContinuation<Void, Never>?
+    private var connectionContinuation: CheckedContinuation<Void, Error>?
 
     private let apiClient = APIClient.shared
     private var accessToken: String?
     private let agentId: String
     private let callKitManager = CallKitManager.shared
+    private var currentUserId: String?
+    private var currentVoiceId: String?
 
     // Audio format for Cartesia (PCM 44.1kHz)
     private let audioFormat = AVAudioFormat(
@@ -36,49 +42,76 @@ class WebSocketVoiceService: NSObject, ObservableObject {
     init(agentId: String) {
         self.agentId = agentId
         super.init()
-        setupAudioEngine()
     }
 
     deinit {
-        stopTimers()
-        receiveTask?.cancel()
+        pingTimer?.invalidate()
+        durationTimer?.invalidate()
     }
 
     // MARK: - Public Methods
 
     /// Connect to Cartesia WebSocket and begin audio streaming
     func connect(voiceId: String?, userId: String) async throws {
-        // 0. Start CallKit call first (shows native iOS call screen)
+        print("DEBUG: Connecting to Cartesia with userId=\(userId), voiceId=\(voiceId ?? "default")")
+
+        // 0. Start CallKit call first
         try await callKitManager.startCall(userId: userId, displayName: "Future You")
 
         // 1. Get access token from backend
-        accessToken = try await fetchAccessToken()
-
-        // 2. Build WebSocket URL with user context
-        var components = URLComponents(string: "wss://api.cartesia.ai/agents/stream/\(agentId)")!
-        components.queryItems = [
-            URLQueryItem(name: "user_id", value: userId),
-            URLQueryItem(name: "voice_id", value: voiceId ?? "default"),
-        ]
-
-        guard let url = components.url else {
-            throw VoiceCallError.invalidURL
+        do {
+            accessToken = try await fetchAccessToken()
+        } catch {
+            print("ERROR: Failed to fetch access token: \(error)")
+            throw error
         }
 
-        // 3. Create WebSocket request with Cartesia headers
+        // 2. Build WebSocket URL (no query parameters - Cartesia doesn't support them)
+        let url = URL(string: "wss://api.cartesia.ai/agents/stream/\(agentId)")!
+        
+        // Store userId and voiceId for use in start event metadata
+        self.currentUserId = userId
+        self.currentVoiceId = voiceId
+
+        print("DEBUG: WebSocket URL = \(url.absoluteString)")
+
+        // 3. Create URLSession with delegate
+        let config = URLSessionConfiguration.default
+        config.waitsForConnectivity = true
+        config.timeoutIntervalForRequest = 30
+        config.timeoutIntervalForResource = 300
+        session = URLSession(configuration: config, delegate: self, delegateQueue: .main)
+
+        // 4. Create WebSocket request
         var request = URLRequest(url: url)
         request.setValue("Bearer \(accessToken!)", forHTTPHeaderField: "Authorization")
         request.setValue("2025-04-16", forHTTPHeaderField: "Cartesia-Version")
 
-        // 4. Create and establish WebSocket connection
-        let session = URLSession(configuration: .default, delegate: self, delegateQueue: nil)
-        webSocketTask = session.webSocketTask(with: request)
-        webSocketTask?.resume()
+        print("DEBUG: Creating WebSocket task...")
+        webSocket = session?.webSocketTask(with: request)
+        webSocket?.resume()
 
-        // 5. Send start event to initialize stream
-        try await sendStartEvent()
+        // 5. Wait for connection to establish
+        print("DEBUG: Waiting for connection to establish...")
+        try await waitForConnection()
 
-        // 6. Setup audio session listeners
+        // 6. Configure and setup audio
+        configureAudioSession()
+        setupAudioEngine()
+
+        // 7. Send start event
+        print("DEBUG: Sending start event...")
+        sendStartEvent()
+
+        // 8. Start receiving messages
+        receiveMessages()
+
+        // 9. Wait for stream acknowledgment
+        print("DEBUG: Waiting for stream acknowledgment...")
+        await waitForStreamAcknowledgment()
+        print("DEBUG: Stream acknowledged!")
+
+        // 10. Setup audio session listeners
         NotificationCenter.default.addObserver(
             forName: .audioSessionActivated,
             object: nil,
@@ -95,92 +128,188 @@ class WebSocketVoiceService: NSObject, ObservableObject {
             self?.stopAudioEngine()
         }
 
-        // 7. Start receiving messages from agent
-        startReceivingMessages()
-
-        // 8. Start keep-alive ping (every 20s, server closes after 30s inactivity)
+        // 11. Start keep-alive ping
         startPingTimer()
 
         isConnected = true
-        isCallActive = true
         startDurationTimer()
     }
 
-    /// Disconnect from WebSocket and cleanup resources
+    /// Disconnect from WebSocket
     func disconnect() {
-        // End CallKit call
         callKitManager.endCall()
-
-        // Close WebSocket connection
-        webSocketTask?.cancel(with: .goingAway, reason: nil)
-
-        // Cleanup resources
+        webSocket?.cancel(with: .goingAway, reason: nil)
         stopAudioEngine()
         stopTimers()
-        receiveTask?.cancel()
-
-        // Remove observers
         NotificationCenter.default.removeObserver(self)
-
         isConnected = false
         isCallActive = false
         callDuration = 0
+        audioPacketCount = 0  // Reset for next call
+        streamAcknowledged = false
+        streamId = nil
     }
 
     // MARK: - Private Methods
 
-    /// Fetch Cartesia access token from backend
-    private func fetchAccessToken() async throws -> String {
-        let response = try await apiClient.post(
-            "/api/cartesia/access-token",
-            body: [:]
-        )
+    private func waitForConnection() async throws {
+        try await withCheckedThrowingContinuation { continuation in
+            connectionContinuation = continuation
+            // Timeout after 10 seconds
+            DispatchQueue.main.asyncAfter(deadline: .now() + 10.0) {
+                if !self.isConnected && self.connectionContinuation != nil {
+                    self.connectionContinuation = nil
+                    continuation.resume(throwing: VoiceCallError.connectionFailed)
+                }
+            }
+        }
+    }
 
-        guard let token = response["accessToken"] as? String else {
+    private func waitForStreamAcknowledgment() async {
+        if streamAcknowledged {
+            return
+        }
+
+        await withCheckedContinuation { continuation in
+            self.streamAcknowledgedContinuation = continuation
+        }
+    }
+
+    private func fetchAccessToken() async throws -> String {
+        let authManager = AuthManager.shared
+        guard let userAccessToken = authManager.accessToken else {
+            print("ERROR: No user access token in AuthManager")
             throw VoiceCallError.noAccessToken
         }
 
+        let response = try await apiClient.post(
+            "/api/cartesia/access-token",
+            body: [:],
+            accessToken: userAccessToken
+        )
+
+        guard let token = response["accessToken"] as? String else {
+            print("ERROR: No accessToken in response")
+            throw VoiceCallError.noAccessToken
+        }
+
+        print("DEBUG: Got Cartesia access token")
         return token
     }
 
-    /// Send start event to initialize WebSocket stream
-    private func sendStartEvent() async throws {
-        let startEvent: [String: Any] = [
-            "type": "start",
-            "audio_format": "pcm_44100",  // 44.1kHz PCM
+    private func sendStartEvent() {
+        streamId = UUID().uuidString
+
+        var startEvent: [String: Any] = [
+            "event": "start",
+            "stream_id": streamId!,
+            "config": [
+                "input_format": "pcm_44100"
+            ]
         ]
+        
+        // Add metadata with user_id and voice_id (since query params aren't supported)
+        var metadata: [String: Any] = [
+            "user_id": currentUserId ?? "unknown",
+            "from": "youplus_ios_app"
+        ]
+        if let voiceId = currentVoiceId {
+            metadata["voice_id"] = voiceId
+        }
+        startEvent["metadata"] = metadata
 
-        let data = try JSONSerialization.data(withJSONObject: startEvent)
-        try await webSocketTask?.send(.data(data))
-    }
-
-    /// Setup AVAudioEngine for microphone input and speaker output
-    private func setupAudioEngine() {
-        // Attach audio player node for agent output
-        audioEngine.attach(playerNode)
-        audioEngine.connect(
-            playerNode,
-            to: audioEngine.mainMixerNode,
-            format: audioFormat
-        )
-
-        // Setup input node tap for microphone
-        let inputNode = audioEngine.inputNode
-        let inputFormat = inputNode.outputFormat(forBus: 0)
-
-        inputNode.installTap(
-            onBus: 0,
-            bufferSize: 4096,
-            format: inputFormat
-        ) { [weak self] buffer, _ in
-            self?.processInputAudio(buffer)
+        guard let data = try? JSONSerialization.data(withJSONObject: startEvent),
+              let jsonString = String(data: data, encoding: .utf8) else {
+            print("ERROR: Failed to serialize start event")
+            return
         }
 
-        // Configure audio session for voice calls
-        configureAudioSession()
+        print("DEBUG: Sending start event: \(jsonString)")
+        webSocket?.send(.string(jsonString)) { [weak self] error in
+            if let error = error {
+                print("ERROR: Failed to send start event: \(error)")
+            } else {
+                print("DEBUG: Start event sent successfully")
+            }
+        }
     }
 
-    /// Configure AVAudioSession for voice call mode
+    private func receiveMessages() {
+        webSocket?.receive { [weak self] result in
+            switch result {
+            case .success(.string(let text)):
+                print("DEBUG: Received text message: \(text.prefix(100))")
+                self?.handleMessage(text)
+                self?.receiveMessages() // Continue receiving
+
+            case .success(.data(let data)):
+                print("DEBUG: Received data message: \(data.count) bytes")
+                if let text = String(data: data, encoding: .utf8) {
+                    self?.handleMessage(text)
+                }
+                self?.receiveMessages()
+
+            case .failure(let error):
+                print("ERROR: WebSocket receive failed: \(error)")
+                self?.isConnected = false
+                self?.isCallActive = false
+                self?.errorMessage = "WebSocket error: \(error.localizedDescription)"
+
+            @unknown default:
+                print("DEBUG: Unknown receive result")
+                self?.receiveMessages()
+            }
+        }
+    }
+
+    private func handleMessage(_ text: String) {
+        guard let data = text.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let event = json["event"] as? String else {
+            return
+        }
+
+        switch event {
+        case "ack":
+            print("DEBUG: Received ack event - starting audio capture NOW")
+            if let receivedStreamId = json["stream_id"] as? String {
+                self.streamId = receivedStreamId
+            }
+            streamAcknowledged = true
+            isCallActive = true  // Enable audio streaming BEFORE starting engine
+            
+            // Start audio engine immediately - server expects audio right after ack
+            startAudioEngine()
+            print("DEBUG: Audio engine started, isCallActive=\(isCallActive)")
+            
+            if let continuation = streamAcknowledgedContinuation {
+                streamAcknowledgedContinuation = nil
+                continuation.resume()
+            }
+
+        case "media_output":
+            print("DEBUG: Received audio from agent!")
+            if let media = json["media"] as? [String: Any],
+               let payload = media["payload"] as? String {
+                print("DEBUG: Audio payload size: \(payload.count) chars")
+                if let audioData = Data(base64Encoded: payload) {
+                    print("DEBUG: Decoded audio data: \(audioData.count) bytes")
+                    playAudioData(audioData)
+                } else {
+                    print("ERROR: Failed to decode base64 audio payload")
+                }
+            } else {
+                print("ERROR: media_output missing media.payload - json: \(json)")
+            }
+
+        case "clear":
+            print("DEBUG: Agent interrupted stream")
+
+        default:
+            print("DEBUG: Received event: \(event)")
+        }
+    }
+
     private func configureAudioSession() {
         let session = AVAudioSession.sharedInstance()
         do {
@@ -191,135 +320,113 @@ class WebSocketVoiceService: NSObject, ObservableObject {
             )
             try session.setActive(true)
         } catch {
-            print("Audio session configuration failed: \(error)")
+            print("ERROR: Audio session configuration failed: \(error)")
         }
     }
 
-    /// Start the audio engine and player node
-    private func startAudioEngine() {
-        guard !audioEngine.isRunning else { return }
+    private func setupAudioEngine() {
+        audioEngine.attach(playerNode)
+        audioEngine.connect(
+            playerNode,
+            to: audioEngine.mainMixerNode,
+            format: audioFormat
+        )
 
+        let inputNode = audioEngine.inputNode
+        let inputFormat = inputNode.outputFormat(forBus: 0)
+        
+        print("DEBUG: Setting up audio engine with input format: \(inputFormat)")
+
+        inputNode.installTap(
+            onBus: 0,
+            bufferSize: 4096,
+            format: inputFormat
+        ) { [weak self] buffer, _ in
+            self?.processInputAudio(buffer)
+        }
+        
+        print("DEBUG: Audio tap installed, waiting for ack to start engine")
+    }
+
+    private func startAudioEngine() {
+        guard !audioEngine.isRunning else {
+            print("DEBUG: Audio engine already running")
+            return
+        }
         do {
             try audioEngine.start()
             playerNode.play()
+            print("DEBUG: Audio engine started successfully")
         } catch {
-            print("Failed to start audio engine: \(error)")
+            print("ERROR: Failed to start audio engine: \(error)")
         }
     }
 
-    /// Stop the audio engine
     private func stopAudioEngine() {
         audioEngine.stop()
         playerNode.stop()
         audioEngine.inputNode.removeTap(onBus: 0)
     }
 
-    /// Process microphone input and send to WebSocket
     private func processInputAudio(_ buffer: AVAudioPCMBuffer) {
-        guard isCallActive, let channelData = buffer.floatChannelData else { return }
+        // This runs on audio thread, so capture values we need
+        guard isCallActive, let channelData = buffer.floatChannelData?[0] else { return }
 
-        // Convert PCM buffer to Data
         let frameLength = Int(buffer.frameLength)
-        let data = Data(
-            bytes: channelData[0],
-            count: frameLength * MemoryLayout<Float>.size
-        )
+        
+        // Convert Float32 samples to Int16 PCM (Cartesia expects 16-bit PCM)
+        var pcmData = Data(capacity: frameLength * 2)
+        for i in 0..<frameLength {
+            // Clamp to [-1, 1] and scale to Int16 range
+            let clampedSample = max(-1.0, min(1.0, channelData[i]))
+            let int16Sample = Int16(clampedSample * 32767.0)
+            withUnsafeBytes(of: int16Sample.littleEndian) { pcmData.append(contentsOf: $0) }
+        }
 
-        // Convert to base64 for transmission
-        let base64Audio = data.base64EncodedString()
-
-        // Send via WebSocket
-        Task {
-            try? await sendMediaInput(base64Audio)
+        let base64Audio = pcmData.base64EncodedString()
+        
+        // Dispatch to main actor for WebSocket send
+        Task { @MainActor [weak self] in
+            self?.sendMediaInput(base64Audio)
         }
     }
 
-    /// Send audio data to WebSocket
-    private func sendMediaInput(_ base64Audio: String) async throws {
-        let mediaEvent: [String: Any] = [
-            "type": "media_input",
-            "data": base64Audio,
-        ]
-
-        let data = try JSONSerialization.data(withJSONObject: mediaEvent)
-        try await webSocketTask?.send(.data(data))
-    }
-
-    /// Start receiving messages from WebSocket
-    private func startReceivingMessages() {
-        receiveTask = Task {
-            await receiveLoop()
-        }
-    }
-
-    /// Continuous message receive loop
-    private func receiveLoop() async {
-        while isCallActive {
-            do {
-                guard let task = webSocketTask else { return }
-                let message = try await task.receive()
-                handleMessage(message)
-            } catch {
-                print("WebSocket receive error: \(error)")
-                await MainActor.run {
-                    self.errorMessage = "Connection lost"
-                    self.disconnect()
-                }
-                return
-            }
-        }
-    }
-
-    /// Handle received WebSocket message
-    private func handleMessage(_ message: URLSessionWebSocketTask.Message) {
-        switch message {
-        case .data(let data):
-            handleDataMessage(data)
-        case .string(let text):
-            handleTextMessage(text)
-        @unknown default:
-            break
-        }
-    }
-
-    /// Handle binary data message (audio output)
-    private func handleDataMessage(_ data: Data) {
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let type = json["type"] as? String else {
+    private var audioPacketCount = 0
+    
+    private func sendMediaInput(_ base64Audio: String) {
+        guard let streamId = streamId else {
+            print("DEBUG: sendMediaInput - no streamId, dropping audio")
             return
         }
 
-        switch type {
-        case "media_output":
-            // Decode and play agent audio response
-            if let base64Audio = json["data"] as? String,
-               let audioData = Data(base64Encoded: base64Audio) {
-                playAudioData(audioData)
+        let mediaEvent: [String: Any] = [
+            "event": "media_input",
+            "stream_id": streamId,
+            "media": [
+                "payload": base64Audio
+            ]
+        ]
+
+        guard let data = try? JSONSerialization.data(withJSONObject: mediaEvent),
+              let jsonString = String(data: data, encoding: .utf8) else {
+            return
+        }
+
+        audioPacketCount += 1
+        if audioPacketCount <= 5 || audioPacketCount % 50 == 0 {
+            print("DEBUG: Sending audio packet #\(audioPacketCount), payload size: \(base64Audio.count) chars")
+        }
+        
+        webSocket?.send(.string(jsonString)) { error in
+            if let error = error {
+                print("ERROR: Failed to send media input: \(error)")
             }
-
-        case "ack":
-            print("WebSocket connection acknowledged")
-            startAudioEngine()
-
-        case "end_call":
-            Task { @MainActor in
-                disconnect()
-            }
-
-        default:
-            print("Unknown message type: \(type)")
         }
     }
 
-    /// Handle text message
-    private func handleTextMessage(_ text: String) {
-        print("WebSocket text message: \(text)")
-    }
-
-    /// Play audio data from agent
     private func playAudioData(_ data: Data) {
-        // Convert Data to AVAudioPCMBuffer
-        let frameCount = data.count / MemoryLayout<Float>.size
+        // Cartesia sends PCM 16-bit audio, convert to Float32 for playback
+        let frameCount = data.count / MemoryLayout<Int16>.size
 
         guard let buffer = AVAudioPCMBuffer(
             pcmFormat: audioFormat,
@@ -330,49 +437,51 @@ class WebSocketVoiceService: NSObject, ObservableObject {
 
         buffer.frameLength = AVAudioFrameCount(frameCount)
 
+        // Convert Int16 PCM to Float32
         data.withUnsafeBytes { ptr in
-            memcpy(buffer.floatChannelData![0], ptr.baseAddress!, data.count)
+            let int16Ptr = ptr.bindMemory(to: Int16.self)
+            for i in 0..<frameCount {
+                buffer.floatChannelData![0][i] = Float(int16Ptr[i]) / 32767.0
+            }
         }
 
-        // Schedule buffer for playback
         playerNode.scheduleBuffer(buffer)
     }
 
-    /// Start ping timer to keep connection alive
     private func startPingTimer() {
         pingTimer = Timer.scheduledTimer(withTimeInterval: 20, repeats: true) { [weak self] _ in
-            self?.webSocketTask?.sendPing { error in
-                if let error = error {
-                    print("Ping failed: \(error)")
-                }
-            }
+            self?.webSocket?.sendPing { _ in }
         }
     }
 
-    /// Start call duration timer
     private func startDurationTimer() {
         durationTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             self?.callDuration += 1
         }
     }
 
-    /// Stop all timers
     private func stopTimers() {
         pingTimer?.invalidate()
         durationTimer?.invalidate()
         pingTimer = nil
         durationTimer = nil
     }
-}
 
-// MARK: - URLSessionWebSocketDelegate
-extension WebSocketVoiceService: URLSessionWebSocketDelegate {
+    // MARK: - URLSessionWebSocketDelegate
+
     nonisolated func urlSession(
         _ session: URLSession,
         webSocketTask: URLSessionWebSocketTask,
-        didOpenWithProtocol protocolString: String?
+        didOpenWithProtocol protocol: String?
     ) {
-        print("WebSocket connected")
+        print("DEBUG: WebSocket connected!")
+        Task { @MainActor in
+            self.isConnected = true
+            if let continuation = self.connectionContinuation {
+                self.connectionContinuation = nil
+                continuation.resume()
+            }
+        }
     }
 
     nonisolated func urlSession(
@@ -381,7 +490,8 @@ extension WebSocketVoiceService: URLSessionWebSocketDelegate {
         didCloseWith closeCode: URLSessionWebSocketTask.CloseCode,
         reason: Data?
     ) {
-        print("WebSocket disconnected: \(closeCode)")
+        let reasonStr = reason.flatMap { String(data: $0, encoding: .utf8) } ?? "unknown"
+        print("DEBUG: WebSocket closed with code \(closeCode.rawValue): \(reasonStr)")
         Task { @MainActor in
             self.isConnected = false
             self.isCallActive = false

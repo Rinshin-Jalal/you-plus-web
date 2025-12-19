@@ -21,3 +21,4 @@ export function getPostHogServer(): PostHog {
   return posthogInstance;
 }
 
+

@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ContentView: View {
-    @StateObject private var authManager = AuthManager()
+    @ObservedObject var authManager = AuthManager.shared
     @StateObject private var onboardingVM = OnboardingViewModel()
     @AppStorage("onboarding_completed") private var onboardingCompleted: Bool = false
     @AppStorage("subscription_active") private var subscriptionActive: Bool = false
@@ -59,6 +59,9 @@ struct ContentView: View {
         .environmentObject(authManager)
         .environmentObject(onboardingVM)
         .animation(.easeInOut, value: authManager.isAuthenticated)
+        .onAppear {
+            authManager.checkSession()
+        }
     }
 }
 

@@ -1,2 +1,20 @@
 [app]
 name = "future-self"
+description = "YOU+ Future Self - Daily accountability calls from your future self"
+version = "1.0.0"
+
+[build]
+cmd = "uv sync"
+
+[run]
+cmd = "python main.py"
+
+[server]
+port = 8000
+host = "0.0.0.0"
+
+[dependencies]
+requirements_file = "pyproject.toml"
+
+[environment]
+required_vars = ["BEDROCK_API_KEY", "SUPABASE_URL", "SUPABASE_SERVICE_KEY"]

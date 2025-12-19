@@ -32,6 +32,7 @@ AGENT_DIR = Path(__file__).parent.parent
 if str(AGENT_DIR) not in sys.path:
     sys.path.insert(0, str(AGENT_DIR))
 
+import os
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -44,13 +45,51 @@ from core.handlers.pre_call import handle_call_request
 from core.handlers.call import handle_new_call
 
 
+def validate_environment():
+    """
+    Validate required environment variables at startup.
+    Logs warnings for missing optional vars, errors for required ones.
+    """
+    required_vars = {
+        "BEDROCK_API_KEY": "Required for LLM inference",
+    }
+    
+    optional_vars = {
+        "SUPABASE_URL": "Required for user data persistence",
+        "SUPABASE_SERVICE_KEY": "Required for user data persistence",
+        "SUPERMEMORY_API_KEY": "Optional - enables memory features",
+    }
+    
+    missing_required = []
+    
+    for var, description in required_vars.items():
+        if not os.getenv(var):
+            logger.error(f"Missing required env var: {var} - {description}")
+            missing_required.append(var)
+    
+    for var, description in optional_vars.items():
+        if not os.getenv(var):
+            logger.warning(f"Missing optional env var: {var} - {description}")
+    
+    if missing_required:
+        logger.error(f"Cannot start: missing required environment variables: {missing_required}")
+        raise EnvironmentError(f"Missing required environment variables: {missing_required}")
+    
+    logger.info("Environment validation passed")
+
+
+# Validate environment before creating app
+validate_environment()
+
 # Create the Voice Agent App
 app = VoiceAgentApp(call_handler=handle_new_call, pre_call_handler=handle_call_request)
 
 
 if __name__ == "__main__":
+    import uvicorn
+    
     logger.info("Starting Future Self Agent (Multi-Agent Mode)...")
     logger.info(
         "Agents: FutureYou (speaking) + Excuse, ExcuseCallout, Sentiment, Commitment, Promise, Pattern, Quote (background)"
     )
-    app.run()
+    uvicorn.run(app, host="0.0.0.0", port=8000)

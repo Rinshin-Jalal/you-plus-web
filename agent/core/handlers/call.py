@@ -77,6 +77,20 @@ from agents.events import (
 
 async def handle_new_call(system: VoiceAgentSystem, call_request: CallRequest):
     """Handle an incoming call and set up the multi-agent Future Self system."""
+    try:
+        await _handle_new_call_impl(system, call_request)
+    except Exception as e:
+        logger.error(f"Call handler error: {e}", exc_info=True)
+        # Gracefully shut down instead of crashing the WebSocket
+        try:
+            await system.shutdown()
+        except Exception:
+            pass
+        # Don't re-raise - prevents WebSocket crash
+
+
+async def _handle_new_call_impl(system: VoiceAgentSystem, call_request: CallRequest):
+    """Internal implementation of call handler."""
     metadata = call_request.metadata or {}
     user_id = metadata.get("user_id", "unknown")
     user_context = metadata.get("user_context", {})
@@ -234,11 +248,9 @@ def _setup_routing(
     # Main agent receives transcriptions
     conversation_bridge.on(UserTranscriptionReceived).map(conversation_node.add_event)
 
-    # Background agents receive transcriptions
+    # Background agents process transcriptions via generate() when user stops speaking
+    # Note: Node-based detectors don't have add_event - they receive context through generate()
     for name in ["excuse", "sentiment", "commitment", "promise", "pattern", "quote"]:
-        agents[f"{name}_bridge"].on(UserTranscriptionReceived).map(
-            agents[name].add_event
-        )
         agents[f"{name}_bridge"].on(UserStoppedSpeaking).stream(
             agents[name].generate
         ).broadcast()

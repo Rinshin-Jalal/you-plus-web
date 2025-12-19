@@ -1,10 +1,12 @@
 import Foundation
 
 class APIClient {
+    static let shared = APIClient()
+
     private let baseURL: URL
     private let session: URLSession
-    
-    init(baseURL: URL = URL(string: "http://localhost:3000")!) {
+
+    init(baseURL: URL = URL(string: "http://localhost:8787")!) {
         self.baseURL = baseURL
         self.session = URLSession.shared
     }
@@ -97,6 +99,43 @@ class APIClient {
 
         let decoder = JSONDecoder()
         return try decoder.decode(UserProfileResponse.self, from: data)
+    }
+
+    func post(
+        _ path: String,
+        body: [String: Any],
+        accessToken: String? = nil
+    ) async throws -> [String: Any] {
+        let endpoint = baseURL.appendingPathComponent(path)
+        var request = URLRequest(url: endpoint)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        // Add authorization header if token is provided
+        if let token = accessToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, response) = try await session.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIError.invalidResponse
+        }
+
+        guard httpResponse.statusCode == 200 else {
+            let errorResponse = try? JSONDecoder().decode(ErrorResponse.self, from: data)
+            let errorMsg = errorResponse?.error ?? "Unknown error"
+            print("DEBUG: POST \(path) returned \(httpResponse.statusCode): \(errorMsg)")
+            throw APIError.serverError(errorMsg)
+        }
+
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw APIError.decodingError(NSError(domain: "APIClient", code: -1, userInfo: nil))
+        }
+
+        return json
     }
 }
 

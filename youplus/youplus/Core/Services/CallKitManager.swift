@@ -1,6 +1,7 @@
 import Foundation
 import CallKit
 import AVFoundation
+import Combine
 
 /// Manages native iOS call interface using CallKit framework
 /// Provides the same native call UI as regular phone calls
@@ -20,11 +21,6 @@ class CallKitManager: NSObject, ObservableObject {
         configuration.supportsVideo = false
         configuration.maximumCallsPerCallGroup = 1
         configuration.supportedHandleTypes = [.generic]
-
-        // Optional: Add app icon to call screen
-        if let appIcon = UIImage(named: "AppIcon") {
-            configuration.iconTemplateImageData = appIcon.pngData()
-        }
 
         self.provider = CXProvider(configuration: configuration)
         super.init()

@@ -8,10 +8,7 @@ struct CallView: View {
     @Environment(\.dismiss) private var dismiss
 
     init(voiceId: String?) {
-        let userId = AuthManager.shared.userId ?? ""
-        _viewModel = StateObject(
-            wrappedValue: CallViewModel(userId: userId, voiceId: voiceId)
-        )
+        _viewModel = StateObject(wrappedValue: CallViewModel(voiceId: voiceId))
     }
 
     var body: some View {
@@ -108,7 +105,16 @@ struct CallView: View {
         }
         .navigationBarHidden(true)
         .task {
-            await viewModel.startCall()
+            // Get userId from authManager
+            if let userId = authManager.userId, !userId.isEmpty {
+                print("DEBUG CallView task: Got userId=\(userId)")
+                await viewModel.startCall(userId: userId)
+            } else {
+                print("DEBUG CallView task: userId is nil or empty. isAuthenticated=\(authManager.isAuthenticated)")
+                await MainActor.run {
+                    viewModel.errorMessage = "Failed to get user ID"
+                }
+            }
         }
         .onDisappear {
             viewModel.endCall()

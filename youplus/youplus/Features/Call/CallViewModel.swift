@@ -10,12 +10,10 @@ class CallViewModel: ObservableObject {
     @Published var callDuration: TimeInterval = 0
 
     private let voiceService: WebSocketVoiceService
-    private let userId: String
     private let voiceId: String?
 
-    /// Initialize view model with user and voice preferences
-    init(userId: String, voiceId: String?, agentId: String = Config.cartesiaAgentId) {
-        self.userId = userId
+    /// Initialize view model with voice preferences
+    init(voiceId: String?, agentId: String = Config.cartesiaAgentId) {
         self.voiceId = voiceId
         self.voiceService = WebSocketVoiceService(agentId: agentId)
 
@@ -23,8 +21,8 @@ class CallViewModel: ObservableObject {
         setupBindings()
     }
 
-    /// Start a new voice call
-    func startCall() async {
+    /// Start a new voice call with authenticated user ID
+    func startCall(userId: String) async {
         isLoading = true
         errorMessage = nil
 

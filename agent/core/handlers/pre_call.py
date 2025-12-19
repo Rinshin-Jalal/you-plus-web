@@ -38,6 +38,16 @@ async def handle_call_request(call_request: CallRequest):
     Returns:
         PreCallResult if call is accepted, None if rejected
     """
+    try:
+        return await _handle_call_request_impl(call_request)
+    except Exception as e:
+        logger.error(f"Pre-call handler error: {e}", exc_info=True)
+        # Return None to reject the call on error - prevents WebSocket crash
+        return None
+
+
+async def _handle_call_request_impl(call_request: CallRequest):
+    """Internal implementation of pre-call handler."""
     logger.info(f"Handling call request: {call_request}")
 
     metadata = call_request.metadata or {}
@@ -135,6 +145,7 @@ async def handle_call_request(call_request: CallRequest):
         },
         config={
             "tts": {
+                "model": "sonic-3",  # Cartesia TTS model - explicitly set for consistency
                 "voice": voice_id,
                 "language": preferred_language,
                 "__experimental_controls": experimental_controls,

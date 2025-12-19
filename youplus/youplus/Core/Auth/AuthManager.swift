@@ -4,15 +4,23 @@ import Supabase
 
 @MainActor
 class AuthManager: ObservableObject {
+    static let shared = AuthManager()
+
     @Published var isAuthenticated: Bool = false
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
     @Published var currentUser: User?
     @Published var accessToken: String?
-    
+
+    var userId: String? {
+        let id = currentUser?.id.uuidString
+        print("DEBUG AuthManager.userId: returning \(id ?? "nil")")
+        return id
+    }
+
     private let supabase: SupabaseClient
     private var authStateTask: Task<Void, Never>?
-    
+
     init() {
         do {
             let authOptions = SupabaseClientOptions.AuthOptions(
@@ -44,7 +52,7 @@ class AuthManager: ObservableObject {
                         self.isAuthenticated = true
                         self.currentUser = session.user
                         self.accessToken = session.accessToken
-                        print("DEBUG: Auth state changed - session valid, authenticated")
+                        print("DEBUG: Auth state changed - session valid. User: \(session.user.id.uuidString), accessToken: \(session.accessToken.prefix(20))...")
                     } else {
                         self.isAuthenticated = false
                         self.currentUser = nil
@@ -66,20 +74,19 @@ class AuthManager: ObservableObject {
                 print("DEBUG: Checking session...")
                 let session = try await supabase.auth.session
                 if session.isExpired {
-                    print("DEBUG: Session found but expired - attempting refresh")
-                    // Trigger auth state update to handle expiration
+                    print("DEBUG: Session found but expired")
                     return
                 }
                 await MainActor.run {
                     self.isAuthenticated = true
                     self.currentUser = session.user
                     self.accessToken = session.accessToken
-                    print("DEBUG: Session found, valid, and authenticated")
+                    print("DEBUG: Session found and valid. User: \(session.user.id.uuidString), accessToken: \(session.accessToken.prefix(20))...")
                 }
             } catch {
                 await MainActor.run {
                     self.isAuthenticated = false
-                    print("DEBUG: No session")
+                    print("DEBUG: No valid session found")
                 }
                 print("DEBUG: Session check error: \(error.localizedDescription)")
             }

@@ -20,7 +20,10 @@ const router = new Hono<{
  *
  * The token is generated with a 1-hour TTL and only grants access
  * to the agents API (not TTS or STT).
+ *
+ * Route: POST /api/cartesia/access-token
+ * (mounted at /api/cartesia, so path here is just /access-token)
  */
-router.post("/api/cartesia/access-token", requireAuth, generateAccessToken);
+router.post("/access-token", requireAuth, generateAccessToken);
 
 export default router;
