@@ -119,7 +119,7 @@ iOS App receives notification
 
 **3. During Call**:
 ```
-User speaks → Deepgram (STT) → agent-livekit/
+User speaks → Cartesia Ink (STT) → agent-livekit/
                                      ↓
                                Background analysis
                                      ↓
@@ -150,8 +150,7 @@ agent-livekit/ → Save analytics to Supabase
   - Supabase (URL, Service Key)
   - AWS (Access Key, Secret Key for EventBridge/Lambda)
   - Bedrock API Key (for LLM)
-  - Deepgram API Key (STT)
-  - Cartesia API Key (TTS/voice cloning)
+  - Cartesia API Key (STT/TTS/voice cloning)
   - Supermemory API Key (optional)
 
 ### Tools & SDKs
@@ -211,7 +210,7 @@ See: https://docs.livekit.io/home/self-hosting/deployment/
 brew install livekit-cli
 
 # Test connection
-livekit-cli create-token \
+lk create-token \
   --api-key APIxxxxxxxxxx \
   --api-secret secret_xxxxxx \
   --join --room test-room --identity test-user
@@ -825,7 +824,6 @@ LIVEKIT_API_SECRET=secret_xxxxxxxxxxxxxxxxxxxxxx
 
 # LLM & Speech Services
 BEDROCK_API_KEY=your_bedrock_key
-DEEPGRAM_API_KEY=your_deepgram_key
 CARTESIA_API_KEY=your_cartesia_key
 
 # Database
@@ -1003,10 +1001,43 @@ exports.handler = async (event) => {
 
 ### Step 5.2: Update Lambda Environment Variables
 
+Add these environment variables to your Lambda function configuration:
+
+**Via AWS Console:**
+1. Go to AWS Lambda → Functions → `youplus-daily-call-trigger`
+2. Configuration → Environment variables → Edit
+3. Add the following:
+
 ```bash
-# Add to Lambda function configuration
-BACKEND_URL=https://youplus-backend.workers.dev
-BACKEND_API_KEY=your_backend_api_key
+BACKEND_URL=https://you-plus-consequence-engine-prod.rinzhinjalal.workers.dev
+BACKEND_API_KEY=<generate_a_secure_random_key>
+```
+
+**Via AWS CLI:**
+```bash
+aws lambda update-function-configuration \
+  --function-name youplus-daily-call-trigger \
+  --environment "Variables={
+    BACKEND_URL=https://you-plus-consequence-engine-prod.rinzhinjalal.workers.dev,
+    BACKEND_API_KEY=<your_secure_api_key>,
+    SUPABASE_URL=<existing>,
+    SUPABASE_SERVICE_ROLE_KEY=<existing>
+  }"
+```
+
+**Important Notes:**
+- `BACKEND_URL` should match your Cloudflare Worker deployment URL
+  - Production: `https://you-plus-consequence-engine-prod.rinzhinjalal.workers.dev`
+  - Staging: `https://you-plus-consequence-engine-staging.rinzhinjalal.workers.dev`
+- `BACKEND_API_KEY` must be set in both:
+  1. Lambda environment variables (for Lambda to authenticate with backend)
+  2. Cloudflare Worker secrets (for backend to validate requests)
+  
+**Set Backend API Key in Cloudflare:**
+```bash
+cd backend
+echo "your_secure_api_key_here" | wrangler secret put BACKEND_API_KEY
+# Or via Cloudflare Dashboard: Workers & Pages → Settings → Variables → Add secret
 ```
 
 ### Step 5.3: Deploy Lambda
@@ -1283,7 +1314,7 @@ fly logs
 
 **Checks**:
 - [ ] Cartesia TTS voice ID is valid
-- [ ] Deepgram API key is working
+- [ ] Cartesia API key is working (for both STT and TTS)
 - [ ] Audio track is subscribed in iOS app
 - [ ] iOS audio session is configured correctly
 
@@ -1305,15 +1336,15 @@ nonisolated func room(_ room: Room, participant: RemoteParticipant, didSubscribe
 **Checks**:
 - [ ] Network quality (use LiveKit dashboard to check stats)
 - [ ] Agent server location (should be geographically close)
-- [ ] Deepgram model (try `nova-2` for lower latency)
+- [ ] Cartesia Ink STT model (ink-whisper for low latency)
 - [ ] Cartesia TTS speed settings
 
 **Solution**:
 ```python
 # agent-livekit/core/handlers/session.py
-# Use faster STT model
-stt = deepgram.STT(
-    model="nova-2-conversationalai",  # Optimized for low latency
+# Use Cartesia Ink STT model
+stt = cartesia.STT(
+    model="ink-whisper",  # Optimized for low latency
     language="en",
 )
 
@@ -1386,7 +1417,7 @@ Set up monitoring for:
 2. **Cost Optimization**
    - Self-host LiveKit server if scaling
    - Optimize LLM usage (caching, smaller models)
-   - Monitor Deepgram usage
+   - Monitor Cartesia usage (STT and TTS)
 
 3. **Feature Enhancements**
    - Add video call option
@@ -1408,7 +1439,6 @@ Set up monitoring for:
 - **LiveKit Docs**: https://docs.livekit.io
 - **LiveKit Swift SDK**: https://github.com/livekit/client-sdk-swift
 - **LiveKit Agents**: https://docs.livekit.io/agents/
-- **Deepgram Docs**: https://developers.deepgram.com
 - **Cartesia Docs**: https://docs.cartesia.ai
 
 ### Community

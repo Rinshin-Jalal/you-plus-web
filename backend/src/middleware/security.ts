@@ -217,3 +217,30 @@ export const securityHeaders = () => {
     }
   };
 };
+
+/**
+ * API Key authentication middleware for internal service-to-service calls
+ * Used by Lambda functions and other backend services
+ */
+export const requireApiKey = () => {
+  return async (c: Context, next: Next): Promise<Response | void> => {
+    const env = c.env as Env;
+    const apiKey = c.req.header("X-API-Key");
+
+    if (!env.BACKEND_API_KEY) {
+      console.warn("[requireApiKey] BACKEND_API_KEY not configured - endpoint is unprotected");
+      return await next(); // Allow in development if not configured
+    }
+
+    if (!apiKey) {
+      return c.json({ error: "X-API-Key header required" }, 401);
+    }
+
+    if (apiKey !== env.BACKEND_API_KEY) {
+      console.warn(`[requireApiKey] Invalid API key attempt from ${c.req.header("CF-Connecting-IP")}`);
+      return c.json({ error: "Invalid API key" }, 401);
+    }
+
+    return await next();
+  };
+};

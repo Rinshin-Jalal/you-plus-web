@@ -51,7 +51,12 @@ const CallMissedSchema = z.object({
 // ROUTER
 // ═══════════════════════════════════════════════════════════════════════════
 
-const callWebhook = new Hono<{ Bindings: Env }>();
+const callWebhook = new Hono<{
+  Bindings: Env;
+  Variables: {
+    validatedJson?: unknown;
+  };
+}>();
 
 /**
  * POST /webhook/call/completed

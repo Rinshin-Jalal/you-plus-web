@@ -40,6 +40,7 @@ export function zodJson<TSchema extends ZodTypeAny>(
 
     c.set(key, parsed.data);
     await next();
+    return;
   };
 }
 
@@ -63,6 +64,7 @@ export function zodParams<TSchema extends ZodTypeAny>(
 
     c.set(key, parsed.data);
     await next();
+    return;
   };
 }
 

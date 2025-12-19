@@ -25,6 +25,11 @@ export const EnvSchema = z.object({
   CARTESIA_API_KEY: z.string().min(1, "Cartesia API key is required"),
   CARTESIA_AGENT_ID: z.string().optional(), // Deployed agent ID from 'cartesia deploy'
   
+  // LiveKit configuration (for real-time voice calls)
+  LIVEKIT_API_KEY: z.string().min(1, "LiveKit API key is required"),
+  LIVEKIT_API_SECRET: z.string().min(1, "LiveKit API secret is required"),
+  LIVEKIT_URL: z.string().url("LiveKit URL must be a valid URL"),
+  
   // Optional configuration
   SUPERMEMORY_API_KEY: z.string().optional(),
   DEBUG_ACCESS_TOKEN: z.string().optional(),
@@ -55,6 +60,9 @@ export const EnvSchema = z.object({
   
   // Backend URL
   BACKEND_URL: z.string().url("Backend URL must be a valid URL"),
+  
+  // Backend API Key (for internal service-to-service authentication)
+  BACKEND_API_KEY: z.string().min(1, "Backend API key is required").optional(),
   
   // Cloudflare R2 bucket (automatically provided by Cloudflare)
   AUDIO_BUCKET: z.any(), // R2 bucket binding

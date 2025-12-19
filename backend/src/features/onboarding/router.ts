@@ -8,7 +8,12 @@ import { postConversionOnboardingComplete, getOnboardingJobStatus } from './hand
 import { getReturningUserOnboarding } from './handlers/returning-user';
 import { ConversionCompleteSchema } from "./schemas";
 
-const onboardingRouter = new Hono();
+const onboardingRouter = new Hono<{
+  Variables: {
+    validatedJson?: unknown;
+    validatedParams?: unknown;
+  };
+}>();
 
 // Conversion Onboarding Routes (Authenticated - New 42-step flow)
 // POST triggers async processing, returns jobId immediately

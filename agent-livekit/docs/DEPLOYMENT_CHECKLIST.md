@@ -189,8 +189,7 @@ Quick reference checklist for deploying the LiveKit migration to production.
   - [ ] `LIVEKIT_API_KEY` (production)
   - [ ] `LIVEKIT_API_SECRET` (production)
   - [ ] `BEDROCK_API_KEY`
-  - [ ] `DEEPGRAM_API_KEY`
-  - [ ] `CARTESIA_API_KEY`
+  - [ ] `CARTESIA_API_KEY` (for both STT and TTS)
   - [ ] `SUPABASE_URL` (production)
   - [ ] `SUPABASE_SERVICE_KEY` (production)
   - [ ] `BACKEND_URL` (production)
@@ -327,7 +326,7 @@ Quick reference checklist for deploying the LiveKit migration to production.
 - [ ] Review user feedback/support tickets
 
 #### Weekly Checks (After First Week)
-- [ ] Review cost reports (LiveKit, Deepgram, Cartesia)
+- [ ] Review cost reports (LiveKit, Cartesia)
 - [ ] Compare costs: LiveKit vs Cartesia Line
 - [ ] Review user surveys/feedback
 - [ ] Check for performance degradation

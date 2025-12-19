@@ -5,6 +5,7 @@ export { default as coreRouter } from "./core/router";
 export { default as billingRouter } from "./billing/router";
 export { default as gamificationRouter } from "./gamification/router";
 export { default as cartesiaRouter } from "./cartesia/router";
+export { default as livekitRouter } from "./livekit/router";
 
 // Combined router
 export { default as combinedRouter } from "./routers";

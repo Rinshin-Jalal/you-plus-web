@@ -5,7 +5,7 @@
  * preferred call time. It:
  * 1. Validates the user is eligible for a call
  * 2. Checks they haven't been called today
- * 3. Triggers the Cartesia outbound call
+ * 3. Creates a LiveKit room via backend API
  * 4. Logs the call initiation
  */
 
@@ -15,22 +15,28 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 interface ScheduledEvent {
   userId: string;
   userName?: string;
-  phoneNumber: string;
-  timezone: string;
+  phoneNumber?: string;
+  timezone?: string;
+  detail?: {
+    userId: string;
+    userName?: string;
+    phoneNumber?: string;
+    timezone?: string;
+  };
 }
 
-interface CartesiaCallResponse {
+interface LiveKitScheduleResponse {
   success: boolean;
-  callId?: string;
+  room_name?: string;
+  call_id?: string;
   error?: string;
 }
 
 // Environment variables (set in Lambda configuration)
 const SUPABASE_URL = process.env.SUPABASE_URL!;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const CARTESIA_API_KEY = process.env.CARTESIA_API_KEY!;
-const CARTESIA_AGENT_ID = process.env.CARTESIA_AGENT_ID!;
-const BACKEND_WEBHOOK_URL = process.env.BACKEND_WEBHOOK_URL!; // For call.started event
+const BACKEND_URL = process.env.BACKEND_URL!;
+const BACKEND_API_KEY = process.env.BACKEND_API_KEY!;
 
 /**
  * Get start of day in user's timezone
@@ -101,91 +107,67 @@ async function isUserEligible(
 }
 
 /**
- * Trigger Cartesia outbound call
+ * Create LiveKit room via backend API
  */
-async function triggerCartesiaCall(
-  phoneNumber: string,
-  userId: string,
-  metadata?: Record<string, unknown>
-): Promise<CartesiaCallResponse> {
+async function createLiveKitRoom(
+  userId: string
+): Promise<LiveKitScheduleResponse> {
   try {
-    const response = await fetch('https://agents-preview.cartesia.ai/twilio/call/outbound', {
+    const response = await fetch(`${BACKEND_URL}/api/livekit/schedule-call`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${CARTESIA_API_KEY}`,
-        'Cartesia-Version': '2025-04-16',
+        'X-API-Key': BACKEND_API_KEY,
       },
-      body: JSON.stringify({
-        target_numbers: [phoneNumber],
-        agent_id: CARTESIA_AGENT_ID,
-        metadata: {
-          user_id: userId,
-          initiated_by: 'scheduled',
-          ...metadata,
-        },
-      }),
+      body: JSON.stringify({ user_id: userId }),
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`Cartesia API error: ${response.status} - ${errorText}`);
-      return { success: false, error: errorText };
+      let errorData: { error: string };
+      try {
+        const jsonData = await response.json() as unknown;
+        errorData = typeof jsonData === 'object' && jsonData !== null && 'error' in jsonData
+          ? jsonData as { error: string }
+          : { error: JSON.stringify(jsonData) };
+      } catch {
+        const errorText = await response.text();
+        errorData = { error: errorText };
+      }
+      console.error(`Backend API error: ${response.status} -`, errorData);
+      return { success: false, error: JSON.stringify(errorData) };
     }
 
-    const data = await response.json();
-    console.log(`Cartesia call initiated:`, data);
+    const data = await response.json() as { room_name?: string; call_id?: string };
+    console.log(`LiveKit room created:`, data);
     
     return { 
       success: true, 
-      callId: data.call_id || data.id || 'unknown'
+      room_name: data.room_name,
+      call_id: data.call_id,
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error(`Failed to trigger Cartesia call:`, error);
+    console.error(`Failed to create LiveKit room:`, error);
     return { success: false, error: errorMessage };
-  }
-}
-
-/**
- * Notify backend of call initiation (optional - for analytics)
- */
-async function notifyBackend(
-  userId: string,
-  callId: string,
-  status: 'initiated' | 'failed',
-  error?: string
-): Promise<void> {
-  try {
-    if (!BACKEND_WEBHOOK_URL) {
-      console.log('No backend webhook URL configured, skipping notification');
-      return;
-    }
-
-    await fetch(`${BACKEND_WEBHOOK_URL}/webhook/call/scheduled`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        user_id: userId,
-        call_id: callId,
-        status,
-        error,
-        triggered_at: new Date().toISOString(),
-      }),
-    });
-  } catch (error) {
-    // Non-critical, just log
-    console.warn('Failed to notify backend:', error);
   }
 }
 
 /**
  * Main Lambda handler
  */
-export const handler = async (event: ScheduledEvent): Promise<{ statusCode: number; body: string }> => {
+export const handler = async (event: ScheduledEvent | { detail: ScheduledEvent }): Promise<{ statusCode: number; body: string }> => {
   console.log('Daily call trigger invoked:', JSON.stringify(event, null, 2));
 
-  const { userId, phoneNumber: eventPhoneNumber, timezone } = event;
+  // Handle EventBridge event structure (event.detail.userId) or direct event (event.userId)
+  const eventData = 'detail' in event ? event.detail : event;
+  if (!eventData) {
+    console.error('No event data provided');
+    return {
+      statusCode: 400,
+      body: JSON.stringify({ error: 'Missing event data' }),
+    };
+  }
+  const userId = eventData.userId;
 
   if (!userId) {
     console.error('No userId provided in event');
@@ -212,20 +194,8 @@ export const handler = async (event: ScheduledEvent): Promise<{ statusCode: numb
       };
     }
 
-    const phoneNumber = eligibility.phoneNumber || eventPhoneNumber;
-    if (!phoneNumber) {
-      console.error(`No phone number for user ${userId}`);
-      return {
-        statusCode: 200,
-        body: JSON.stringify({ 
-          skipped: true, 
-          reason: 'No phone number' 
-        }),
-      };
-    }
-
     // 2. Check if already called today
-    const userTimezone = timezone || 'UTC';
+    const userTimezone = eventData?.timezone || 'UTC';
     const alreadyCalled = await wasCalledToday(supabase, userId, userTimezone);
     if (alreadyCalled) {
       console.log(`User ${userId} already called today, skipping`);
@@ -238,33 +208,30 @@ export const handler = async (event: ScheduledEvent): Promise<{ statusCode: numb
       };
     }
 
-    // 3. Trigger Cartesia call
-    console.log(`Triggering call for user ${userId} at ${phoneNumber}`);
-    const callResult = await triggerCartesiaCall(phoneNumber, userId);
+    // 3. Create LiveKit room via backend
+    console.log(`Creating LiveKit room for user ${userId}`);
+    const roomResult = await createLiveKitRoom(userId);
 
-    if (!callResult.success) {
-      console.error(`Failed to trigger call for ${userId}:`, callResult.error);
-      await notifyBackend(userId, 'failed', 'failed', callResult.error);
+    if (!roomResult.success) {
+      console.error(`Failed to create LiveKit room for ${userId}:`, roomResult.error);
       return {
         statusCode: 500,
         body: JSON.stringify({ 
-          error: 'Failed to trigger call', 
-          details: callResult.error 
+          error: 'Failed to create LiveKit room', 
+          details: roomResult.error 
         }),
       };
     }
 
-    // 4. Notify backend (optional)
-    await notifyBackend(userId, callResult.callId!, 'initiated');
-
-    console.log(`Successfully triggered call for user ${userId}, callId: ${callResult.callId}`);
+    console.log(`Successfully created LiveKit room for user ${userId}, room: ${roomResult.room_name}`);
     
     return {
       statusCode: 200,
       body: JSON.stringify({
         success: true,
         userId,
-        callId: callResult.callId,
+        roomName: roomResult.room_name,
+        callId: roomResult.call_id,
       }),
     };
 

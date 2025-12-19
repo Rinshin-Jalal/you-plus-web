@@ -6,7 +6,7 @@ Main speaking agent that uses LiveKit Agents SDK.
 Implements stage-based conversation flow with background analysis.
 
 Uses:
-- Deepgram for STT
+- Cartesia Ink for STT
 - Cartesia for TTS (with voice cloning)
 - Custom LLM client for AWS Bedrock
 """

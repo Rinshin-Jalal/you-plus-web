@@ -8,7 +8,7 @@ struct CallView: View {
     @Environment(\.dismiss) private var dismiss
 
     init(voiceId: String?) {
-        _viewModel = StateObject(wrappedValue: CallViewModel(voiceId: voiceId))
+        _viewModel = StateObject(wrappedValue: CallViewModel())
     }
 
     var body: some View {
@@ -80,8 +80,10 @@ struct CallView: View {
 
                 // End Call Button
                 Button(action: {
-                    viewModel.endCall()
-                    dismiss()
+                    Task {
+                        await viewModel.endCall()
+                        dismiss()
+                    }
                 }) {
                     HStack(spacing: 12) {
                         Image(systemName: "phone.down.fill")
@@ -117,7 +119,9 @@ struct CallView: View {
             }
         }
         .onDisappear {
-            viewModel.endCall()
+            Task {
+                await viewModel.endCall()
+            }
         }
     }
 

@@ -128,7 +128,6 @@ LIVEKIT_API_SECRET=secret_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 # LLM & Speech Services
 BEDROCK_API_KEY=your_bedrock_api_key_here
-DEEPGRAM_API_KEY=your_deepgram_api_key_here
 CARTESIA_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 # Database
@@ -163,7 +162,6 @@ railway variables set LIVEKIT_URL=wss://youplus-xxxxxxx.livekit.cloud
 railway variables set LIVEKIT_API_KEY=APIxxxxxxxxxxxxxxxxxxxxxxxxxx
 railway variables set LIVEKIT_API_SECRET=secret_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 railway variables set BEDROCK_API_KEY=your_bedrock_api_key
-railway variables set DEEPGRAM_API_KEY=your_deepgram_api_key
 railway variables set CARTESIA_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 railway variables set SUPABASE_URL=https://xxxxxxxxxxxxx.supabase.co
 railway variables set SUPABASE_SERVICE_KEY=eyJhbGc...
@@ -192,7 +190,6 @@ fly secrets set LIVEKIT_URL=wss://youplus-xxxxxxx.livekit.cloud
 fly secrets set LIVEKIT_API_KEY=APIxxxxxxxxxxxxxxxxxxxxxxxxxx
 fly secrets set LIVEKIT_API_SECRET=secret_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 fly secrets set BEDROCK_API_KEY=your_bedrock_api_key
-fly secrets set DEEPGRAM_API_KEY=your_deepgram_api_key
 fly secrets set CARTESIA_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 fly secrets set SUPABASE_URL=https://xxxxxxxxxxxxx.supabase.co
 fly secrets set SUPABASE_SERVICE_KEY=eyJhbGc...
@@ -406,7 +403,6 @@ cat response.json
 | SUPABASE_SERVICE_KEY | ✅ | ✅ | ✅ | ❌ |
 | SUPABASE_ANON_KEY | ✅ | ❌ | ❌ | ✅ |
 | BEDROCK_API_KEY | ❌ | ✅ | ❌ | ❌ |
-| DEEPGRAM_API_KEY | ❌ | ✅ | ❌ | ❌ |
 | CARTESIA_API_KEY | ✅ | ✅ | ❌ | ❌ |
 | BACKEND_URL | ❌ | ✅ | ✅ | ✅ |
 | BACKEND_API_KEY | ❌ | ❌ | ✅ | ❌ |

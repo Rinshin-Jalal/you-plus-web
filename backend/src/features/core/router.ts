@@ -48,6 +48,8 @@ const router = new Hono<{
   Variables: {
     userId: string;
     userEmail: string;
+    validatedJson?: unknown;
+    validatedParams?: unknown;
   };
 }>();
 

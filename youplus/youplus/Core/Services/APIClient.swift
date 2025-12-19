@@ -137,6 +137,33 @@ class APIClient {
 
         return json
     }
+
+    func fetchLiveKitToken(
+        accessToken: String
+    ) async throws -> LiveKitTokenResponse {
+        let endpoint = baseURL.appendingPathComponent("api/livekit/token")
+        var request = URLRequest(url: endpoint)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        // Empty body for POST request
+        request.httpBody = try JSONSerialization.data(withJSONObject: [:])
+
+        let (data, response) = try await session.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIError.invalidResponse
+        }
+
+        guard httpResponse.statusCode == 200 else {
+            let errorResponse = try? JSONDecoder().decode(ErrorResponse.self, from: data)
+            throw APIError.serverError(errorResponse?.error ?? "Unknown error")
+        }
+
+        let decoder = JSONDecoder()
+        return try decoder.decode(LiveKitTokenResponse.self, from: data)
+    }
 }
 
 // MARK: - Response Models

@@ -33,8 +33,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from loguru import logger
-from livekit.agents import AutoSubscribe, JobContext, JobProcess, WorkerOptions, cli
-from livekit.agents.voice_assistant import VoiceAssistant
+from livekit.agents import AutoSubscribe, JobContext, JobProcess, WorkerOptions, cli, AgentSession
 from livekit.plugins import silero, deepgram, cartesia
 
 from core.agent import FutureYouAgent
@@ -54,8 +53,7 @@ def validate_environment():
     }
 
     optional_vars = {
-        "DEEPGRAM_API_KEY": "Required for speech-to-text",
-        "CARTESIA_API_KEY": "Required for text-to-speech",
+        "CARTESIA_API_KEY": "Required for text-to-speech and speech-to-text",
         "SUPABASE_URL": "Required for user data persistence",
         "SUPABASE_SERVICE_KEY": "Required for user data persistence",
         "SUPERMEMORY_API_KEY": "Optional - enables memory features",
