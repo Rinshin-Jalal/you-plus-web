@@ -14,7 +14,8 @@ import type {
   DashboardStats,
   FutureSelf,
   FutureSelfPillar,
-  IdentityAlignment
+  IdentityAlignment,
+  UserProgression
 } from '@/types'
 
 // Singleton for browser - only initialize on client side
@@ -423,6 +424,7 @@ export const db = {
     futureSelf: FutureSelf | null;
     pillars: FutureSelfPillar[];
     pillarAlignment: IdentityAlignment | null;
+    progression: UserProgression | null;
   }> {
     const client = getClient()
     const cutoffDate = new Date()
@@ -437,6 +439,7 @@ export const db = {
       futureSelfResult,
       pillarsResult,
       alignmentResult,
+      progressionResult,
     ] = await Promise.all([
       client.from('users').select('*').eq('id', userId).single(),
       client.from('status').select('*').eq('user_id', userId).single(),
@@ -459,6 +462,7 @@ export const db = {
         .eq('status', 'active')
         .order('priority', { ascending: false }),
       client.rpc('get_pillar_alignment', { p_user_id: userId }),
+      client.from('user_progression').select('*').eq('user_id', userId).single(),
     ])
 
     // Extract alignment from RPC result (returns array)
@@ -476,6 +480,7 @@ export const db = {
       futureSelf: futureSelfResult.data as FutureSelf | null,
       pillars: (pillarsResult.data as FutureSelfPillar[]) || [],
       pillarAlignment,
+      progression: progressionResult.data as UserProgression | null,
     }
   },
 

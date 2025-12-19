@@ -102,6 +102,25 @@ struct AppTheme {
             return .system(size: size, weight: .semibold, design: .default)
         }
     }
+    
+    // CORNER RADIUS SYSTEM (Apple's concentricity-based)
+    // Larger views get proportionally larger corner radii for visual harmony
+    struct CornerRadius {
+        // Calculate radius based on view size (concentricity system)
+        // Formula: base + (smallest dimension * multiplier), clamped to min/max
+        static func concentric(width: CGFloat, height: CGFloat) -> CGFloat {
+            let smallestDimension = min(width, height)
+            // Base radius + percentage of smallest dimension
+            let calculated = 8 + (smallestDimension * 0.08)
+            // Clamp between 8pt (minimum) and 28pt (maximum)
+            return max(8, min(calculated, 28))
+        }
+        
+        // Convenience for GeometryReader
+        static func concentric(size: CGSize) -> CGFloat {
+            return concentric(width: size.width, height: size.height)
+        }
+    }
 }
 
 // MOTION SYSTEM (air moving, not UI reacting)

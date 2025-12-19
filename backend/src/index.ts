@@ -76,6 +76,7 @@ app.notFound((c) => {
         "GET /api/billing/subscription",
         "GET /api/billing/plans",
         "POST /api/billing/cancel",
+        "POST /api/cartesia/access-token",
         "POST /webhook/dodopayments",
         "POST /webhook/call/completed",
         "POST /webhook/call/started",

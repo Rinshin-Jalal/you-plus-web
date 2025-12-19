@@ -392,6 +392,24 @@ export interface DashboardStats {
   transformationStatus?: 'becoming' | 'progressing' | 'struggling' | 'slipping';
 }
 
+export interface UserProgression {
+  id: string;
+  user_id: string;
+  total_xp: number;
+  current_level: number;
+  xp_in_current_level: number;
+  xp_to_next_level: number;
+  streak_multiplier: number;
+  streak_shields: number;
+  mascot_stage: number; // 1-5
+  mascot_mood: 'celebrating' | 'proud' | 'happy' | 'neutral' | 'concerned' | 'sad' | 'sleeping';
+  mascot_energy: number; // 0-100
+  last_xp_earned_at: string | null;
+  last_level_up_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface DashboardData {
   user: User | null;
   status: Status | null;
@@ -404,4 +422,6 @@ export interface DashboardData {
   futureSelf: FutureSelf | null;
   pillars: FutureSelfPillar[];
   pillarAlignment: IdentityAlignment | null;
+  // Mascot
+  progression: UserProgression | null;
 }

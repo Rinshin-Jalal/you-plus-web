@@ -163,12 +163,18 @@ struct DashboardView: View {
                             }
                             .padding(16)
                             .background(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(isOnFire ? AppTheme.accent.opacity(0.1) : Color.white.opacity(0.05))
+                                GeometryReader { geometry in
+                                    let cornerRadius = AppTheme.CornerRadius.concentric(size: geometry.size)
+                                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                                        .fill(isOnFire ? AppTheme.accent.opacity(0.1) : Color.white.opacity(0.05))
+                                }
                             )
                             .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(isOnFire ? AppTheme.accent.opacity(0.3) : Color.white.opacity(0.1), lineWidth: 1)
+                                GeometryReader { geometry in
+                                    let cornerRadius = AppTheme.CornerRadius.concentric(size: geometry.size)
+                                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                                        .stroke(isOnFire ? AppTheme.accent.opacity(0.3) : Color.white.opacity(0.1), lineWidth: 1)
+                                }
                             )
                             .padding(.horizontal, 20)
                         }
@@ -185,38 +191,62 @@ struct DashboardView: View {
 // MARK: - Upcoming Call Card
 struct UpcomingCallCard: View {
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
-                Image(systemName: "clock.fill")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(AppTheme.accent)
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 8) {
+                    Image(systemName: "clock.fill")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(AppTheme.accent)
 
-                Text("NEXT CALL")
-                    .font(AppTheme.Fonts.mono(10))
-                    .tracking(0.2)
-                    .foregroundColor(.white.opacity(0.5))
+                    Text("NEXT CALL")
+                        .font(AppTheme.Fonts.mono(10))
+                        .tracking(0.2)
+                        .foregroundColor(.white.opacity(0.5))
 
-                Spacer()
+                    Spacer()
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Tonight at 7:00 PM")
+                        .font(AppTheme.Fonts.heavy(20))
+                        .foregroundColor(.white)
+
+                    Text("Your Future Self is ready to talk")
+                        .font(AppTheme.Fonts.body(13))
+                        .foregroundColor(.white.opacity(0.6))
+                }
             }
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Tonight at 7:00 PM")
-                    .font(AppTheme.Fonts.heavy(20))
-                    .foregroundColor(.white)
-
-                Text("Your Future Self is ready to talk")
-                    .font(AppTheme.Fonts.body(13))
-                    .foregroundColor(.white.opacity(0.6))
+            // Call Button
+            NavigationLink(destination: CallView(voiceId: nil)) {
+                HStack(spacing: 12) {
+                    Image(systemName: "phone.fill")
+                        .font(.system(size: 14, weight: .semibold))
+                    Text("TALK NOW")
+                        .font(AppTheme.Fonts.mono(12))
+                        .tracking(1)
+                }
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(AppTheme.accent)
+                .cornerRadius(8)
             }
         }
         .padding(16)
         .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(AppTheme.accent.opacity(0.08))
+            GeometryReader { geometry in
+                let cornerRadius = AppTheme.CornerRadius.concentric(size: geometry.size)
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(AppTheme.accent.opacity(0.08))
+            }
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(AppTheme.accent.opacity(0.2), lineWidth: 1)
+            GeometryReader { geometry in
+                let cornerRadius = AppTheme.CornerRadius.concentric(size: geometry.size)
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(AppTheme.accent.opacity(0.2), lineWidth: 1)
+            }
         )
         .padding(.horizontal, 20)
     }
@@ -252,12 +282,18 @@ struct StatsCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
         .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(Color.white.opacity(0.04))
+            GeometryReader { geometry in
+                let cornerRadius = AppTheme.CornerRadius.concentric(size: geometry.size)
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(Color.white.opacity(0.04))
+            }
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+            GeometryReader { geometry in
+                let cornerRadius = AppTheme.CornerRadius.concentric(size: geometry.size)
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
+            }
         )
     }
 }
@@ -288,12 +324,18 @@ struct PillarCardRow: View {
         }
         .padding(12)
         .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(Color.white.opacity(0.04))
+            GeometryReader { geometry in
+                let cornerRadius = AppTheme.CornerRadius.concentric(size: geometry.size)
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .fill(Color.white.opacity(0.04))
+            }
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+            GeometryReader { geometry in
+                let cornerRadius = AppTheme.CornerRadius.concentric(size: geometry.size)
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
+            }
         )
     }
 }

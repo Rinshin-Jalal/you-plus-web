@@ -117,6 +117,7 @@ export const useDashboardStore = create<DashboardState>()(
               futureSelf: dashboardData.futureSelf,
               pillars: dashboardData.pillars,
               pillarAlignment: dashboardData.pillarAlignment,
+              progression: dashboardData.progression,
             },
             loading: false,
             lastFetchedAt: Date.now(),

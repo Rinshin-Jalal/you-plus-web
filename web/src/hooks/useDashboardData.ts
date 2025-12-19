@@ -50,6 +50,8 @@ export const useDashboardData = () => {
     futureSelf: data?.futureSelf ?? null,
     pillars: data?.pillars ?? [],
     pillarAlignment: data?.pillarAlignment ?? null,
+    // Mascot
+    progression: data?.progression ?? null,
   };
 };
 

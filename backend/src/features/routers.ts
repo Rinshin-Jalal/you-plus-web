@@ -3,6 +3,7 @@ import onboardingRouter from "./onboarding/router";
 import webhookRouter from "./webhook/router";
 import coreRouter from "./core/router";
 import billingRouter from "./billing/router";
+import cartesiaRouter from "./cartesia/router";
 import dodoWebhook from "./webhook/dodo-webhook";
 import callWebhook from "./webhook/call-webhook";
 
@@ -12,6 +13,7 @@ const combinedRouter = new Hono();
 // Mount all feature routers with their respective paths
 combinedRouter.route("/api/onboarding", onboardingRouter);
 combinedRouter.route("/api/billing", billingRouter);
+combinedRouter.route("/api/cartesia", cartesiaRouter);
 combinedRouter.route("/webhook", webhookRouter);
 combinedRouter.route("/webhook/dodopayments", dodoWebhook);
 combinedRouter.route("/webhook/call", callWebhook);

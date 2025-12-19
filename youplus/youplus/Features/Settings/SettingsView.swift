@@ -274,7 +274,7 @@ struct SettingsView: View {
             defer { isSaving = false }
 
             do {
-                guard let accessToken = authManager.currentUser?.accessToken else {
+                guard let accessToken = authManager.accessToken else {
                     saveMessage = "No auth token available"
                     showSaveSuccess = false
                     return
