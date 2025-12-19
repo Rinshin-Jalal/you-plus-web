@@ -33,11 +33,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from loguru import logger
-from livekit.agents import AutoSubscribe, JobContext, JobProcess, WorkerOptions, cli, AgentSession
-from livekit.plugins import silero, deepgram, cartesia
+from livekit.agents import AutoSubscribe, JobContext, JobProcess, WorkerOptions, cli, AgentSession, Agent
+from livekit.plugins import silero, deepgram, cartesia, openai
 
-from core.agent import FutureYouAgent
-from core.handlers.session import handle_session
+# from core.agent import FutureYouAgent
+# from core.handlers.session import handle_session
 
 
 def validate_environment():
@@ -101,12 +101,28 @@ async def entrypoint(ctx: JobContext):
     # Connect to the room
     await ctx.connect(auto_subscribe=AutoSubscribe.AUDIO_ONLY)
 
-    # Wait for a participant to join
-    participant = await ctx.wait_for_participant()
-    logger.info(f"Participant joined: {participant.identity}")
+    # Simple test agent for v1.3.9
+    from livekit.agents import Agent
+    from livekit.plugins import openai
 
-    # Handle the voice session
-    await handle_session(ctx, participant)
+    class SimpleAgent(Agent):
+        def __init__(self):
+            super().__init__(
+                instructions="You are a helpful Future Self assistant for accountability calls.",
+                stt=deepgram.STT(model="nova-2"),
+                llm=openai.LLM(model="gpt-4o-mini"),
+                tts=cartesia.TTS(),
+                vad=silero.VAD.load(),
+            )
+
+    # Start the session
+    session = AgentSession()
+    await session.start(
+        room=ctx.room,
+        agent=SimpleAgent()
+    )
+
+    logger.info("Agent session started successfully")
 
 
 if __name__ == "__main__":
