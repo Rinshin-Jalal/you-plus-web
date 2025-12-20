@@ -1,5 +1,5 @@
 """
-FutureYouAgent - Voice Agent for YOU+ Future Self
+FutureYouNode - Voice Agent for YOU+ Future Self
 =================================================
 
 Main speaking agent that uses LiveKit Agents SDK.
@@ -22,9 +22,10 @@ import aiohttp
 from loguru import logger
 from pydantic import BaseModel
 
-from livekit.agents import llm as lk_llm
+from livekit.agents import Agent, function_tool, RunContext
 from livekit.agents.llm import ChatContext, ChatMessage
 
+from core.models import FutureYouSessionData
 from agents.events import (
     ExcuseDetected,
     ExcuseCallout,
@@ -74,17 +75,10 @@ DEFAULT_TEMPERATURE = 0.7
 BACKEND_URL = os.getenv("BACKEND_URL", "https://youplus-backend.workers.dev")
 
 
-class FutureYouAgent:
+class FutureYouNode(Agent):
     """
-    Voice agent for the Future Self accountability calls.
-
-    Uses STAGE-BASED conversation flow:
-    - Tracks current stage (hook → acknowledge → accountability → etc.)
-    - Each stage has focused prompts preventing monologuing
-    - Transitions based on user responses and background agent insights
-
-    This class manages conversation state and generates responses.
-    It's used by the LiveKit VoiceAssistant pipeline.
+    Main station agent for the Future Self accountability call.
+    Handles the HOOK, ACKNOWLEDGE, and CLOSE phases.
     """
 
     def __init__(
@@ -98,7 +92,19 @@ class FutureYouAgent:
         persona_controller: Optional[Any] = None,
         temperature: float = DEFAULT_TEMPERATURE,
         max_output_tokens: int = 150,
+        # LiveKit Agent components
+        stt=None,
+        tts=None,
+        vad=None,
+        llm=None,
     ):
+        super().__init__(
+            instructions=system_prompt,
+            stt=stt,
+            tts=tts,
+            vad=vad,
+            llm=llm,
+        )
         self.system_prompt = system_prompt
         self.temperature = temperature
         self.user_id = user_id
@@ -134,10 +140,52 @@ class FutureYouAgent:
 
         self._log_init_info()
 
+    async def on_enter(self, context: RunContext) -> None:
+        """Called when this station becomes active."""
+        logger.info(f"FutureYouNode entered. Stage: {self.current_stage.value}")
+        
+        # Sync state from userdata if available
+        if hasattr(self.session, 'userdata') and isinstance(self.session.userdata, FutureYouSessionData):
+            self.user_id = self.session.userdata.user_id
+            # Note: current_station value 'hook' should map to CallStage.HOOK
+            station_val = self.session.userdata.current_station
+            try:
+                self.current_stage = CallStage(station_val)
+            except ValueError:
+                self.current_stage = CallStage.HOOK
+
+        # If we just started, generate the hook
+        if self.current_stage == CallStage.HOOK:
+            await self.session.generate_reply(
+                instructions="Introduce yourself as the user's Future Self and deliver the daily check-in hook."
+            )
+
+    @function_tool()
+    async def start_audit(self, context: RunContext[FutureYouSessionData]):
+        """Handoff control to the TruthNode to verify today's promise."""
+        from agents.stations.truth_node import TruthNode
+        
+        logger.info("Station Handoff: FutureYouNode -> TruthNode")
+        context.userdata.current_station = "truth"
+        
+        return TruthNode(
+            system_prompt=self.system_prompt,
+            user_id=self.user_id,
+            user_context=self.user_context,
+            call_type=self.call_type,
+            mood=self.mood,
+            call_memory=self.call_memory,
+            persona_controller=self.persona_controller,
+            # Pass components to new station
+            stt=self.stt,
+            tts=self.tts,
+            vad=self.vad,
+            llm=self.llm,
+        ), "Transferring to accountability audit."
+
     def _log_init_info(self) -> None:
         """Log initialization info."""
-        logger.info(f"FutureYouAgent initialized for user: {self.user_id}")
-        logger.info(f"Starting stage: {self.current_stage.value}")
+        logger.info(f"FutureYouNode initialized for user: {self.user_id}")
         if self.call_type:
             logger.info(f"Call type: {self.call_type.name}")
         if self.mood:
@@ -146,155 +194,34 @@ class FutureYouAgent:
             primary = self.persona_controller.get_primary_persona()
             logger.info(f"Starting persona: {primary.value}")
 
-    async def generate_response(self, user_message: str) -> str:
-        """
-        Generate a response to the user's message.
-
-        This is the main method called by the LiveKit pipeline
-        when the user stops speaking.
-
-        Args:
-            user_message: Transcribed user speech
-
-        Returns:
-            Agent's response text
-        """
-        if not user_message or len(user_message.strip()) < 2:
-            return ""
+    async def on_user_turn_completed(self, turn_ctx: ChatContext, new_message: ChatMessage) -> None:
+        """Called after a user message is added to the chat context."""
+        text = new_message.text_content()
+        if not text:
+            return
 
         self.total_turns += 1
         self.turns_in_stage += 1
 
-        logger.info(f'Processing: "{user_message}"')
-        self.messages.append({"role": "user", "content": user_message})
-        self._detect_promise_response(user_message)
+        logger.info(f'Processing: "{text}"')
+        self._detect_promise_response(text)
 
-        # Build context-aware messages
+        # Check stage advancement
+        await self._maybe_advance_stage_llm(text)
+
+        # Build context-aware instructions for this turn
         stage_context = self._build_stage_context()
         insight_context = self._build_insight_context()
         combined = stage_context + ("\n" + insight_context if insight_context else "")
 
-        # Initial request messages
-        request_messages = self.messages.copy()
         if combined:
-            request_messages.append({"role": "system", "content": combined})
-
-        logger.info(f"Stage: {self.current_stage.value} (turn {self.turns_in_stage})")
-
-        # Tool execution loop
-        max_tool_loops = 3
-        current_loop = 0
-        final_response_content = ""
+            # Add as a system message to guide the LLM's next response
+            turn_ctx.add_message(
+                role="system",
+                content=combined
+            )
         
-        container_tag = f"user_{self.user_id}"
-
-        while current_loop < max_tool_loops:
-            current_loop += 1
-            
-            # Prepare tools if available
-            tools = MEMORY_TOOLS if MEMORY_TOOLS_AVAILABLE else None
-            
-            # Streaming state for this loop
-            current_content = ""
-            tool_calls_buffer: List[Dict] = []
-            
-            # 1. Call LLM
-            try:
-                async for chunk in stream_raw(
-                    messages=request_messages,
-                    temperature=self.temperature,
-                    max_tokens=self.max_output_tokens,
-                    tools=tools
-                ):
-                    delta = chunk.choices[0].delta if chunk.choices else None
-                    if not delta:
-                        continue
-                        
-                    # Accumulate content
-                    if delta.content:
-                        current_content += delta.content
-                    
-                    # Accumulate tool calls
-                    if delta.tool_calls:
-                        for tool_call_chunk in delta.tool_calls:
-                            index = tool_call_chunk.index
-                            
-                            # Expand buffer if needed
-                            while len(tool_calls_buffer) <= index:
-                                tool_calls_buffer.append({
-                                    "id": "",
-                                    "type": "function",
-                                    "function": {"name": "", "arguments": ""}
-                                })
-                            
-                            tc = tool_calls_buffer[index]
-                            if tool_call_chunk.id:
-                                tc["id"] = tool_call_chunk.id
-                            if tool_call_chunk.function and tool_call_chunk.function.name:
-                                tc["function"]["name"] += tool_call_chunk.function.name
-                            if tool_call_chunk.function and tool_call_chunk.function.arguments:
-                                tc["function"]["arguments"] += tool_call_chunk.function.arguments
-                                
-            except Exception as e:
-                logger.error(f"LLM API call failed: {e}")
-                return "I'm having trouble connecting. Let's try again tomorrow."
-
-            # 2. Process results
-            
-            # If we got tool calls, execute them
-            if tool_calls_buffer:
-                logger.info(f"Detected {len(tool_calls_buffer)} tool calls")
-                
-                # Append assistant message with tool calls
-                request_messages.append({
-                    "role": "assistant",
-                    "content": current_content if current_content else None,
-                    "tool_calls": tool_calls_buffer
-                })
-                
-                # Execute each tool
-                for tc in tool_calls_buffer:
-                    func_name = tc["function"]["name"]
-                    func_args_str = tc["function"]["arguments"]
-                    call_id = tc["id"]
-                    
-                    try:
-                        func_args = json.loads(func_args_str)
-                    except json.JSONDecodeError:
-                        func_args = {}
-                        
-                    logger.info(f"Executing tool: {func_name}")
-                    
-                    if execute_memory_tool:
-                        result = await execute_memory_tool(
-                            tool_name=func_name,
-                            arguments=func_args,
-                            container_tag=container_tag
-                        )
-                    else:
-                        result = "Tool execution unavailable."
-                        
-                    # Append tool output
-                    request_messages.append({
-                        "role": "tool",
-                        "tool_call_id": call_id,
-                        "content": str(result)
-                    })
-                
-                # Loop back to LLM with tool outputs
-                continue
-            
-            # If no tool calls, this is the final response
-            final_response_content = current_content
-            break
-
-        # Append final response to history
-        if final_response_content:
-            self.messages.append({"role": "assistant", "content": final_response_content})
-            logger.info(f'Agent: "{final_response_content}" ({len(final_response_content)} chars)')
-            await self._handle_response_end(final_response_content, user_message)
-
-        return final_response_content
+        logger.info(f"Stage: {self.current_stage.value} (turn {self.turns_in_stage})")
 
     def _detect_promise_response(self, message: str) -> None:
         """Detect YES/NO for promise tracking using word boundaries."""
@@ -620,4 +547,4 @@ class FutureYouAgent:
         return int((datetime.now() - self.start_time).total_seconds())
 
 
-__all__ = ["FutureYouAgent"]
+__all__ = ["FutureYouNode"]

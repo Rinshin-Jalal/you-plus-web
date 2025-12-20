@@ -9,7 +9,7 @@ from typing import Optional
 
 from loguru import logger
 
-from core.agent import FutureYouAgent
+from core.agent import FutureYouNode
 from agents.aggregator import CallSummaryAggregator
 from services.user_context import upsert_call_memory
 
@@ -30,7 +30,7 @@ async def handle_session_end(
     call_type,
     mood,
     current_streak: int,
-    agent: FutureYouAgent,
+    agent: FutureYouNode,
     aggregator: CallSummaryAggregator,
     persona_controller: Optional[object] = None,
 ):

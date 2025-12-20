@@ -2,7 +2,7 @@
 Core module for YOU+ Future Self LiveKit Agent.
 """
 
-from core.agent import FutureYouAgent
+from core.agent import FutureYouNode
 from core.config import (
     build_system_prompt_v2,
     build_system_prompt_v3,
@@ -10,7 +10,7 @@ from core.config import (
 )
 
 __all__ = [
-    "FutureYouAgent",
+    "FutureYouNode",
     "build_system_prompt_v2",
     "build_system_prompt_v3",
     "build_first_message",

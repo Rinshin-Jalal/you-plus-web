@@ -3,7 +3,7 @@ Custom Events for Multi-Agent Communication
 =============================================
 
 These events enable background analyzers to communicate insights
-to the main FutureYouAgent speaking agent.
+to the main FutureYouNode speaking agent.
 """
 
 from datetime import datetime

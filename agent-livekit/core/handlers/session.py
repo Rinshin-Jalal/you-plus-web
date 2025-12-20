@@ -15,7 +15,8 @@ from livekit import rtc
 from livekit.agents import JobContext, AgentSession
 from livekit.plugins import silero, deepgram, cartesia
 
-from core.agent import FutureYouAgent
+from core.agent import FutureYouNode
+from core.models import FutureYouSessionData
 from core.handlers.context import fetch_session_context
 from core.handlers.post_session import handle_session_end
 from core.config import (
@@ -96,8 +97,31 @@ async def handle_session(ctx: JobContext, participant: rtc.RemoteParticipant):
         persona_controller,
     )
 
-    # Create the agent
-    agent = FutureYouAgent(
+    # Initialize shared session data
+    userdata = FutureYouSessionData(
+        user_id=user_id,
+        current_station="hook"
+    )
+
+    # Initialize call aggregator for insights
+    call_aggregator = CallSummaryAggregator(user_id, call_type.name, mood.name)
+    call_aggregator.start()
+
+    # Initialize components
+    vad = ctx.proc.userdata.get("vad") or silero.VAD.load()
+    stt = deepgram.STT(model="nova-2", language="en")
+    llm = BedrockLLMAdapter()
+
+    future_self = user_context.get("future_self", {})
+    voice_id = future_self.get("cartesia_voice_id") or DEFAULT_VOICE_ID
+    tts = cartesia.TTS(
+        voice=voice_id,
+        model="sonic-english",
+        speed=_get_speed_for_mood(mood),
+    )
+
+    # Create the initial agent station with all components
+    initial_agent = FutureYouNode(
         system_prompt=system_prompt,
         user_id=user_id,
         user_context=user_context,
@@ -105,47 +129,82 @@ async def handle_session(ctx: JobContext, participant: rtc.RemoteParticipant):
         mood=mood,
         call_memory=call_memory,
         persona_controller=persona_controller,
+        # Pass LiveKit components
+        stt=stt,
+        tts=tts,
+        vad=vad,
+        llm=llm,
     )
 
-    # Setup aggregator
-    call_aggregator = CallSummaryAggregator(user_id, call_type.name, mood.name)
-    call_aggregator.start()
+    # Helper to route insights to aggregator
+    def _feed_aggregator(aggregator: CallSummaryAggregator, insight):
+        """Route insight events to the appropriate aggregator method."""
+        from agents.events import (
+            SentimentAnalysis,
+            ExcuseDetected,
+            PromiseResponse,
+            CommitmentIdentified,
+            MemorableQuoteDetected,
+            PatternAlert,
+        )
 
-    # Get voice configuration
-    future_self = user_context.get("future_self", {})
-    voice_id = future_self.get("cartesia_voice_id") or DEFAULT_VOICE_ID
+        if isinstance(insight, SentimentAnalysis):
+            aggregator.add_sentiment(insight)
+        elif isinstance(insight, ExcuseDetected):
+            aggregator.add_excuse(insight)
+        elif isinstance(insight, PromiseResponse):
+            aggregator.add_promise(insight)
+        elif isinstance(insight, CommitmentIdentified):
+            aggregator.add_commitment(insight)
+        elif isinstance(insight, MemorableQuoteDetected):
+            aggregator.add_quote(insight)
+        elif isinstance(insight, PatternAlert):
+            aggregator.add_pattern(insight)
+        else:
+            logger.warning(f"Unknown insight type: {type(insight)}")
 
-    # Initialize components
-    vad = ctx.proc.userdata.get("vad") or silero.VAD.load()
-    stt = deepgram.STT(
-        model="nova-2",
-        language="en",
+    # Setup background analysis hook
+    async def on_user_speech(text: str):
+        if not text:
+            return
+        logger.info(f"Background analysis running on: {text}")
+        insights = await run_background_analysis(
+            user_text=text,
+            user_context=user_context,
+            promise_already_detected=userdata.held_promise
+        )
+        for insight in insights:
+            _feed_aggregator(call_aggregator, insight)
+            # Update shared userdata
+            if hasattr(insight, 'sentiment'):
+                userdata.sentiments.append(insight.sentiment)
+            if hasattr(insight, 'excuse_text'):
+                userdata.excuses_detected.append(insight.excuse_text)
+            if hasattr(insight, 'kept'):
+                userdata.held_promise = insight.kept
+            if hasattr(insight, 'action'):
+                 userdata.tomorrow_commitment = insight.action
+
+    # Listen to room transcriptions for background analysis
+    @ctx.room.on("transcription_received")
+    def on_transcription(transcriptions: list[rtc.Transcription], participant: rtc.Participant, room: rtc.Room):
+        for trans in transcriptions:
+            if trans.is_final:
+                asyncio.create_task(on_user_speech(trans.text))
+
+    # Start the multi-agent session
+    session = AgentSession[FutureYouSessionData](
+        room=ctx.room,
+        agent=initial_agent,
+        userdata=userdata
     )
-    tts = cartesia.TTS(
-        voice=voice_id,
-        model="sonic-english",
-        speed=_get_speed_for_mood(mood),
-    )
+    
+    await session.start()
+    logger.info("Multi-agent session started successfully")
 
-    # For now, use direct agent response generation
-    # TODO: Implement proper AgentSession integration with BedrockLLMAdapter
-    logger.info("Agent session started with custom LLM")
-
-    # Manual session loop (simplified for now)
-    # This is a temporary implementation until we fully refactor for v1.3.9
-    logger.warning("Using simplified session handling - full v1.3.9 refactor needed")
-
-    logger.info("Session setup complete")
-
-    # Wait for session to end
-    # The session ends when the participant disconnects or we detect call end
+    # Monitor session
     try:
-        while not agent.call_ended:
-            # Check if participant is still connected
-            if participant.sid not in [p.sid for p in ctx.room.remote_participants.values()]:
-                logger.info("Participant disconnected")
-                break
-            await asyncio.sleep(1)
+        await session.wait_for_session_end()
     except asyncio.CancelledError:
         logger.info("Session cancelled")
 
@@ -157,7 +216,7 @@ async def handle_session(ctx: JobContext, participant: rtc.RemoteParticipant):
         call_type=call_type,
         mood=mood,
         current_streak=current_streak,
-        agent=agent,
+        agent=initial_agent,
         aggregator=call_aggregator,
         persona_controller=persona_controller,
     )
