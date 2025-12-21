@@ -17,8 +17,8 @@ from typing import Optional
 
 from loguru import logger
 
-# Import the shared LLM client
-from core.llm_client import call
+# Import the shared LLM client (fast_call for quick analysis tasks)
+from core.llm_client import fast_call
 
 # Default max tokens - enough for most JSON responses
 DEFAULT_MAX_TOKENS = 512
@@ -31,7 +31,8 @@ async def llm_analyze(
     max_tokens: int = DEFAULT_MAX_TOKENS,
 ) -> Optional[str]:
     """
-    Quick LLM call for analysis tasks.
+    Quick LLM call for analysis tasks using fast 20B model.
+    Used for: stage transitions, excuse detection, sentiment, etc.
 
     Args:
         prompt: The user message/query
@@ -48,15 +49,15 @@ async def llm_analyze(
     messages.append({"role": "user", "content": prompt})
 
     try:
-        result = await call(
+        result = await fast_call(  # Use fast model for analysis
             messages=messages,
             temperature=temperature,
             max_tokens=max_tokens,
-            timeout=10,
+            timeout=5,  # Faster timeout for quick analysis
         )
         return result.strip() if result else None
     except Exception as e:
-        logger.error(f"LLM call failed: {e}")
+        logger.error(f"Fast LLM call failed: {e}")
         return None
 
 

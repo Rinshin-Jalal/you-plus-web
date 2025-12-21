@@ -33,19 +33,8 @@ class TruthNode(Agent):
         mood: Optional[Mood] = None,
         call_memory: Optional[dict] = None,
         persona_controller: Optional[Any] = None,
-        # LiveKit Agent components
-        stt=None,
-        tts=None,
-        vad=None,
-        llm=None,
     ):
-        super().__init__(
-            instructions=system_prompt,
-            stt=stt,
-            tts=tts,
-            vad=vad,
-            llm=llm,
-        )
+        super().__init__(instructions=system_prompt)
         self.system_prompt = system_prompt
         self.user_id = user_id
         self.user_context = user_context or {}
@@ -55,17 +44,18 @@ class TruthNode(Agent):
         self.persona_controller = persona_controller
         self.current_stage = CallStage.ACCOUNTABILITY
 
-    async def on_enter(self, context: RunContext[FutureYouSessionData]) -> None:
+    async def on_enter(self) -> None:
         """Called when this station becomes active."""
-        logger.info(f"TruthNode entering. Context current_station: {context.userdata.current_station}")
-        
+        logger.info(f"TruthNode entering")
+
         # Determine starting greeting based on promise status if known
         instructions = "You are now in the accountability phase. Ask the user if they kept their promise for today."
-        
-        if context.userdata.held_promise is True:
-            instructions = "The user kept their promise! Acknowledge their success warmly and ask what they learned."
-        elif context.userdata.held_promise is False:
-            instructions = "The user broke their promise. Call them out firmly but with love as their future self, and ask why."
+
+        if hasattr(self.session, 'userdata') and isinstance(self.session.userdata, FutureYouSessionData):
+            if self.session.userdata.held_promise is True:
+                instructions = "The user kept their promise! Acknowledge their success warmly and ask what they learned."
+            elif self.session.userdata.held_promise is False:
+                instructions = "The user broke their promise. Call them out firmly but with love as their future self, and ask why."
 
         await self.session.generate_reply(instructions=instructions)
 
@@ -85,16 +75,11 @@ class TruthNode(Agent):
             mood=self.mood,
             call_memory=self.call_memory,
             persona_controller=self.persona_controller,
-            # Pass components to new station
-            stt=self.stt,
-            tts=self.tts,
-            vad=self.vad,
-            llm=self.llm,
         ), "Transitioning to planning for tomorrow."
 
     async def on_user_turn_completed(self, turn_ctx: ChatContext, new_message: ChatMessage) -> None:
         """Process user message during accountability audit."""
-        text = new_message.text_content()
+        text = new_message.text_content
         logger.info(f"TruthNode processing: {text}")
         
         # Additional system instructions could be injected here based on insights

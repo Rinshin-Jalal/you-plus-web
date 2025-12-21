@@ -25,7 +25,10 @@ from openai.types.chat import ChatCompletionChunk
 # Configuration from environment variables
 BEDROCK_API_KEY = os.getenv("BEDROCK_API_KEY")
 BEDROCK_REGION = os.getenv("BEDROCK_REGION", "us-west-2")
-BEDROCK_MODEL = os.getenv("BEDROCK_MODEL", "openai.gpt-oss-20b-1:0")
+BEDROCK_MODEL = os.getenv("BEDROCK_MODEL", "qwen.qwen3-next-80b-a3b")
+
+# Fast model for quick analysis tasks (stage transitions, excuse detection, etc.)
+BEDROCK_FAST_MODEL = os.getenv("BEDROCK_FAST_MODEL", "openai.gpt-oss-safeguard-20b")
 
 # Legacy support - check for old LLM_* variables if BEDROCK_* not set
 if not BEDROCK_API_KEY:
@@ -40,7 +43,7 @@ if not BEDROCK_REGION or BEDROCK_REGION == "us-west-2":
             region_part = parts[1].split(".amazonaws.com")[0]
             if region_part:
                 BEDROCK_REGION = region_part
-if not BEDROCK_MODEL or BEDROCK_MODEL == "openai.gpt-oss-20b-1:0":
+if not BEDROCK_MODEL or BEDROCK_MODEL == "qwen.qwen3-next-80b-a3b":
     BEDROCK_MODEL = os.getenv("LLM_MODEL", BEDROCK_MODEL)
 
 
@@ -205,4 +208,47 @@ async def call(
 
     except Exception as e:
         logger.error(f"LLM API call failed: {e}")
+        return None
+
+
+async def fast_call(
+    messages: list[dict],
+    temperature: float = 0.0,
+    max_tokens: int = 150,
+    timeout: int = 5,
+) -> Optional[str]:
+    """
+    Fast LLM call using smaller model for quick analysis tasks.
+    Used for: stage transitions, excuse detection, sentiment, etc.
+
+    Args:
+        messages: OpenAI-format messages list
+        temperature: Sampling temperature (default 0.0 for deterministic)
+        max_tokens: Maximum tokens (default 150)
+        timeout: Request timeout in seconds (default 5s for fast response)
+
+    Returns:
+        Full response content or None on error
+    """
+    if not BEDROCK_API_KEY:
+        logger.error("BEDROCK_API_KEY not set")
+        return None
+
+    client = _get_client()
+
+    kwargs = {
+        "model": BEDROCK_FAST_MODEL,  # Use fast 20B model
+        "messages": messages,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
+        "stream": False,
+        "timeout": timeout,
+    }
+
+    try:
+        response = await client.chat.completions.create(**kwargs)
+        return response.choices[0].message.content if response.choices else None
+
+    except Exception as e:
+        logger.error(f"Fast LLM API call failed: {e}")
         return None

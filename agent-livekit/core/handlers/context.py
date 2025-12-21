@@ -35,8 +35,14 @@ async def fetch_session_context(user_id: str) -> Optional[dict]:
     future_self = user_context.get("future_self", {})
     status = user_context.get("status", {})
 
-    # Reject if user doesn't exist
+    # Handle demo/test users (e.g., from LiveKit Playground)
     if not future_self or not future_self.get("user_id"):
+        # Check if this is a demo/test user
+        if user_id.startswith("identity-") or user_id.startswith("test-") or user_id == "demo":
+            logger.info(f"🧪 Creating demo context for test user: {user_id}")
+            return _create_demo_context(user_id)
+
+        # Real user not found - reject
         logger.warning(f"User {user_id} not found in future_self table")
         return None
 
@@ -86,6 +92,43 @@ async def fetch_session_context(user_id: str) -> Optional[dict]:
         "call_type": call_type,
         "mood": mood,
         "yesterday_promise_kept": yesterday_promise_kept,
+    }
+
+
+def _create_demo_context(user_id: str) -> dict:
+    """
+    Create mock context for demo/test users from LiveKit Playground.
+
+    Args:
+        user_id: The test user's ID (e.g., identity-KlCq)
+
+    Returns:
+        Dict with mock user_context, call_memory, call_type, mood, etc.
+    """
+    from conversation.call_types import CALL_TYPES
+    from conversation.mood import MOODS
+
+    logger.info(f"📋 Creating demo context for test user: {user_id}")
+
+    return {
+        "user_context": {
+            "future_self": {
+                "user_id": user_id,
+                "name": "Demo User",
+                "cartesia_voice_id": None,  # Will use default voice
+            },
+            "status": {
+                "subscription_status": "active",
+                "current_streak_days": 0,
+                "calls_paused": False,
+            },
+            "call_history": [],
+        },
+        "call_memory": {},
+        "excuse_data": {"patterns": [], "frequency": {}},
+        "call_type": CALL_TYPES["audit"],
+        "mood": MOODS["warm_direct"],
+        "yesterday_promise_kept": None,
     }
 
 

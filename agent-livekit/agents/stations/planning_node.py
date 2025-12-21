@@ -31,19 +31,8 @@ class PlanningNode(Agent):
         mood: Optional[Mood] = None,
         call_memory: Optional[dict] = None,
         persona_controller: Optional[Any] = None,
-        # LiveKit Agent components
-        stt=None,
-        tts=None,
-        vad=None,
-        llm=None,
     ):
-        super().__init__(
-            instructions=system_prompt,
-            stt=stt,
-            tts=tts,
-            vad=vad,
-            llm=llm,
-        )
+        super().__init__(instructions=system_prompt)
         self.system_prompt = system_prompt
         self.user_id = user_id
         self.user_context = user_context or {}
@@ -53,14 +42,15 @@ class PlanningNode(Agent):
         self.persona_controller = persona_controller
         self.current_stage = CallStage.TOMORROW_LOCK
 
-    async def on_enter(self, context: RunContext[FutureYouSessionData]) -> None:
+    async def on_enter(self) -> None:
         """Called when this station becomes active."""
-        logger.info(f"PlanningNode entered. Context current_station: {context.userdata.current_station}")
-        
+        logger.info(f"PlanningNode entered")
+
         instructions = "Transition to tomorrow's plan. Ask the user specifically what they will do tomorrow and at what time."
-        
-        if context.userdata.tomorrow_commitment:
-            instructions = f"The user already mentioned a commitment: {context.userdata.tomorrow_commitment}. Confirm if they are locking this in and at what time."
+
+        if hasattr(self.session, 'userdata') and isinstance(self.session.userdata, FutureYouSessionData):
+            if self.session.userdata.tomorrow_commitment:
+                instructions = f"The user already mentioned a commitment: {self.session.userdata.tomorrow_commitment}. Confirm if they are locking this in and at what time."
 
         await self.session.generate_reply(instructions=instructions)
 
@@ -83,11 +73,6 @@ class PlanningNode(Agent):
             mood=self.mood,
             call_memory=self.call_memory,
             persona_controller=self.persona_controller,
-            # Pass components to new station
-            stt=self.stt,
-            tts=self.tts,
-            vad=self.vad,
-            llm=self.llm,
         )
         node.current_stage = CallStage.CLOSE
 
@@ -95,7 +80,7 @@ class PlanningNode(Agent):
 
     async def on_user_turn_completed(self, turn_ctx: ChatContext, new_message: ChatMessage) -> None:
         """Process user message during planning."""
-        text = new_message.text_content()
+        text = new_message.text_content
         logger.info(f"PlanningNode processing: {text}")
         
         # In a real implementation, we'd use CommitmentExtractorNode insight here.

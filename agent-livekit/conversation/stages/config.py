@@ -316,4 +316,8 @@ IMPORTANT SIGNALS TO WATCH FOR:
 - User is deflecting or repeating themselves → Don't force it, move on
 - User mentions tomorrow/next steps → They're ready to commit or close
 
-Should we move to {next_stage}? Reply ONLY: YES or NO"""
+Should we move to {next_stage}?
+
+REPLY WITH EXACTLY ONE WORD: YES or NO
+DO NOT include reasoning, explanations, or any other text.
+JUST: YES or NO"""

@@ -92,19 +92,8 @@ class FutureYouNode(Agent):
         persona_controller: Optional[Any] = None,
         temperature: float = DEFAULT_TEMPERATURE,
         max_output_tokens: int = 150,
-        # LiveKit Agent components
-        stt=None,
-        tts=None,
-        vad=None,
-        llm=None,
     ):
-        super().__init__(
-            instructions=system_prompt,
-            stt=stt,
-            tts=tts,
-            vad=vad,
-            llm=llm,
-        )
+        super().__init__(instructions=system_prompt)
         self.system_prompt = system_prompt
         self.temperature = temperature
         self.user_id = user_id
@@ -140,10 +129,10 @@ class FutureYouNode(Agent):
 
         self._log_init_info()
 
-    async def on_enter(self, context: RunContext) -> None:
+    async def on_enter(self) -> None:
         """Called when this station becomes active."""
         logger.info(f"FutureYouNode entered. Stage: {self.current_stage.value}")
-        
+
         # Sync state from userdata if available
         if hasattr(self.session, 'userdata') and isinstance(self.session.userdata, FutureYouSessionData):
             self.user_id = self.session.userdata.user_id
@@ -156,8 +145,16 @@ class FutureYouNode(Agent):
 
         # If we just started, generate the hook
         if self.current_stage == CallStage.HOOK:
+            streak = self.user_context.get("status", {}).get("current_streak_days", 0)
+            day_num = streak + 1
+            
+            if day_num == 1:
+                hook_instr = f"Day {day_num}. It's me, your future self. I know how close you were to giving up. Deliver this exact opening line with profound weight, then wait for the user to respond."
+            else:
+                hook_instr = f"Day {day_num}. It's me. You know why I'm calling. Deliver this exact opening line firmly, then wait for the user to respond."
+
             await self.session.generate_reply(
-                instructions="Introduce yourself as the user's Future Self and deliver the daily check-in hook."
+                instructions=hook_instr
             )
 
     @function_tool()
@@ -176,11 +173,6 @@ class FutureYouNode(Agent):
             mood=self.mood,
             call_memory=self.call_memory,
             persona_controller=self.persona_controller,
-            # Pass components to new station
-            stt=self.stt,
-            tts=self.tts,
-            vad=self.vad,
-            llm=self.llm,
         ), "Transferring to accountability audit."
 
     def _log_init_info(self) -> None:
@@ -196,7 +188,7 @@ class FutureYouNode(Agent):
 
     async def on_user_turn_completed(self, turn_ctx: ChatContext, new_message: ChatMessage) -> None:
         """Called after a user message is added to the chat context."""
-        text = new_message.text_content()
+        text = new_message.text_content  # Property, not method
         if not text:
             return
 
@@ -206,8 +198,8 @@ class FutureYouNode(Agent):
         logger.info(f'Processing: "{text}"')
         self._detect_promise_response(text)
 
-        # Check stage advancement
-        await self._maybe_advance_stage_llm(text)
+        # Check stage advancement in background (don't block response!)
+        asyncio.create_task(self._maybe_advance_stage_llm(text))
 
         # Build context-aware instructions for this turn
         stage_context = self._build_stage_context()
@@ -266,10 +258,6 @@ class FutureYouNode(Agent):
         # Extract commitment
         if "tomorrow" in response.lower() and "?" not in response:
             self.tomorrow_commitment = self._extract_commitment(response)
-
-        # Check stage advancement
-        if user_message:
-            await self._maybe_advance_stage_llm(user_message)
 
     def _extract_commitment(self, response: str) -> Optional[str]:
         """Extract commitment from response."""
@@ -423,7 +411,17 @@ class FutureYouNode(Agent):
         return "\n".join(parts)
 
     async def _maybe_advance_stage_llm(self, user_message: str) -> None:
-        """Use LLM to decide stage advancement."""
+        """Use FAST LLM to decide stage advancement - NO RULE-BASED FALLBACK."""
+        # HOOK stage: ALWAYS advance after first turn (it's just the opener)
+        if self.current_stage == CallStage.HOOK and self.turns_in_stage >= 1:
+            next_stage = get_next_stage(self.current_stage)
+            if next_stage:
+                old = self.current_stage.value
+                self.current_stage = next_stage
+                self.turns_in_stage = 0
+                logger.info(f"⚡ Auto-transition from HOOK: {old} → {next_stage.value}")
+                return
+
         if self.turns_in_stage < 1:
             return
 
@@ -461,37 +459,29 @@ class FutureYouNode(Agent):
         prompt = build_transition_check_prompt(self.current_stage, recent)
 
         if not prompt:
-            self._maybe_advance_stage()
+            logger.warning(f"Empty transition prompt for {self.current_stage.value}")
             return
 
         try:
-            response = await llm_analyze(prompt=prompt, temperature=0.0, max_tokens=10)
+            # Fast 20B model check with minimal tokens
+            response = await llm_analyze(prompt=prompt, temperature=0.0, max_tokens=20)
+
+            # Strip out any reasoning tags or extra text
+            if response:
+                # Remove XML-style tags
+                response = response.replace("<reasoning>", "").replace("</reasoning>", "")
+                response = response.strip()
+
             if response and "YES" in response.upper():
                 old = self.current_stage.value
                 self.current_stage = next_stage
                 self.turns_in_stage = 0
-                logger.info(f"LLM transition: {old} → {next_stage.value}")
+                logger.info(f"✅ Fast LLM transition: {old} → {next_stage.value}")
+            else:
+                logger.debug(f"Staying in {self.current_stage.value} (LLM: {response})")
         except Exception as e:
-            logger.warning(f"LLM check failed, using rules: {e}")
-            self._maybe_advance_stage()
+            logger.error(f"Fast LLM check failed: {e}")
 
-    def _maybe_advance_stage(self) -> None:
-        """Rule-based stage advancement (fallback)."""
-        if self.turns_in_stage < 1:
-            return
-
-        if should_advance_stage(
-            current_stage=self.current_stage,
-            turns_in_stage=self.turns_in_stage,
-            promise_answered=self.kept_promise is not None,
-            commitment_locked=self.commitment_is_specific,
-        ):
-            next_stage = get_next_stage(self.current_stage)
-            if next_stage:
-                old = self.current_stage.value
-                self.current_stage = next_stage
-                self.turns_in_stage = 0
-                logger.info(f"Stage transition: {old} → {next_stage.value}")
 
     async def report_call_result(self):
         """Report call result to backend."""

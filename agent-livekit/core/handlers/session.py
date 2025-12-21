@@ -13,7 +13,7 @@ from typing import Optional
 from loguru import logger
 from livekit import rtc
 from livekit.agents import JobContext, AgentSession
-from livekit.plugins import silero, deepgram, cartesia
+from livekit.plugins import silero, cartesia
 
 from core.agent import FutureYouNode
 from core.models import FutureYouSessionData
@@ -109,18 +109,18 @@ async def handle_session(ctx: JobContext, participant: rtc.RemoteParticipant):
 
     # Initialize components
     vad = ctx.proc.userdata.get("vad") or silero.VAD.load()
-    stt = deepgram.STT(model="nova-2", language="en")
+    stt = cartesia.STT(model="ink-whisper", language="en")
     llm = BedrockLLMAdapter()
 
     future_self = user_context.get("future_self", {})
     voice_id = future_self.get("cartesia_voice_id") or DEFAULT_VOICE_ID
     tts = cartesia.TTS(
         voice=voice_id,
-        model="sonic-english",
+        model="sonic-3",  # Use sonic-3 for speed/emotion support
         speed=_get_speed_for_mood(mood),
     )
 
-    # Create the initial agent station with all components
+    # Create the initial agent station
     initial_agent = FutureYouNode(
         system_prompt=system_prompt,
         user_id=user_id,
@@ -129,11 +129,6 @@ async def handle_session(ctx: JobContext, participant: rtc.RemoteParticipant):
         mood=mood,
         call_memory=call_memory,
         persona_controller=persona_controller,
-        # Pass LiveKit components
-        stt=stt,
-        tts=tts,
-        vad=vad,
-        llm=llm,
     )
 
     # Helper to route insights to aggregator
@@ -192,36 +187,28 @@ async def handle_session(ctx: JobContext, participant: rtc.RemoteParticipant):
             if trans.is_final:
                 asyncio.create_task(on_user_speech(trans.text))
 
-    # Start the multi-agent session
-    session = AgentSession[FutureYouSessionData](
+    # Create the multi-agent session with components
+    session = AgentSession(
+        stt=stt,
+        llm=llm,
+        tts=tts,
+        vad=vad,
+    )
+
+    # Set userdata BEFORE starting session (on_enter needs it)
+    session.userdata = userdata
+
+    # Start the session with room, agent
+    await session.start(
         room=ctx.room,
         agent=initial_agent,
-        userdata=userdata
     )
-    
-    await session.start()
+
     logger.info("Multi-agent session started successfully")
 
-    # Monitor session
-    try:
-        await session.wait_for_session_end()
-    except asyncio.CancelledError:
-        logger.info("Session cancelled")
-
-    # End of session processing
-    await handle_session_end(
-        user_id=user_id,
-        user_context=user_context,
-        call_memory=call_memory,
-        call_type=call_type,
-        mood=mood,
-        current_streak=current_streak,
-        agent=initial_agent,
-        aggregator=call_aggregator,
-        persona_controller=persona_controller,
-    )
-
-    logger.info(f"Session ended for user: {user_id}")
+    # Note: Session lifecycle is managed by LiveKit framework
+    # Session will automatically handle cleanup and end-of-session processing
+    # To handle session end, use the on_session_end callback in @server.rtc_session() decorator
 
 
 def _parse_participant_metadata(participant: rtc.RemoteParticipant) -> dict:
