@@ -1,50 +1,86 @@
 """
-Excuse pattern tracking and callout generation.
+Excuse Pattern Handling
+=======================
+Functions for detecting, saving, and fetching excuse patterns.
 """
 
 import os
+import sys
 import aiohttp
+from pathlib import Path
+
+# Add agent directory to path for imports
+AGENT_DIR = Path(__file__).parent.parent.parent
+if str(AGENT_DIR) not in sys.path:
+    sys.path.insert(0, str(AGENT_DIR))
+
+from core.llm_client import fast_call
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
 
 
-def normalize_excuse_pattern(excuse_text: str) -> str:
+async def normalize_excuse_pattern(excuse_text: str) -> str:
     """
-    Normalize an excuse to a pattern category.
+    Normalize an excuse to a pattern category using LLM.
+    
+    Uses fast LLM model to intelligently categorize excuses instead of
+    hardcoded pattern matching.
 
     Examples:
         "I was too tired after work" -> "too_tired"
         "didn't have time yesterday" -> "no_time"
         "I forgot about it" -> "forgot"
+        "My car broke down" -> "transportation"
+        "Had an emergency" -> "emergency"
     """
-    text = excuse_text.lower()
+    system_prompt = """You are an excuse pattern classifier. Analyze the user's excuse and categorize it into one of these patterns (return ONLY the pattern name, lowercase with underscores):
 
-    # Check family first (before sick, since "kids were sick" should be family)
-    if "kid" in text or "family" in text or "wife" in text or "husband" in text:
-        return "family"
-    if "tired" in text:
-        return "too_tired"
-    if "time" in text and ("didn't" in text or "no " in text or "have" in text):
-        return "no_time"
-    if "busy" in text:
-        return "busy"
-    if "forgot" in text:
-        return "forgot"
-    if "sick" in text or "headache" in text or "ill" in text:
-        return "sick"
-    if "work" in text and ("late" in text or "stuck" in text or "busy" in text):
-        return "work"
-    if "tomorrow" in text or "next time" in text or "later" in text:
-        return "tomorrow"
-    if "stress" in text:
-        return "stressed"
-    if "weather" in text:
-        return "weather"
-    if "traffic" in text:
-        return "traffic"
+Common patterns:
+- too_tired: Being tired, exhausted, drained
+- no_time: Not having time, ran out of time, time constraints
+- busy: Being busy, overwhelmed, too many things
+- forgot: Forgetting, memory issues
+- sick: Illness, health issues, feeling unwell
+- work: Work-related issues, late at work, work obligations
+- family: Family obligations, kids, spouse, family emergencies
+- stressed: Stress, anxiety, mental health
+- weather: Weather-related issues
+- transportation: Car trouble, traffic, transport issues
+- emergency: Unexpected emergencies, urgent situations
+- tomorrow: Procrastination, "I'll do it tomorrow/next time"
+- other: Anything that doesn't fit the above categories
 
-    return "other"
+Return ONLY the pattern name (e.g., "too_tired", "no_time", "other"). No explanation."""
+
+    user_prompt = f"Excuse: {excuse_text}"
+    
+    try:
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ]
+        
+        result = await fast_call(
+            messages=messages,
+            temperature=0.0,  # Deterministic
+            max_tokens=20,    # Just need the pattern name
+            timeout=3,        # Fast timeout
+        )
+        
+        if result:
+            # Clean up the response - remove whitespace, quotes, etc.
+            pattern = result.strip().lower().replace('"', '').replace("'", "")
+            # Validate it's a reasonable pattern name (alphanumeric + underscores)
+            if pattern and all(c.isalnum() or c == '_' for c in pattern):
+                return pattern
+        
+        # Fallback to "other" if LLM fails or returns invalid response
+        return "other"
+        
+    except Exception as e:
+        print(f"⚠️ LLM excuse pattern normalization failed: {e}")
+        return "other"
 
 
 async def save_excuse_pattern(
@@ -81,10 +117,13 @@ async def save_excuse_pattern(
                 "Content-Type": "application/json",
             }
 
+            # Normalize excuse pattern using LLM
+            pattern = await normalize_excuse_pattern(excuse_text)
+            
             payload = {
                 "user_id": user_id,
                 "excuse_text": excuse_text[:500],  # Limit length
-                "excuse_pattern": normalize_excuse_pattern(excuse_text),
+                "excuse_pattern": pattern,
                 "matches_favorite": matches_favorite,
                 "confidence": confidence,
                 "streak_day": streak_day,
@@ -98,7 +137,6 @@ async def save_excuse_pattern(
                 headers=headers,
             ) as resp:
                 if resp.status in (200, 201):
-                    pattern = normalize_excuse_pattern(excuse_text)
                     print(f"🎯 Saved excuse pattern '{pattern}' for {user_id}")
                     return True
                 else:
@@ -215,3 +253,4 @@ def build_excuse_callout_section(excuse_data: dict) -> str:
     lines.append("")
 
     return "\n".join(lines)
+

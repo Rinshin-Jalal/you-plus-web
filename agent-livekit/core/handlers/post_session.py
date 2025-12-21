@@ -32,7 +32,7 @@ async def handle_session_end(
     current_streak: int,
     agent: FutureYouNode,
     aggregator: CallSummaryAggregator,
-    persona_controller: Optional[object] = None,
+    # Removed persona_controller
 ):
     """
     Handle end of session processing.
@@ -73,10 +73,11 @@ async def handle_session_end(
     await agent.report_call_result()
 
     # Update persona severity if needed
-    if persona_controller and agent.kept_promise is False:
+    # Severity tracking (for future use if needed)
+    if agent.kept_promise is False:
         severity = updated_memory.get("severity_level", 1)
         updated_memory["severity_level"] = min(severity + 1, 5)
-    elif persona_controller and agent.kept_promise is True:
+    elif agent.kept_promise is True:
         severity = updated_memory.get("severity_level", 1)
         updated_memory["severity_level"] = max(severity - 1, 1)
 

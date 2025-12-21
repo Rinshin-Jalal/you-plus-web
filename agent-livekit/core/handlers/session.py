@@ -11,38 +11,16 @@ import json
 from typing import Optional
 
 from loguru import logger
+import os
 from livekit import rtc
 from livekit.agents import JobContext, AgentSession
-from livekit.plugins import silero, cartesia
+from livekit.plugins import silero, cartesia, aws
 
 from core.agent import FutureYouNode
 from core.models import FutureYouSessionData
 from core.handlers.context import fetch_session_context
 from core.config import build_prompt
-from core.llm_adapter import BedrockLLMAdapter
-# removed background agent imports
-
-# Persona system integration
-try:
-    from conversation.persona import PersonaController
-    from services.trust_score import trust_score_service
-
-    PERSONA_AVAILABLE = True
-except ImportError:
-    PersonaController = None
-    trust_score_service = None
-    PERSONA_AVAILABLE = False
-
-# Future-self system integration
-try:
-    from conversation.future_self import FutureSelf
-    from services.future_self_service import get_future_self
-
-    FUTURE_SELF_SYSTEM_AVAILABLE = True
-except ImportError:
-    FutureSelf = None
-    get_future_self = None
-    FUTURE_SELF_SYSTEM_AVAILABLE = False
+from services.future_self_service import get_future_self
 
 # Default voice (fallback if user has no clone)
 DEFAULT_VOICE_ID = "a0e99841-438c-4a64-b679-ae501e7d6091"
@@ -83,11 +61,6 @@ async def handle_session(ctx: JobContext, participant: rtc.RemoteParticipant) ->
 
     logger.info(f"📞 Call type: {call_type.name} | 🎭 Mood: {mood.name}")
 
-    # Initialize persona controller
-    persona_controller = await _init_persona(
-        user_id, user_context, call_memory, yesterday_promise_kept
-    )
-
     # Build system prompt
     system_prompt = await _build_prompt(
         user_id=user_id,
@@ -95,7 +68,7 @@ async def handle_session(ctx: JobContext, participant: rtc.RemoteParticipant) ->
         call_type=call_type,
         call_memory=call_memory,
         excuse_data=excuse_data,
-        persona_controller=persona_controller,
+        mood=mood,
     )
 
     # Initialize shared session data
@@ -104,7 +77,15 @@ async def handle_session(ctx: JobContext, participant: rtc.RemoteParticipant) ->
     # Initialize components
     vad = ctx.proc.userdata.get("vad") or silero.VAD.load()
     stt = cartesia.STT(model="ink-whisper", language="en")
-    llm = BedrockLLMAdapter()
+    
+    # Use official LiveKit AWS Bedrock plugin
+    bedrock_model = os.getenv("BEDROCK_MODEL", "qwen.qwen3-next-80b-a3b")
+    bedrock_region = os.getenv("BEDROCK_REGION", "us-west-2")
+    llm = aws.LLM(
+        model=bedrock_model,
+        region=bedrock_region,
+        temperature=0.7,
+    )
 
     future_self = user_context.get("future_self", {})
     voice_id = future_self.get("cartesia_voice_id") or DEFAULT_VOICE_ID
@@ -122,7 +103,6 @@ async def handle_session(ctx: JobContext, participant: rtc.RemoteParticipant) ->
         call_type=call_type,
         mood=mood,
         call_memory=call_memory,
-        persona_controller=persona_controller,
     )
 
     # Create the multi-agent session with components
@@ -158,39 +138,17 @@ def _parse_participant_metadata(participant: rtc.RemoteParticipant) -> dict:
     return metadata
 
 
-async def _init_persona(
-    user_id: str,
-    user_context: dict,
-    call_memory: dict,
-    yesterday_promise_kept: Optional[bool],
-) -> Optional[PersonaController]:
-    """Initialize PersonaController if available."""
-    if not PERSONA_AVAILABLE or not PersonaController or not trust_score_service:
-        return None
-
-    trust_score = await trust_score_service.get_overall_trust(user_id)
-    controller = PersonaController(trust_score, yesterday_promise_kept)
-    controller.set_severity_level(call_memory.get("severity_level", 1))
-    logger.info(f"🎭 Persona: {controller.get_primary_persona().value}")
-    return controller
-
-
 async def _build_prompt(
     user_id: str,
     user_context: dict,
     call_type,
     call_memory: dict,
     excuse_data: Optional[dict],
-    persona_controller: Optional[PersonaController],
+    mood,
 ) -> str:
     """Build personalized system prompt using v4."""
     # Fetch FutureSelf object for v4
-    future_self_obj = None
-    if FUTURE_SELF_SYSTEM_AVAILABLE and get_future_self:
-        try:
-            future_self_obj = await get_future_self(user_id)
-        except Exception as e:
-            logger.warning(f"Could not fetch FutureSelf object: {e}")
+    future_self_obj = await get_future_self(user_id)
 
     return await build_prompt(
         user_id=user_id,
@@ -198,8 +156,8 @@ async def _build_prompt(
         call_type=call_type,
         call_memory=call_memory,
         excuse_data=excuse_data,
-        persona_controller=persona_controller,
         future_self=future_self_obj,
+        mood=mood,
     )
 
 

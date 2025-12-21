@@ -1,9 +1,9 @@
 """
-Future Self Service - Database Operations
-==========================================
+Future Self Service - READ ONLY
+==================================
 
-Service for managing future_self, future_self_pillars, and pillar_checkins.
-Integrates with Supermemory for rich narrative context.
+Agent only reads data for prompts. Backend handles all writes.
+Provides functions to fetch future_self, pillars, and check-in data.
 """
 
 import os
@@ -19,11 +19,9 @@ except ImportError:
     create_client = None  # type: ignore
     HAS_SUPABASE = False
 
-from conversation.future_self import (
-    Pillar,
+from conversation.pillars import (
     PillarState,
     FutureSelf,
-    ACTIONABLE_PILLARS,
 )
 
 logger = logging.getLogger(__name__)
@@ -54,7 +52,7 @@ def get_supabase_client() -> Any:
 
 def pillar_from_row(row: Dict[str, Any]) -> PillarState:
     """Convert database row to PillarState object."""
-    pillar_type = Pillar(row["pillar"])
+    pillar_id = row["pillar"]  # Now a string, not an enum
 
     last_checked = None
     if row.get("last_checked_at"):
@@ -66,7 +64,7 @@ def pillar_from_row(row: Dict[str, Any]) -> PillarState:
             pass
 
     return PillarState(
-        pillar=pillar_type,
+        pillar=pillar_id,
         pillar_id=row["id"],
         current_state=row.get("current_state", ""),
         future_state=row.get("future_state", ""),
@@ -90,14 +88,9 @@ def future_self_from_rows(
     pillars = {}
     for row in pillar_rows:
         state = pillar_from_row(row)
-        pillars[state.pillar] = state
+        pillars[state.pillar] = state  # Key by pillar ID string
 
-    primary = Pillar.BODY
-    if fs_row.get("primary_pillar"):
-        try:
-            primary = Pillar(fs_row["primary_pillar"])
-        except ValueError:
-            pass
+    primary = fs_row.get("primary_pillar", "")  # Now a string
 
     return FutureSelf(
         user_id=fs_row["user_id"],
@@ -120,69 +113,8 @@ def future_self_from_rows(
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# FUTURE SELF CRUD
+# FUTURE SELF READS (Agent only reads - backend handles writes)
 # ═══════════════════════════════════════════════════════════════════════════════
-
-
-async def create_future_self(
-    user_id: str,
-    core_identity: str,
-    primary_pillar: Pillar,
-    the_why: str,
-    dark_future: Optional[str] = None,
-    quit_pattern: Optional[str] = None,
-    favorite_excuse: Optional[str] = None,
-    who_disappointed: Optional[List[str]] = None,
-    fears: Optional[List[str]] = None,
-) -> Optional[FutureSelf]:
-    """Create a new future_self record."""
-    client = get_supabase_client()
-    if not client:
-        logger.error("No Supabase client available")
-        return None
-
-    try:
-        result = (
-            client.table("future_self")
-            .insert(
-                {
-                    "user_id": user_id,
-                    "core_identity": core_identity,
-                    "primary_pillar": primary_pillar.value,
-                    "the_why": the_why,
-                    "dark_future": dark_future,
-                    "quit_pattern": quit_pattern,
-                    "favorite_excuse": favorite_excuse,
-                    "who_disappointed": who_disappointed or [],
-                    "fears": fears or [],
-                    "overall_trust_score": 50,
-                }
-            )
-            .execute()
-        )
-
-        if not result.data:
-            return None
-
-        fs_row = result.data[0]
-        return FutureSelf(
-            user_id=user_id,
-            future_self_id=fs_row["id"],
-            core_identity=core_identity,
-            primary_pillar=primary_pillar,
-            the_why=the_why,
-            dark_future=dark_future or "",
-            quit_pattern=quit_pattern or "",
-            favorite_excuse=favorite_excuse or "",
-            who_disappointed=who_disappointed or [],
-            fears=fears or [],
-            overall_trust_score=50,
-            pillars={},
-        )
-
-    except Exception as e:
-        logger.error(f"Failed to create future_self: {e}")
-        return None
 
 
 async def get_future_self(user_id: str) -> Optional[FutureSelf]:
@@ -224,76 +156,9 @@ async def get_future_self(user_id: str) -> Optional[FutureSelf]:
         return None
 
 
-async def update_future_self(user_id: str, updates: Dict[str, Any]) -> bool:
-    """Update a future_self record."""
-    client = get_supabase_client()
-    if not client:
-        return False
-
-    try:
-        # Convert Pillar enum to string if present
-        if "primary_pillar" in updates and isinstance(
-            updates["primary_pillar"], Pillar
-        ):
-            updates["primary_pillar"] = updates["primary_pillar"].value
-
-        updates["updated_at"] = datetime.now().isoformat()
-
-        client.table("future_self").update(updates).eq("user_id", user_id).execute()
-        return True
-
-    except Exception as e:
-        logger.error(f"Failed to update future_self: {e}")
-        return False
-
-
 # ═══════════════════════════════════════════════════════════════════════════════
-# PILLAR CRUD
+# PILLAR READS (Agent only reads - backend handles writes)
 # ═══════════════════════════════════════════════════════════════════════════════
-
-
-async def create_pillar(
-    user_id: str,
-    future_self_id: str,
-    pillar: Pillar,
-    current_state: str,
-    future_state: str,
-    identity_statement: str,
-    non_negotiable: str,
-    priority: int = 50,
-) -> Optional[PillarState]:
-    """Create a pillar for a user's future_self."""
-    client = get_supabase_client()
-    if not client:
-        return None
-
-    try:
-        result = (
-            client.table("future_self_pillars")
-            .insert(
-                {
-                    "user_id": user_id,
-                    "future_self_id": future_self_id,
-                    "pillar": pillar.value,
-                    "current_state": current_state,
-                    "future_state": future_state,
-                    "identity_statement": identity_statement,
-                    "non_negotiable": non_negotiable,
-                    "priority": priority,
-                    "trust_score": 50,
-                    "status": "active",
-                }
-            )
-            .execute()
-        )
-
-        if result.data:
-            return pillar_from_row(result.data[0])
-        return None
-
-    except Exception as e:
-        logger.error(f"Failed to create pillar: {e}")
-        return None
 
 
 async def get_user_pillars(user_id: str, active_only: bool = True) -> List[PillarState]:
@@ -343,98 +208,9 @@ async def get_pillar(pillar_id: str) -> Optional[PillarState]:
         return None
 
 
-async def update_pillar_trust(pillar_id: str, trust_score: int) -> bool:
-    """Update a pillar's trust score."""
-    client = get_supabase_client()
-    if not client:
-        return False
-
-    try:
-        client.table("future_self_pillars").update(
-            {
-                "trust_score": max(0, min(100, trust_score)),
-                "updated_at": datetime.now().isoformat(),
-            }
-        ).eq("id", pillar_id).execute()
-        return True
-
-    except Exception as e:
-        logger.error(f"Failed to update pillar trust: {e}")
-        return False
-
-
 # ═══════════════════════════════════════════════════════════════════════════════
-# PILLAR CHECK-INS
+# PILLAR CHECK-INS READS (Agent only reads - backend handles writes)
 # ═══════════════════════════════════════════════════════════════════════════════
-
-
-async def record_pillar_checkin(
-    pillar_id: str,
-    user_id: str,
-    showed_up: bool,
-    what_happened: Optional[str] = None,
-    excuse_used: Optional[str] = None,
-    matched_pattern: bool = False,
-    identity_vote: Optional[str] = None,
-    call_id: Optional[str] = None,
-) -> Optional[str]:
-    """
-    Record a pillar check-in and update pillar stats.
-
-    Returns the check-in ID if successful.
-    """
-    client = get_supabase_client()
-    if not client:
-        return None
-
-    try:
-        # Use the database function for atomic update
-        result = client.rpc(
-            "record_pillar_checkin",
-            {
-                "p_pillar_id": pillar_id,
-                "p_user_id": user_id,
-                "p_showed_up": showed_up,
-                "p_what_happened": what_happened,
-                "p_excuse_used": excuse_used,
-                "p_matched_pattern": matched_pattern,
-                "p_identity_vote": identity_vote,
-                "p_call_id": call_id,
-            },
-        ).execute()
-
-        if result.data:
-            return result.data
-        return None
-
-    except Exception as e:
-        logger.error(f"Failed to record pillar check-in: {e}")
-
-        # Fallback to manual insert if RPC fails
-        try:
-            insert_result = (
-                client.table("pillar_checkins")
-                .insert(
-                    {
-                        "pillar_id": pillar_id,
-                        "user_id": user_id,
-                        "showed_up": showed_up,
-                        "what_happened": what_happened,
-                        "excuse_used": excuse_used,
-                        "matched_pattern": matched_pattern,
-                        "identity_vote": identity_vote,
-                        "call_id": call_id,
-                    }
-                )
-                .execute()
-            )
-
-            if insert_result.data:
-                return insert_result.data[0]["id"]
-        except Exception as e2:
-            logger.error(f"Fallback insert also failed: {e2}")
-
-        return None
 
 
 async def get_pillar_checkins(pillar_id: str, days: int = 7) -> List[Dict[str, Any]]:
@@ -485,9 +261,9 @@ async def get_call_focus_pillars(user_id: str, limit: int = 2) -> List[PillarSta
         # Convert RPC results to PillarState objects
         pillars = []
         for row in result.data:
-            pillar_type = Pillar(row["pillar"])
+            pillar_id = row["pillar"]  # Now a string
             state = PillarState(
-                pillar=pillar_type,
+                pillar=pillar_id,
                 pillar_id=row["pillar_id"],
                 identity_statement=row.get("identity_statement", ""),
                 non_negotiable=row.get("non_negotiable", ""),
@@ -570,87 +346,6 @@ async def get_pillar_summary(user_id: str) -> List[Dict[str, Any]]:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# ONBOARDING HELPERS
-# ═══════════════════════════════════════════════════════════════════════════════
-
-
-async def create_complete_future_self(
-    user_id: str,
-    core_identity: str,
-    primary_pillar: Pillar,
-    the_why: str,
-    pillars_data: List[Dict[str, Any]],
-    dark_future: Optional[str] = None,
-    quit_pattern: Optional[str] = None,
-    favorite_excuse: Optional[str] = None,
-    who_disappointed: Optional[List[str]] = None,
-    fears: Optional[List[str]] = None,
-    voice_urls: Optional[Dict[str, str]] = None,
-) -> Optional[FutureSelf]:
-    """
-    Create a complete future_self with all pillars in one operation.
-    Used during onboarding.
-
-    Args:
-        pillars_data: List of dicts with keys:
-            - pillar: Pillar enum
-            - current_state: str
-            - future_state: str
-            - identity_statement: str
-            - non_negotiable: str
-            - priority: int (optional)
-    """
-    # Create the future_self record
-    future_self = await create_future_self(
-        user_id=user_id,
-        core_identity=core_identity,
-        primary_pillar=primary_pillar,
-        the_why=the_why,
-        dark_future=dark_future,
-        quit_pattern=quit_pattern,
-        favorite_excuse=favorite_excuse,
-        who_disappointed=who_disappointed,
-        fears=fears,
-    )
-
-    if not future_self or not future_self.future_self_id:
-        return None
-
-    # Update voice URLs if provided
-    if voice_urls:
-        await update_future_self(
-            user_id,
-            {
-                "future_self_intro_url": voice_urls.get("intro", ""),
-                "why_recording_url": voice_urls.get("why", ""),
-                "pledge_recording_url": voice_urls.get("pledge", ""),
-            },
-        )
-
-    # Create all pillars
-    for pdata in pillars_data:
-        pillar = pdata.get("pillar")
-        if not pillar or pillar not in ACTIONABLE_PILLARS:
-            continue
-
-        pillar_state = await create_pillar(
-            user_id=user_id,
-            future_self_id=future_self.future_self_id,
-            pillar=pillar,
-            current_state=pdata.get("current_state", ""),
-            future_state=pdata.get("future_state", ""),
-            identity_statement=pdata.get("identity_statement", ""),
-            non_negotiable=pdata.get("non_negotiable", ""),
-            priority=pdata.get("priority", 50),
-        )
-
-        if pillar_state:
-            future_self.pillars[pillar] = pillar_state
-
-    return future_self
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
 # CHECKIN SUMMARY
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -720,13 +415,8 @@ def build_pillars_prompt_context(pillars: List[PillarState]) -> str:
     if not pillars:
         return ""
 
-    PILLAR_EMOJIS = {
-        Pillar.BODY: "💪",
-        Pillar.MISSION: "🎯",
-        Pillar.STACK: "💰",
-        Pillar.TRIBE: "👥",
-        Pillar.WHY: "🧭",
-    }
+    # Generic emoji - could be made configurable per pillar type
+    DEFAULT_EMOJI = "📍"
 
     lines = [
         "# TODAY'S FOCUS PILLARS",
@@ -735,10 +425,10 @@ def build_pillars_prompt_context(pillars: List[PillarState]) -> str:
     ]
 
     for p in pillars:
-        emoji = PILLAR_EMOJIS.get(p.pillar, "📍")
+        emoji = DEFAULT_EMOJI  # Could lookup from pillar config if needed
         status = "🔴 NEEDS ATTENTION" if p.needs_attention else "🟢"
 
-        lines.append(f"## {emoji} {p.pillar.value.upper()} {status}")
+        lines.append(f"## {emoji} {p.pillar.upper()} {status}")
 
         if p.identity_statement:
             lines.append(f'Identity: "{p.identity_statement}"')
@@ -807,19 +497,13 @@ __all__ = [
     "get_supabase_client",
     "pillar_from_row",
     "future_self_from_rows",
-    "create_future_self",
     "get_future_self",
-    "update_future_self",
-    "create_pillar",
     "get_user_pillars",
     "get_pillar",
-    "update_pillar_trust",
-    "record_pillar_checkin",
     "get_pillar_checkins",
     "get_call_focus_pillars",
     "get_identity_alignment",
     "get_pillar_summary",
-    "create_complete_future_self",
     "get_user_checkin_summary",
     "build_pillars_prompt_context",
     "build_pillar_checkin_summary_context",

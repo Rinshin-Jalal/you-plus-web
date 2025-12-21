@@ -49,7 +49,7 @@ class FutureYouNode(Agent):
         call_type: Optional[CallType] = None,
         mood: Optional[Mood] = None,
         call_memory: Optional[dict] = None,
-        persona_controller: Optional[Any] = None,
+        # Removed persona_controller - AI adapts from context
         temperature: float = DEFAULT_TEMPERATURE,
         max_output_tokens: int = 150,
     ):
@@ -62,7 +62,7 @@ class FutureYouNode(Agent):
         self.mood = mood
         self.call_memory = call_memory or {}
         self.max_output_tokens = max_output_tokens
-        self.persona_controller = persona_controller
+        # Persona system removed
 
         # Conversation history (OpenAI format)
         self.messages: list[dict] = [{"role": "system", "content": system_prompt}]
@@ -99,9 +99,7 @@ class FutureYouNode(Agent):
             logger.info(f"Call type: {self.call_type.name}")
         if self.mood:
             logger.info(f"Mood: {self.mood.name}")
-        if self.persona_controller and PERSONA_AVAILABLE:
-            primary = self.persona_controller.get_primary_persona()
-            logger.info(f"Starting persona: {primary.value}")
+        # Persona system removed - AI adapts tone from context
 
     async def on_user_turn_completed(self, turn_ctx: ChatContext, new_message: ChatMessage) -> None:
         """Called after a user message."""

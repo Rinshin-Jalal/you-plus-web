@@ -14,7 +14,7 @@ from services.user_context import (
     fetch_call_memory,
     get_yesterday_promise_status,
 )
-from services.excuse_patterns import fetch_excuse_patterns
+# Excuse patterns removed - not needed anymore
 from conversation.call_types import select_call_type
 from conversation.mood import select_mood
 
@@ -60,9 +60,6 @@ async def fetch_session_context(user_id: str) -> Optional[dict]:
     # Fetch call memory
     call_memory = await fetch_call_memory(user_id)
 
-    # Fetch excuse patterns
-    excuse_data = await fetch_excuse_patterns(user_id)
-
     # Determine yesterday's promise status
     call_history = user_context.get("call_history", [])
     yesterday_promise_kept = get_yesterday_promise_status(call_history)
@@ -88,7 +85,7 @@ async def fetch_session_context(user_id: str) -> Optional[dict]:
     return {
         "user_context": user_context,
         "call_memory": call_memory,
-        "excuse_data": excuse_data,
+        "excuse_data": {},  # Removed excuse patterns system
         "call_type": call_type,
         "mood": mood,
         "yesterday_promise_kept": yesterday_promise_kept,
@@ -125,7 +122,7 @@ def _create_demo_context(user_id: str) -> dict:
             "call_history": [],
         },
         "call_memory": {},
-        "excuse_data": {"patterns": [], "frequency": {}},
+        "excuse_data": {},  # Removed excuse patterns system
         "call_type": CALL_TYPES["audit"],
         "mood": MOODS["warm_direct"],
         "yesterday_promise_kept": None,
