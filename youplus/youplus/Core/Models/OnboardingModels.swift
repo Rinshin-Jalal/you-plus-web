@@ -14,6 +14,8 @@ enum OnboardingStepType: String, Codable {
     case pillarQuestions = "pillar_questions"
     case voicePreference = "voice_preference"
     case voiceSelection = "voice_selection"
+    case analyzing
+    case diagnosis
     case card
     case auth
 }
