@@ -1,57 +1,36 @@
 """
-FutureYouNode - Voice Agent for YOU+ Future Self
-=================================================
+FutureYouNode - SIMPLIFIED Voice Agent (NO STAGES!)
+====================================================
 
-Main speaking agent that uses LiveKit Agents SDK.
-Implements stage-based conversation flow with background analysis.
-
-Uses:
-- Cartesia Ink for STT
-- Cartesia for TTS (with voice cloning)
-- Custom LLM client for AWS Bedrock
+Single prompt with natural conversation flow - no manual stage tracking!
+The prompt describes what should happen and when, LLM handles the rest.
 """
 
 import os
 import re
-import asyncio
-import json
-from typing import Optional, Callable, Any, List, Dict
+from typing import Optional, Callable, Any
 from datetime import datetime
 
 import aiohttp
 from loguru import logger
-from pydantic import BaseModel
 
-from livekit.agents import Agent, function_tool, RunContext
+from livekit.agents import Agent
 from livekit.agents.llm import ChatContext, ChatMessage
 
 from core.models import FutureYouSessionData
 from agents.events import (
     ExcuseDetected,
-    ExcuseCallout,
     SentimentAnalysis,
     CommitmentIdentified,
     PromiseResponse,
-    UserFrustrated,
-    PatternAlert,
     MemorableQuoteDetected,
 )
 from conversation.call_types import CallType
 from conversation.mood import Mood
-from conversation.stages.models import CallStage
-from conversation.stages.transitions import (
-    get_stage_prompt,
-    get_next_stage,
-    should_advance_stage,
-    build_transition_check_prompt,
-)
-from core.llm import llm_analyze
-from core.llm_client import stream_response, stream_raw, call as llm_call
 
 # Persona system integration
 try:
     from conversation.persona import PersonaController, Persona
-
     PERSONA_AVAILABLE = True
 except ImportError:
     PersonaController = None
@@ -59,26 +38,13 @@ except ImportError:
     PERSONA_AVAILABLE = False
     logger.warning("Persona system not available")
 
-# Memory tools integration
-try:
-    from services.supermemory import execute_memory_tool, MEMORY_TOOLS
-
-    MEMORY_TOOLS_AVAILABLE = True
-except ImportError:
-    execute_memory_tool = None
-    MEMORY_TOOLS = []
-    MEMORY_TOOLS_AVAILABLE = False
-    logger.warning("Memory tools not available")
-
-
 DEFAULT_TEMPERATURE = 0.7
 BACKEND_URL = os.getenv("BACKEND_URL", "https://youplus-backend.workers.dev")
 
 
 class FutureYouNode(Agent):
     """
-    Main station agent for the Future Self accountability call.
-    Handles the HOOK, ACKNOWLEDGE, and CLOSE phases.
+    Main agent - NO STAGES! Just natural conversation flow guided by the prompt.
     """
 
     def __init__(
@@ -107,15 +73,10 @@ class FutureYouNode(Agent):
         # Conversation history (OpenAI format)
         self.messages: list[dict] = [{"role": "system", "content": system_prompt}]
 
-        # Stage tracking
-        self.current_stage = CallStage.HOOK
-        self.turns_in_stage = 0
+        # Call state (NO STAGES - just track what matters!)
         self.total_turns = 0
-
-        # Call state
         self.kept_promise: Optional[bool] = None
         self.tomorrow_commitment: Optional[str] = None
-        self.commitment_is_specific: bool = False
         self.call_ended = False
         self.start_time = datetime.now()
 
@@ -123,57 +84,22 @@ class FutureYouNode(Agent):
         self._pending_insights: list = []
         self._current_sentiment: Optional[str] = None
         self._excuse_detected: Optional[ExcuseDetected] = None
-        self._frustration_level: Optional[str] = None
         self._quotes_this_call: list = []
-        self._peaks_this_call: list = []
 
         self._log_init_info()
 
     async def on_enter(self) -> None:
-        """Called when this station becomes active."""
-        logger.info(f"FutureYouNode entered. Stage: {self.current_stage.value}")
+        """Called when agent becomes active - LLM generates opening based on system prompt context."""
+        logger.info(f"FutureYouNode entered - natural flow mode")
 
-        # Sync state from userdata if available
         if hasattr(self.session, 'userdata') and isinstance(self.session.userdata, FutureYouSessionData):
             self.user_id = self.session.userdata.user_id
-            # Note: current_station value 'hook' should map to CallStage.HOOK
-            station_val = self.session.userdata.current_station
-            try:
-                self.current_stage = CallStage(station_val)
-            except ValueError:
-                self.current_stage = CallStage.HOOK
 
-        # If we just started, generate the hook
-        if self.current_stage == CallStage.HOOK:
-            streak = self.user_context.get("status", {}).get("current_streak_days", 0)
-            day_num = streak + 1
-            
-            if day_num == 1:
-                hook_instr = f"Day {day_num}. It's me, your future self. I know how close you were to giving up. Deliver this exact opening line with profound weight, then wait for the user to respond."
-            else:
-                hook_instr = f"Day {day_num}. It's me. You know why I'm calling. Deliver this exact opening line firmly, then wait for the user to respond."
-
-            await self.session.generate_reply(
-                instructions=hook_instr
-            )
-
-    @function_tool()
-    async def start_audit(self, context: RunContext[FutureYouSessionData]):
-        """Handoff control to the TruthNode to verify today's promise."""
-        from agents.stations.truth_node import TruthNode
-        
-        logger.info("Station Handoff: FutureYouNode -> TruthNode")
-        context.userdata.current_station = "truth"
-        
-        return TruthNode(
-            system_prompt=self.system_prompt,
-            user_id=self.user_id,
-            user_context=self.user_context,
-            call_type=self.call_type,
-            mood=self.mood,
-            call_memory=self.call_memory,
-            persona_controller=self.persona_controller,
-        ), "Transferring to accountability audit."
+        # System prompt already has: mood, call_type, persona, day number, yesterday's outcome, etc.
+        # Just tell the LLM to generate the opening - it knows what to do!
+        await self.session.generate_reply(
+            instructions="Generate your opening line (1-2 sentences max). Then wait for their response."
+        )
 
     def _log_init_info(self) -> None:
         """Log initialization info."""
@@ -187,191 +113,62 @@ class FutureYouNode(Agent):
             logger.info(f"Starting persona: {primary.value}")
 
     async def on_user_turn_completed(self, turn_ctx: ChatContext, new_message: ChatMessage) -> None:
-        """Called after a user message is added to the chat context."""
-        text = new_message.text_content  # Property, not method
+        """Called after a user message."""
+        text = new_message.text_content
         if not text:
             return
 
         self.total_turns += 1
-        self.turns_in_stage += 1
+        logger.info(f'Turn {self.total_turns}: "{text}"')
 
-        logger.info(f'Processing: "{text}"')
-        self._detect_promise_response(text)
 
-        # Check stage advancement in background (don't block response!)
-        asyncio.create_task(self._maybe_advance_stage_llm(text))
-
-        # Build context-aware instructions for this turn
-        stage_context = self._build_stage_context()
+        # Build insights context from background agents
         insight_context = self._build_insight_context()
-        combined = stage_context + ("\n" + insight_context if insight_context else "")
 
-        if combined:
-            # Add as a system message to guide the LLM's next response
+        if insight_context:
+            # Add insights as guidance
             turn_ctx.add_message(
                 role="system",
-                content=combined
+                content=insight_context
             )
-        
-        logger.info(f"Stage: {self.current_stage.value} (turn {self.turns_in_stage})")
 
     def _detect_promise_response(self, message: str) -> None:
-        """Detect YES/NO for promise tracking using word boundaries."""
+        """Detect YES/NO for promise tracking."""
         lower = message.lower().strip()
 
-        yes_patterns = [
-            r"\byes\b",
-            r"\byeah\b",
-            r"\byep\b",
-            r"\byup\b",
-            r"\bdid it\b",
-            r"\bi did\b",
-            r"\bcompleted\b",
-        ]
-        no_patterns = [
-            r"\bno\b",
-            r"\bnope\b",
-            r"\bdidn\'?t\b",
-            r"\bnah\b",
-            r"\bnot yet\b",
-            r"\bcouldn\'?t\b",
-        ]
+        yes_patterns = [r"\byes\b", r"\byeah\b", r"\byep\b", r"\byup\b", r"\bdid it\b", r"\bi did\b", r"\bcompleted\b"]
+        no_patterns = [r"\bno\b", r"\bnope\b", r"\bdidn\'?t\b", r"\bnah\b", r"\bnot yet\b", r"\bcouldn\'?t\b"]
 
         if any(re.search(pattern, lower) for pattern in yes_patterns):
             self.kept_promise = True
-            logger.info("Promise KEPT detected")
+            logger.info("✅ Promise KEPT detected")
         elif any(re.search(pattern, lower) for pattern in no_patterns):
             self.kept_promise = False
-            logger.info("Promise BROKEN detected")
-
-    async def _handle_response_end(
-        self, response: str, user_message: Optional[str]
-    ) -> None:
-        """Handle end of response - check for call end and stage advance."""
-        # Check for call end
-        end_indicators = ["take care", "talk tomorrow", "goodbye", "bye for now"]
-        if any(ind in response.lower() for ind in end_indicators):
-            if self.current_stage == CallStage.CLOSE:
-                logger.info("Ending call (close stage + goodbye)")
-                self.call_ended = True
-
-        # Extract commitment
-        if "tomorrow" in response.lower() and "?" not in response:
-            self.tomorrow_commitment = self._extract_commitment(response)
-
-    def _extract_commitment(self, response: str) -> Optional[str]:
-        """Extract commitment from response."""
-        lower = response.lower()
-        if "you'll" in lower or "you will" in lower:
-            return response[:200]
-        return None
+            logger.info("❌ Promise BROKEN detected")
 
     def add_insight(self, insight: Any) -> None:
-        """Receive and process insights from background agents."""
+        """Receive insights from background agents."""
         logger.info(f"Received insight: {type(insight).__name__}")
 
         if isinstance(insight, ExcuseDetected):
-            self._handle_excuse_insight(insight)
+            label = "(MATCHES FAVORITE!)" if insight.matches_favorite else ""
+            self._pending_insights.append(f"[EXCUSE DETECTED: '{insight.excuse_text}' {label}]")
         elif isinstance(insight, SentimentAnalysis):
-            self._handle_sentiment_insight(insight)
+            if insight.sentiment in ("frustrated", "defensive", "deflecting"):
+                self._pending_insights.append(f"[SENTIMENT: User seems {insight.sentiment}]")
         elif isinstance(insight, CommitmentIdentified):
-            self._handle_commitment_insight(insight)
+            if insight.is_specific:
+                self.tomorrow_commitment = f"{insight.action} at {insight.time}"
+                self._pending_insights.append(f"[COMMITMENT: {insight.action} at {insight.time} - SPECIFIC!]")
         elif isinstance(insight, PromiseResponse):
-            self._handle_promise_insight(insight)
-        elif isinstance(insight, UserFrustrated):
-            self._handle_frustration_insight(insight)
-        elif isinstance(insight, PatternAlert):
-            self._handle_pattern_insight(insight)
+            if insight.kept is not None:
+                self.kept_promise = insight.kept
         elif isinstance(insight, MemorableQuoteDetected):
-            self._handle_quote_insight(insight)
-        elif isinstance(insight, ExcuseCallout):
-            self._handle_callout_insight(insight)
-
-    def _handle_excuse_insight(self, insight: ExcuseDetected) -> None:
-        self._excuse_detected = insight
-        label = "(MATCHES FAVORITE!)" if insight.matches_favorite else ""
-        self._pending_insights.append(
-            f"[EXCUSE DETECTED: '{insight.excuse_text}' {label}]"
-        )
-        if self.persona_controller and PERSONA_AVAILABLE:
-            self.persona_controller.update_from_insight(
-                "excuse_detected",
-                {
-                    "excuse_text": insight.excuse_text,
-                    "matches_favorite": insight.matches_favorite,
-                },
-            )
-
-    def _handle_sentiment_insight(self, insight: SentimentAnalysis) -> None:
-        self._current_sentiment = insight.sentiment
-        if insight.sentiment in ("frustrated", "defensive", "deflecting"):
-            self._pending_insights.append(
-                f"[SENTIMENT: User seems {insight.sentiment}. "
-                f"Indicators: {', '.join(insight.indicators[:3])}]"
-            )
-        if self.persona_controller and PERSONA_AVAILABLE:
-            energy = insight.indicators[0] if insight.indicators else "medium"
-            self.persona_controller.update_from_insight(
-                "sentiment_analysis", {"sentiment": insight.sentiment, "energy": energy}
-            )
-
-    def _handle_commitment_insight(self, insight: CommitmentIdentified) -> None:
-        if insight.is_specific:
-            self.tomorrow_commitment = f"{insight.action} at {insight.time}"
-            self.commitment_is_specific = True
-            self._pending_insights.append(
-                f"[COMMITMENT: {insight.action} at {insight.time} - SPECIFIC!]"
-            )
-        elif insight.action:
-            self.tomorrow_commitment = insight.action
-            self._pending_insights.append(
-                f"[VAGUE COMMITMENT: {insight.action} (no time - push for details)]"
-            )
-
-    def _handle_promise_insight(self, insight: PromiseResponse) -> None:
-        if insight.kept is not None:
-            self.kept_promise = insight.kept
-            logger.info(
-                f"{'✅' if insight.kept else '❌'} Promise kept: {insight.kept}"
-            )
-        if self.persona_controller and PERSONA_AVAILABLE:
-            self.persona_controller.update_from_insight(
-                "promise_response", {"kept": insight.kept}
-            )
-
-    def _handle_frustration_insight(self, insight: UserFrustrated) -> None:
-        self._frustration_level = insight.frustration_level
-        self._pending_insights.append(
-            f"[USER FRUSTRATED ({insight.frustration_level}): {insight.suggested_action}]"
-        )
-
-    def _handle_pattern_insight(self, insight: PatternAlert) -> None:
-        self._pending_insights.append(
-            f"[PATTERN: {insight.pattern_type} - {insight.description}]"
-        )
-        if insight.historical_context:
-            self._pending_insights.append(f"[HISTORY: {insight.historical_context}]")
-        if self.persona_controller and PERSONA_AVAILABLE:
-            self.persona_controller.update_from_insight(
-                "pattern_alert", {"pattern_type": insight.pattern_type}
-            )
-
-    def _handle_quote_insight(self, insight: MemorableQuoteDetected) -> None:
-        streak = self.user_context.get("status", {}).get("current_streak_days", 0)
-        self._quotes_this_call.append(
-            {
+            self._quotes_this_call.append({
                 "text": insight.quote_text,
                 "context": insight.context,
-                "day": streak,
                 "emotional_weight": insight.emotional_weight,
-            }
-        )
-        logger.info(f'Stored quote ({insight.context}): "{insight.quote_text[:50]}..."')
-
-    def _handle_callout_insight(self, insight: ExcuseCallout) -> None:
-        self._pending_insights.append(
-            f"[CALLOUT ({insight.callout_type}): '{insight.suggested_response}']"
-        )
+            })
 
     def _build_insight_context(self) -> str:
         """Build context from pending insights."""
@@ -380,108 +177,6 @@ class FutureYouNode(Agent):
         text = "\n".join(self._pending_insights)
         self._pending_insights = []
         return f"\n[BACKGROUND INSIGHTS - use to inform response:]\n{text}\n"
-
-    def _build_stage_context(self) -> str:
-        """Build stage-specific instructions."""
-        parts = [
-            f"\n[CURRENT STAGE: {self.current_stage.value.upper()}]",
-            get_stage_prompt(self.current_stage),
-        ]
-
-        if self.persona_controller and PERSONA_AVAILABLE:
-            parts.append(f"\n{self.persona_controller.get_persona_prompt()}")
-
-        if self.current_stage == CallStage.DIG_DEEPER:
-            if self.kept_promise is True:
-                parts.append("\n[STATE: User said YES - kept promise]")
-            elif self.kept_promise is False:
-                parts.append("\n[STATE: User said NO - broke promise]")
-
-        if self.current_stage == CallStage.TOMORROW_LOCK:
-            if self.tomorrow_commitment and self.commitment_is_specific:
-                parts.append(
-                    f"\n[STATE: Got commitment: {self.tomorrow_commitment}. Move to close.]"
-                )
-            else:
-                parts.append("\n[STATE: Need SPECIFIC commitment (action + time)]")
-
-        if self.current_stage == CallStage.CLOSE:
-            parts.append("\n[STATE: Deliver closing line, then END THE CALL]")
-
-        return "\n".join(parts)
-
-    async def _maybe_advance_stage_llm(self, user_message: str) -> None:
-        """Use FAST LLM to decide stage advancement - NO RULE-BASED FALLBACK."""
-        # HOOK stage: ALWAYS advance after first turn (it's just the opener)
-        if self.current_stage == CallStage.HOOK and self.turns_in_stage >= 1:
-            next_stage = get_next_stage(self.current_stage)
-            if next_stage:
-                old = self.current_stage.value
-                self.current_stage = next_stage
-                self.turns_in_stage = 0
-                logger.info(f"⚡ Auto-transition from HOOK: {old} → {next_stage.value}")
-                return
-
-        if self.turns_in_stage < 1:
-            return
-
-        next_stage = get_next_stage(self.current_stage)
-        if not next_stage:
-            return
-
-        def extract_text(content_item) -> str:
-            if isinstance(content_item, dict):
-                return content_item.get("text", "")
-            return str(content_item) if content_item is not None else ""
-
-        recent = [
-            {
-                "role": (
-                    "assistant"
-                    if m.get("role") == "assistant"
-                    else "model"
-                    if m.get("role") == "model"
-                    else "system"
-                    if m.get("role") == "system"
-                    else "user"
-                ),
-                "parts": (
-                    m.get("parts")
-                    or (
-                        [{"text": extract_text(c)} for c in m["content"]]
-                        if isinstance(m.get("content"), list)
-                        else [{"text": str(m.get("content", ""))}]
-                    )
-                ),
-            }
-            for m in self.messages[-4:]
-        ]
-        prompt = build_transition_check_prompt(self.current_stage, recent)
-
-        if not prompt:
-            logger.warning(f"Empty transition prompt for {self.current_stage.value}")
-            return
-
-        try:
-            # Fast 20B model check with minimal tokens
-            response = await llm_analyze(prompt=prompt, temperature=0.0, max_tokens=20)
-
-            # Strip out any reasoning tags or extra text
-            if response:
-                # Remove XML-style tags
-                response = response.replace("<reasoning>", "").replace("</reasoning>", "")
-                response = response.strip()
-
-            if response and "YES" in response.upper():
-                old = self.current_stage.value
-                self.current_stage = next_stage
-                self.turns_in_stage = 0
-                logger.info(f"✅ Fast LLM transition: {old} → {next_stage.value}")
-            else:
-                logger.debug(f"Staying in {self.current_stage.value} (LLM: {response})")
-        except Exception as e:
-            logger.error(f"Fast LLM check failed: {e}")
-
 
     async def report_call_result(self):
         """Report call result to backend."""
@@ -509,27 +204,11 @@ class FutureYouNode(Agent):
             logger.error(f"Error reporting call result: {e}")
 
     def get_updated_call_memory(self) -> dict:
-        """Return updated call_memory with quotes and peaks."""
+        """Return updated call_memory with quotes."""
         updated = dict(self.call_memory)
         updated["memorable_quotes"] = (
             updated.get("memorable_quotes", []) + self._quotes_this_call
         )[-20:]
-        updated["emotional_peaks"] = (
-            updated.get("emotional_peaks", []) + self._peaks_this_call
-        )[-10:]
-
-        streak = self.user_context.get("status", {}).get("current_streak_days", 0)
-        if streak >= 60:
-            updated["narrative_arc"] = "mastery"
-        elif streak >= 30:
-            updated["narrative_arc"] = "transformation"
-        elif streak >= 14:
-            updated["narrative_arc"] = "building_momentum"
-        elif streak >= 7:
-            updated["narrative_arc"] = "proving_ground"
-        else:
-            updated["narrative_arc"] = "early_struggle"
-
         return updated
 
     def get_call_duration_seconds(self) -> int:

@@ -20,8 +20,7 @@ from core.models import FutureYouSessionData
 from core.handlers.context import fetch_session_context
 from core.handlers.post_session import handle_session_end
 from core.config import (
-    build_system_prompt_v2,
-    build_system_prompt_v3,
+    build_system_prompt_v4,
     build_first_message,
 )
 from core.llm_adapter import BedrockLLMAdapter
@@ -38,6 +37,17 @@ except ImportError:
     PersonaController = None
     trust_score_service = None
     PERSONA_AVAILABLE = False
+
+# Future-self system integration
+try:
+    from conversation.future_self import FutureSelf
+    from services.future_self_service import get_future_self
+
+    FUTURE_SELF_SYSTEM_AVAILABLE = True
+except ImportError:
+    FutureSelf = None
+    get_future_self = None
+    FUTURE_SELF_SYSTEM_AVAILABLE = False
 
 # Default voice (fallback if user has no clone)
 DEFAULT_VOICE_ID = "a0e99841-438c-4a64-b679-ae501e7d6091"
@@ -95,6 +105,7 @@ async def handle_session(ctx: JobContext, participant: rtc.RemoteParticipant):
         call_memory,
         excuse_data,
         persona_controller,
+        yesterday_promise_kept,  # Pass yesterday's outcome to system prompt
     )
 
     # Initialize shared session data
@@ -239,19 +250,23 @@ async def _init_persona(user_id, user_context, call_memory, yesterday_promise_ke
 async def _build_prompt(
     user_id, user_context, call_type, mood, call_memory, excuse_data, persona_controller
 ):
-    """Build personalized system prompt."""
-    if persona_controller:
-        return await build_system_prompt_v3(
-            user_id,
-            user_context,
-            call_type,
-            mood,
-            call_memory,
-            excuse_data,
-            persona_controller,
-        )
-    return await build_system_prompt_v2(
-        user_id, user_context, call_type, mood, call_memory, excuse_data
+    """Build personalized system prompt using v4."""
+    # Fetch FutureSelf object for v4
+    future_self_obj = None
+    if FUTURE_SELF_SYSTEM_AVAILABLE and get_future_self:
+        try:
+            future_self_obj = await get_future_self(user_id)
+        except Exception as e:
+            logger.warning(f"Could not fetch FutureSelf object: {e}")
+    
+    return await build_system_prompt_v4(
+        user_id=user_id,
+        user_context=user_context,
+        call_type=call_type,
+        call_memory=call_memory,
+        excuse_data=excuse_data,
+        persona_controller=persona_controller,
+        future_self=future_self_obj,
     )
 
 

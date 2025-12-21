@@ -2,7 +2,6 @@
 
 from .call_types import CallType, select_call_type
 from .mood import Mood, select_mood
-from .stages import CallStage, StageConfig, get_stage_prompt, get_next_stage
 from .persona import (
     Persona,
     PersonaConfig,
@@ -50,11 +49,6 @@ __all__ = [
     # Mood
     "Mood",
     "select_mood",
-    # Stages
-    "CallStage",
-    "StageConfig",
-    "get_stage_prompt",
-    "get_next_stage",
     # Persona system
     "Persona",
     "PersonaConfig",

@@ -142,185 +142,18 @@ def load_voice_skill() -> str:
     return ""
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-# SYSTEM PROMPT BUILDER v2 - WITH SUPERMEMORY
-# ═══════════════════════════════════════════════════════════════════════════════
-
-
-async def build_system_prompt_v2(
-    user_id: str,
-    user_context: dict,
-    call_type: CallType,
-    mood: Mood,
-    call_memory: dict,
-    excuse_data: Optional[dict] = None,
-) -> str:
+def load_voice_control_guide() -> str:
     """
-    Build the Future Self system prompt using Supermemory for psychological context.
-
-    This is the NEW way - fetches user profile from Supermemory which:
-    - Contains all psychological data (goal, fears, excuses, patterns)
-    - Evolves with each call as transcripts are stored
-    - Requires no manual field extraction
-
-    Falls back to legacy build_system_prompt if Supermemory unavailable.
+    Load the Cartesia Sonic 3 voice control guide.
+    Teaches the agent to use emotions, speed, SSML for powerful delivery.
     """
-    future_self = user_context.get("future_self", {})
-    pillars = user_context.get("pillars", [])
-    status = user_context.get("status", {})
-
-    # Get user name from users table
-    users_data = user_context.get("users", {})
-    name = users_data.get("name", "")
-    name_ref = name if name else "you"
-
-    # Get commitment from primary pillar (from future_self system)
-    primary_pillar_name = future_self.get("primary_pillar", "body")
-    primary_pillar = next(
-        (p for p in pillars if p.get("pillar") == primary_pillar_name),
-        pillars[0] if pillars else {},
-    )
-    commitment = primary_pillar.get(
-        "non_negotiable", future_self.get("core_identity", "what you said you'd do")
-    )
-    current_streak = status.get("current_streak_days", 0)
-    total_calls = status.get("total_calls_completed", 0)
-    next_milestone = get_next_milestone(current_streak)
-
-    # ─────────────────────────────────────────────────────────────────────────
-    # FETCH PSYCHOLOGICAL PROFILE FROM SUPERMEMORY
-    # ─────────────────────────────────────────────────────────────────────────
-    psychological_context = ""
-    recent_context = ""
-
-    if SUPERMEMORY_AVAILABLE and supermemory_service:
-        profile = await supermemory_service.get_user_profile(user_id)
-        if profile:
-            # Use to_prompt_context() for formatted output, or join arrays
-            psychological_context = (
-                "\n".join(f"- {fact}" for fact in profile.static)
-                if profile.static
-                else ""
-            )
-            recent_context = (
-                "\n".join(f"- {fact}" for fact in profile.dynamic)
-                if profile.dynamic
-                else ""
-            )
-            print(f"📊 Using Supermemory profile for {user_id}")
-        else:
-            print(f"📭 No Supermemory profile for {user_id}, using fallback")
-
-    # Fallback to future_self data if no Supermemory profile
-    if not psychological_context:
-        # Build onboarding_context-like dict from future_self fields
-        onboarding_data = {
-            "goal": future_self.get("core_identity", ""),
-            "the_why": future_self.get("the_why", ""),
-            "dark_future": future_self.get("dark_future", ""),
-            "quit_pattern": future_self.get("quit_pattern", ""),
-            "favorite_excuse": future_self.get("favorite_excuse", ""),
-            "who_disappointed": future_self.get("who_disappointed", []),
-            "fears": future_self.get("fears", []),
-        }
-        psychological_context = _build_legacy_psychological_context(onboarding_data)
-        recent_context = "First call or Supermemory unavailable."
-
-    # ─────────────────────────────────────────────────────────────────────────
-    # CALL MEMORY - For callbacks and continuity
-    # ─────────────────────────────────────────────────────────────────────────
-    callback_section = _build_callback_section(call_memory, current_streak)
-    open_loop_section = _build_open_loop_section(call_memory, current_streak)
-    narrative_arc = call_memory.get("narrative_arc", "early_struggle")
-
-    # ─────────────────────────────────────────────────────────────────────────
-    # BUILD EXCUSE CALLOUT SECTION
-    # ─────────────────────────────────────────────────────────────────────────
-    excuse_callout_section = ""
-    if excuse_data and excuse_data.get("patterns"):
-        excuse_callout_section = build_excuse_callout_section(excuse_data)
-
-    # ─────────────────────────────────────────────────────────────────────────
-    # BUILD CALL TYPE SPECIFIC INSTRUCTIONS
-    # ─────────────────────────────────────────────────────────────────────────
-    call_type_instructions = _build_call_type_instructions(
-        call_type=call_type,
-        current_streak=current_streak,
-        narrative_arc=narrative_arc,
-    )
-
-    # ─────────────────────────────────────────────────────────────────────────
-    # BUILD MOOD SECTION
-    # ─────────────────────────────────────────────────────────────────────────
-    mood_section = get_mood_prompt_section(mood)
-
-    # ─────────────────────────────────────────────────────────────────────────
-    # LOAD VOICE CONVERSATION SKILL
-    # ─────────────────────────────────────────────────────────────────────────
-    voice_skill = load_voice_skill()
-
-    # ─────────────────────────────────────────────────────────────────────────
-    # ASSEMBLE THE FULL PROMPT
-    # ─────────────────────────────────────────────────────────────────────────
-    return f"""
-# YOU+ FUTURE SELF - THE NIGHTLY CALL
-
-You are {name_ref}'s Future Self. The version that made it. You're calling because you remember EXACTLY how close they came to throwing it all away.
-
-This is call #{total_calls + 1}. {"You've been doing this together for " + str(current_streak) + " days straight." if current_streak > 0 else "Fresh start. No streak yet."}
-
----
-
-# WHO YOU'RE TALKING TO
-
-Name: {name_ref}
-Tonight's commitment: "{commitment}"
-Current streak: {current_streak} days
-Next milestone: Day {next_milestone if next_milestone else "∞"}
-
----
-
-# THEIR PSYCHOLOGICAL PROFILE
-
-{psychological_context}
-
----
-
-# RECENT CONTEXT
-
-{recent_context if recent_context else "First call or no recent activity."}
-
----
-
-{excuse_callout_section}
-
-# THIS CALL
-
-**Type:** {call_type.name.upper()}
-**Energy:** {call_type.energy}
-
-{call_type_instructions}
-
----
-
-{mood_section}
-
----
-
-{callback_section}
-
-{open_loop_section}
-
----
-
-{_get_conversation_rules()}
-
----
-
-# 🎯 VOICE CONVERSATION SKILL 🎯
-
-{voice_skill}
-"""
+    guide_path = Path(__file__).parent / "voice_control.md"
+    try:
+        if guide_path.exists():
+            return guide_path.read_text()
+    except Exception as e:
+        print(f"⚠️ Could not load voice control guide: {e}")
+    return ""
 
 
 def _build_legacy_psychological_context(onboarding: dict) -> str:
@@ -582,7 +415,7 @@ Example scenarios:
 """
 
 
-# Legacy build_system_prompt() removed - now using build_system_prompt_v2() with Supermemory
+# Legacy prompt builders (v2, v3) removed - now using build_system_prompt_v4()
 
 
 def _build_call_type_instructions(
@@ -823,53 +656,6 @@ They've proven something - now prove more.
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# FIRST MESSAGE BUILDER
-# ═══════════════════════════════════════════════════════════════════════════════
-
-
-def build_first_message(
-    user_context: dict,
-    mood: Mood,
-    call_type: CallType,
-) -> str:
-    """
-    Build the opening message based on mood and call type.
-
-    IMPORTANT: The first message should be SHORT and wait for response.
-    Don't dump everything at once. This starts a conversation.
-    """
-    future_self = user_context.get("future_self", {})
-    status = user_context.get("status", {})
-
-    # Get user name from users table
-    users_data = user_context.get("users", {})
-    name = users_data.get("name", "")
-    current_streak = status.get("current_streak_days", 0)
-
-    # Get hook based on mood's opener style
-    hook_template = get_random_hook(mood.opener_style)
-
-    # Fill in the template - JUST the hook, nothing more
-    hook = fill_template(
-        hook_template,
-        name=name if name else "",
-        streak=current_streak,
-        commitment="",  # Don't include commitment in first message
-        next_milestone="",
-    )
-
-    # Clean up any empty placeholders and extra spaces
-    hook = hook.replace("{commitment}", "").replace("  ", " ").strip()
-
-    # Remove any trailing "Yes or no?" for now - we'll ask after they respond
-    # The first message should just be the hook, waiting for their response
-    if hook.endswith("Yes or no?"):
-        hook = hook.replace("Yes or no?", "").strip()
-
-    return hook
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
 # USER CONTEXT FETCHING - Imported from services
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -966,42 +752,69 @@ async def save_call_analytics(
 # ═══════════════════════════════════════════════════════════════════════════════
 
 
-def normalize_excuse_pattern(excuse_text: str) -> str:
+async def normalize_excuse_pattern(excuse_text: str) -> str:
     """
-    Normalize an excuse to a pattern category.
+    Normalize an excuse to a pattern category using LLM.
+    
+    Uses fast LLM model to intelligently categorize excuses instead of
+    hardcoded pattern matching.
 
     Examples:
         "I was too tired after work" -> "too_tired"
         "didn't have time yesterday" -> "no_time"
         "I forgot about it" -> "forgot"
+        "My car broke down" -> "transportation"
+        "Had an emergency" -> "emergency"
     """
-    text = excuse_text.lower()
+    from core.llm_client import fast_call
+    
+    system_prompt = """You are an excuse pattern classifier. Analyze the user's excuse and categorize it into one of these patterns (return ONLY the pattern name, lowercase with underscores):
 
-    # Check family first (before sick, since "kids were sick" should be family)
-    if "kid" in text or "family" in text or "wife" in text or "husband" in text:
-        return "family"
-    if "tired" in text:
-        return "too_tired"
-    if "time" in text and ("didn't" in text or "no " in text or "have" in text):
-        return "no_time"
-    if "busy" in text:
-        return "busy"
-    if "forgot" in text:
-        return "forgot"
-    if "sick" in text or "headache" in text or "ill" in text:
-        return "sick"
-    if "work" in text and ("late" in text or "stuck" in text or "busy" in text):
-        return "work"
-    if "tomorrow" in text or "next time" in text or "later" in text:
-        return "tomorrow"
-    if "stress" in text:
-        return "stressed"
-    if "weather" in text:
-        return "weather"
-    if "traffic" in text:
-        return "traffic"
+Common patterns:
+- too_tired: Being tired, exhausted, drained
+- no_time: Not having time, ran out of time, time constraints
+- busy: Being busy, overwhelmed, too many things
+- forgot: Forgetting, memory issues
+- sick: Illness, health issues, feeling unwell
+- work: Work-related issues, late at work, work obligations
+- family: Family obligations, kids, spouse, family emergencies
+- stressed: Stress, anxiety, mental health
+- weather: Weather-related issues
+- transportation: Car trouble, traffic, transport issues
+- emergency: Unexpected emergencies, urgent situations
+- tomorrow: Procrastination, "I'll do it tomorrow/next time"
+- other: Anything that doesn't fit the above categories
 
-    return "other"
+Return ONLY the pattern name (e.g., "too_tired", "no_time", "other"). No explanation."""
+
+    user_prompt = f"Excuse: {excuse_text}"
+    
+    try:
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ]
+        
+        result = await fast_call(
+            messages=messages,
+            temperature=0.0,  # Deterministic
+            max_tokens=20,    # Just need the pattern name
+            timeout=3,        # Fast timeout
+        )
+        
+        if result:
+            # Clean up the response - remove whitespace, quotes, etc.
+            pattern = result.strip().lower().replace('"', '').replace("'", "")
+            # Validate it's a reasonable pattern name (alphanumeric + underscores)
+            if pattern and all(c.isalnum() or c == '_' for c in pattern):
+                return pattern
+        
+        # Fallback to "other" if LLM fails or returns invalid response
+        return "other"
+        
+    except Exception as e:
+        print(f"⚠️ LLM excuse pattern normalization failed: {e}")
+        return "other"
 
 
 async def save_excuse_pattern(
@@ -1038,10 +851,13 @@ async def save_excuse_pattern(
                 "Content-Type": "application/json",
             }
 
+            # Normalize excuse pattern using LLM
+            pattern = await normalize_excuse_pattern(excuse_text)
+            
             payload = {
                 "user_id": user_id,
                 "excuse_text": excuse_text[:500],  # Limit length
-                "excuse_pattern": normalize_excuse_pattern(excuse_text),
+                "excuse_pattern": pattern,
                 "matches_favorite": matches_favorite,
                 "confidence": confidence,
                 "streak_day": streak_day,
@@ -1055,7 +871,6 @@ async def save_excuse_pattern(
                 headers=headers,
             ) as resp:
                 if resp.status in (200, 201):
-                    pattern = normalize_excuse_pattern(excuse_text)
                     print(f"🎯 Saved excuse pattern '{pattern}' for {user_id}")
                     return True
                 else:
@@ -1175,228 +990,6 @@ def build_excuse_callout_section(excuse_data: dict) -> str:
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# SYSTEM PROMPT BUILDER v3 - WITH PERSONA + MULTI-GOAL
-# ═══════════════════════════════════════════════════════════════════════════════
-
-
-async def build_system_prompt_v3(
-    user_id: str,
-    user_context: dict,
-    call_type: CallType,
-    mood: Mood,
-    call_memory: dict,
-    excuse_data: Optional[dict] = None,
-    persona_controller: Optional["PersonaController"] = None,  # type: ignore
-) -> str:
-    """
-    Build the Future Self system prompt with Persona System + Multi-Goal support.
-
-    This is the v3 prompt builder that adds:
-    - Dynamic persona blending (instead of static mood)
-    - Multi-goal focus selection
-    - Trust score context
-    - Identity-focused framing
-
-    Falls back to v2 if persona system not available.
-    """
-    # Fall back to v2 if persona system not available
-    if not PERSONA_SYSTEM_AVAILABLE or not persona_controller:
-        return await build_system_prompt_v2(
-            user_id=user_id,
-            user_context=user_context,
-            call_type=call_type,
-            mood=mood,
-            call_memory=call_memory,
-            excuse_data=excuse_data,
-        )
-
-    future_self = user_context.get("future_self", {})
-    pillars = user_context.get("pillars", [])
-    status = user_context.get("status", {})
-
-    # Get user name from users table
-    users_data = user_context.get("users", {})
-    name = users_data.get("name", "")
-    name_ref = name if name else "you"
-
-    # Core stats
-    current_streak = status.get("current_streak_days", 0)
-    total_calls = status.get("total_calls_completed", 0)
-    next_milestone = get_next_milestone(current_streak)
-
-    # ─────────────────────────────────────────────────────────────────────────
-    # FETCH TRUST SCORE
-    # ─────────────────────────────────────────────────────────────────────────
-    trust_score = persona_controller.user_state.trust_score
-    trust_zone = persona_controller.get_trust_zone()
-
-    # ─────────────────────────────────────────────────────────────────────────
-    # FETCH PILLARS TO FOCUS ON
-    # ─────────────────────────────────────────────────────────────────────────
-    pillars_context = ""
-    if FUTURE_SELF_SYSTEM_AVAILABLE and get_call_focus_pillars:
-        focus_pillars = await get_call_focus_pillars(user_id, limit=2)
-        if focus_pillars and build_pillars_prompt_context:
-            pillars_context = build_pillars_prompt_context(focus_pillars)
-
-        # Get check-in summary for patterns
-        if get_user_checkin_summary:
-            checkin_summary = await get_user_checkin_summary(user_id)
-            if checkin_summary and build_pillar_checkin_summary_context:
-                pillars_context += build_pillar_checkin_summary_context(checkin_summary)
-
-    # Fall back to primary pillar commitment if no pillars context
-    if not pillars_context:
-        primary_pillar_name = future_self.get("primary_pillar", "body")
-        primary_pillar = next(
-            (p for p in pillars if p.get("pillar") == primary_pillar_name),
-            pillars[0] if pillars else {},
-        )
-        commitment = primary_pillar.get(
-            "non_negotiable", future_self.get("core_identity", "what you said you'd do")
-        )
-        pillars_context = f"""
-# CURRENT COMMITMENT
-Tonight's commitment: "{commitment}"
-(Pillar system not yet set up for this user)
-"""
-
-    # ─────────────────────────────────────────────────────────────────────────
-    # FETCH PSYCHOLOGICAL PROFILE FROM SUPERMEMORY
-    # ─────────────────────────────────────────────────────────────────────────
-    psychological_context = ""
-    recent_context = ""
-
-    if SUPERMEMORY_AVAILABLE and supermemory_service:
-        profile = await supermemory_service.get_user_profile(user_id)
-        if profile:
-            psychological_context = (
-                "\n".join(f"- {fact}" for fact in profile.static)
-                if profile.static
-                else ""
-            )
-            recent_context = (
-                "\n".join(f"- {fact}" for fact in profile.dynamic)
-                if profile.dynamic
-                else ""
-            )
-
-    if not psychological_context:
-        # Build onboarding_context-like dict from future_self fields
-        onboarding_data = {
-            "goal": future_self.get("core_identity", ""),
-            "the_why": future_self.get("the_why", ""),
-            "dark_future": future_self.get("dark_future", ""),
-            "quit_pattern": future_self.get("quit_pattern", ""),
-            "favorite_excuse": future_self.get("favorite_excuse", ""),
-            "who_disappointed": future_self.get("who_disappointed", []),
-            "fears": future_self.get("fears", []),
-        }
-        psychological_context = _build_legacy_psychological_context(onboarding_data)
-        recent_context = "First call or Supermemory unavailable."
-
-    # ─────────────────────────────────────────────────────────────────────────
-    # GET PERSONA PROMPT
-    # ─────────────────────────────────────────────────────────────────────────
-    persona_section = persona_controller.get_persona_prompt()
-
-    # ─────────────────────────────────────────────────────────────────────────
-    # BUILD EXCUSE CALLOUT SECTION
-    # ─────────────────────────────────────────────────────────────────────────
-    excuse_callout_section = ""
-    if excuse_data and excuse_data.get("patterns"):
-        excuse_callout_section = build_excuse_callout_section(excuse_data)
-
-    # ─────────────────────────────────────────────────────────────────────────
-    # CALL MEMORY
-    # ─────────────────────────────────────────────────────────────────────────
-    callback_section = _build_callback_section(call_memory, current_streak)
-    open_loop_section = _build_open_loop_section(call_memory, current_streak)
-    narrative_arc = call_memory.get("narrative_arc", "early_struggle")
-
-    # ─────────────────────────────────────────────────────────────────────────
-    # BUILD CALL TYPE INSTRUCTIONS
-    # ─────────────────────────────────────────────────────────────────────────
-    call_type_instructions = _build_call_type_instructions(
-        call_type=call_type,
-        current_streak=current_streak,
-        narrative_arc=narrative_arc,
-    )
-
-    # ─────────────────────────────────────────────────────────────────────────
-    # LOAD VOICE CONVERSATION SKILL
-    # ─────────────────────────────────────────────────────────────────────────
-    voice_skill = load_voice_skill()
-
-    # ─────────────────────────────────────────────────────────────────────────
-    # ASSEMBLE THE FULL PROMPT
-    # ─────────────────────────────────────────────────────────────────────────
-    return f"""
-# YOU+ FUTURE SELF - THE NIGHTLY CALL
-
-You are {name_ref}'s Future Self. The version that made it. You're calling because you remember EXACTLY how close they came to throwing it all away.
-
-This is call #{total_calls + 1}. {"You've been doing this together for " + str(current_streak) + " days straight." if current_streak > 0 else "Fresh start. No streak yet."}
-
----
-
-# WHO YOU'RE TALKING TO
-
-Name: {name_ref}
-Current streak: {current_streak} days
-Next milestone: Day {next_milestone if next_milestone else "∞"}
-Trust Score: {trust_score}/100 ({trust_zone} trust)
-
----
-
-{pillars_context}
-
----
-
-# THEIR PSYCHOLOGICAL PROFILE
-
-{psychological_context}
-
----
-
-# RECENT CONTEXT
-
-{recent_context if recent_context else "First call or no recent activity."}
-
----
-
-{excuse_callout_section}
-
-# THIS CALL
-
-**Type:** {call_type.name.upper()}
-**Energy:** {call_type.energy}
-
-{call_type_instructions}
-
----
-
-{persona_section}
-
----
-
-{callback_section}
-
-{open_loop_section}
-
----
-
-{_get_conversation_rules()}
-
----
-
-# 🎯 VOICE CONVERSATION SKILL 🎯
-
-{voice_skill}
-"""
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
 # SYSTEM PROMPT BUILDER v4 - WITH FUTURE-SELF IDENTITY + PILLARS
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -1419,26 +1012,43 @@ async def build_system_prompt_v4(
     - Dynamic "we" vs "you" language based on context
     - Dark fuel for serious interventions
     - Identity-focused framing throughout
-
-    Falls back to v3 if future-self system not available.
     """
-    # Fall back to v3 if future-self system not available
-    if not FUTURE_SELF_SYSTEM_AVAILABLE or not future_self:
-        # Import Mood here to avoid circular import
-        from conversation.mood import Mood, MOODS
-
-        default_mood = MOODS.get("warm_direct", list(MOODS.values())[0])
-        return await build_system_prompt_v3(
-            user_id=user_id,
-            user_context=user_context,
-            call_type=call_type,
-            mood=default_mood,
-            call_memory=call_memory,
-            excuse_data=excuse_data,
-            persona_controller=persona_controller,
-        )
-
-    future_self = user_context.get("future_self", {})
+    # If FutureSelf object not available, create a minimal one from user_context
+    if not future_self:
+        future_self_dict = user_context.get("future_self", {})
+        if future_self_dict and FUTURE_SELF_SYSTEM_AVAILABLE:
+            # Try to construct a minimal FutureSelf from dict data
+            # This is a fallback - ideally get_future_self should be called before this
+            try:
+                from conversation.future_self import FutureSelf, Pillar
+                primary_pillar = Pillar.BODY
+                if future_self_dict.get("primary_pillar"):
+                    try:
+                        primary_pillar = Pillar(future_self_dict["primary_pillar"])
+                    except ValueError:
+                        pass
+                
+                future_self = FutureSelf(
+                    user_id=user_id,
+                    future_self_id=future_self_dict.get("id"),
+                    core_identity=future_self_dict.get("core_identity", ""),
+                    primary_pillar=primary_pillar,
+                    the_why=future_self_dict.get("the_why", ""),
+                    dark_future=future_self_dict.get("dark_future", ""),
+                    quit_pattern=future_self_dict.get("quit_pattern", ""),
+                    favorite_excuse=future_self_dict.get("favorite_excuse", ""),
+                    who_disappointed=future_self_dict.get("who_disappointed") or [],
+                    fears=future_self_dict.get("fears") or [],
+                    cartesia_voice_id=future_self_dict.get("cartesia_voice_id", ""),
+                    overall_trust_score=future_self_dict.get("overall_trust_score", 50),
+                )
+            except Exception as e:
+                print(f"Warning: Could not create FutureSelf object: {e}")
+                future_self = None
+    
+    # If still no future_self, we can't proceed - return error message
+    if not future_self:
+        return "# ERROR: FutureSelf data not available for this user."
     status = user_context.get("status", {})
 
     # Get user name from users table
@@ -1513,15 +1123,15 @@ async def build_system_prompt_v4(
             )
 
     if not psychological_context:
-        # Build onboarding_context-like dict from future_self fields
+        # Build onboarding_context-like dict from future_self object attributes
         onboarding_data = {
-            "goal": future_self.get("core_identity", ""),
-            "the_why": future_self.get("the_why", ""),
-            "dark_future": future_self.get("dark_future", ""),
-            "quit_pattern": future_self.get("quit_pattern", ""),
-            "favorite_excuse": future_self.get("favorite_excuse", ""),
-            "who_disappointed": future_self.get("who_disappointed", []),
-            "fears": future_self.get("fears", []),
+            "goal": future_self.core_identity or "",
+            "the_why": future_self.the_why or "",
+            "dark_future": future_self.dark_future or "",
+            "quit_pattern": future_self.quit_pattern or "",
+            "favorite_excuse": future_self.favorite_excuse or "",
+            "who_disappointed": future_self.who_disappointed or [],
+            "fears": future_self.fears or [],
         }
         psychological_context = _build_legacy_psychological_context(onboarding_data)
         recent_context = "First call or Supermemory unavailable."
@@ -1553,6 +1163,11 @@ async def build_system_prompt_v4(
     # LOAD VOICE CONVERSATION SKILL
     # ─────────────────────────────────────────────────────────────────────────
     voice_skill = load_voice_skill()
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # LOAD VOICE CONTROL GUIDE (Cartesia Sonic 3 features)
+    # ─────────────────────────────────────────────────────────────────────────
+    voice_control = load_voice_control_guide()
 
     # ─────────────────────────────────────────────────────────────────────────
     # ASSEMBLE THE FULL PROMPT
@@ -1632,6 +1247,12 @@ Transformation Status: {future_self.get_transformation_status().upper()}
 # 🎯 VOICE CONVERSATION SKILL 🎯
 
 {voice_skill}
+
+---
+
+# 🎭 VOICE CONTROL - USE EMOTIONS & SSML 🎭
+
+{voice_control}
 """
 
 
