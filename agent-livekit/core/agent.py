@@ -18,13 +18,7 @@ from livekit.agents import Agent
 from livekit.agents.llm import ChatContext, ChatMessage
 
 from core.models import FutureYouSessionData
-from agents.events import (
-    ExcuseDetected,
-    SentimentAnalysis,
-    CommitmentIdentified,
-    PromiseResponse,
-    MemorableQuoteDetected,
-)
+# removed background agent imports
 from conversation.call_types import CallType
 from conversation.mood import Mood
 
@@ -80,10 +74,7 @@ class FutureYouNode(Agent):
         self.call_ended = False
         self.start_time = datetime.now()
 
-        # Insights from background agents
-        self._pending_insights: list = []
-        self._current_sentiment: Optional[str] = None
-        self._excuse_detected: Optional[ExcuseDetected] = None
+        # Local quotes (tracked by agent itself)
         self._quotes_this_call: list = []
 
         self._log_init_info()
@@ -121,16 +112,8 @@ class FutureYouNode(Agent):
         self.total_turns += 1
         logger.info(f'Turn {self.total_turns}: "{text}"')
 
-
-        # Build insights context from background agents
-        insight_context = self._build_insight_context()
-
-        if insight_context:
-            # Add insights as guidance
-            turn_ctx.add_message(
-                role="system",
-                content=insight_context
-            )
+        # Simple pattern-based promise detection (fallback)
+        self._detect_promise_response(text)
 
     def _detect_promise_response(self, message: str) -> None:
         """Detect YES/NO for promise tracking."""
@@ -145,38 +128,6 @@ class FutureYouNode(Agent):
         elif any(re.search(pattern, lower) for pattern in no_patterns):
             self.kept_promise = False
             logger.info("❌ Promise BROKEN detected")
-
-    def add_insight(self, insight: Any) -> None:
-        """Receive insights from background agents."""
-        logger.info(f"Received insight: {type(insight).__name__}")
-
-        if isinstance(insight, ExcuseDetected):
-            label = "(MATCHES FAVORITE!)" if insight.matches_favorite else ""
-            self._pending_insights.append(f"[EXCUSE DETECTED: '{insight.excuse_text}' {label}]")
-        elif isinstance(insight, SentimentAnalysis):
-            if insight.sentiment in ("frustrated", "defensive", "deflecting"):
-                self._pending_insights.append(f"[SENTIMENT: User seems {insight.sentiment}]")
-        elif isinstance(insight, CommitmentIdentified):
-            if insight.is_specific:
-                self.tomorrow_commitment = f"{insight.action} at {insight.time}"
-                self._pending_insights.append(f"[COMMITMENT: {insight.action} at {insight.time} - SPECIFIC!]")
-        elif isinstance(insight, PromiseResponse):
-            if insight.kept is not None:
-                self.kept_promise = insight.kept
-        elif isinstance(insight, MemorableQuoteDetected):
-            self._quotes_this_call.append({
-                "text": insight.quote_text,
-                "context": insight.context,
-                "emotional_weight": insight.emotional_weight,
-            })
-
-    def _build_insight_context(self) -> str:
-        """Build context from pending insights."""
-        if not self._pending_insights:
-            return ""
-        text = "\n".join(self._pending_insights)
-        self._pending_insights = []
-        return f"\n[BACKGROUND INSIGHTS - use to inform response:]\n{text}\n"
 
     async def report_call_result(self):
         """Report call result to backend."""

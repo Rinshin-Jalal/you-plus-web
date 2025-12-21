@@ -6,8 +6,8 @@ Handles LiveKit voice sessions, setting up the VoiceAssistant pipeline
 and managing the conversation flow.
 """
 
-import os
 import asyncio
+import json
 from typing import Optional
 
 from loguru import logger
@@ -18,14 +18,9 @@ from livekit.plugins import silero, cartesia
 from core.agent import FutureYouNode
 from core.models import FutureYouSessionData
 from core.handlers.context import fetch_session_context
-from core.handlers.post_session import handle_session_end
-from core.config import (
-    build_system_prompt_v4,
-    build_first_message,
-)
+from core.config import build_prompt
 from core.llm_adapter import BedrockLLMAdapter
-from agents.analyzers import run_background_analysis
-from agents.aggregator import CallSummaryAggregator
+# removed background agent imports
 
 # Persona system integration
 try:
@@ -53,7 +48,7 @@ except ImportError:
 DEFAULT_VOICE_ID = "a0e99841-438c-4a64-b679-ae501e7d6091"
 
 
-async def handle_session(ctx: JobContext, participant: rtc.RemoteParticipant):
+async def handle_session(ctx: JobContext, participant: rtc.RemoteParticipant) -> None:
     """
     Handle a voice session with a participant.
 
@@ -86,9 +81,6 @@ async def handle_session(ctx: JobContext, participant: rtc.RemoteParticipant):
     mood = session_context["mood"]
     yesterday_promise_kept = session_context["yesterday_promise_kept"]
 
-    status = user_context.get("status", {})
-    current_streak = status.get("current_streak_days", 0)
-
     logger.info(f"📞 Call type: {call_type.name} | 🎭 Mood: {mood.name}")
 
     # Initialize persona controller
@@ -98,25 +90,16 @@ async def handle_session(ctx: JobContext, participant: rtc.RemoteParticipant):
 
     # Build system prompt
     system_prompt = await _build_prompt(
-        user_id,
-        user_context,
-        call_type,
-        mood,
-        call_memory,
-        excuse_data,
-        persona_controller,
-        yesterday_promise_kept,  # Pass yesterday's outcome to system prompt
+        user_id=user_id,
+        user_context=user_context,
+        call_type=call_type,
+        call_memory=call_memory,
+        excuse_data=excuse_data,
+        persona_controller=persona_controller,
     )
 
     # Initialize shared session data
-    userdata = FutureYouSessionData(
-        user_id=user_id,
-        current_station="hook"
-    )
-
-    # Initialize call aggregator for insights
-    call_aggregator = CallSummaryAggregator(user_id, call_type.name, mood.name)
-    call_aggregator.start()
+    userdata = FutureYouSessionData(user_id=user_id, current_station="hook")
 
     # Initialize components
     vad = ctx.proc.userdata.get("vad") or silero.VAD.load()
@@ -142,62 +125,6 @@ async def handle_session(ctx: JobContext, participant: rtc.RemoteParticipant):
         persona_controller=persona_controller,
     )
 
-    # Helper to route insights to aggregator
-    def _feed_aggregator(aggregator: CallSummaryAggregator, insight):
-        """Route insight events to the appropriate aggregator method."""
-        from agents.events import (
-            SentimentAnalysis,
-            ExcuseDetected,
-            PromiseResponse,
-            CommitmentIdentified,
-            MemorableQuoteDetected,
-            PatternAlert,
-        )
-
-        if isinstance(insight, SentimentAnalysis):
-            aggregator.add_sentiment(insight)
-        elif isinstance(insight, ExcuseDetected):
-            aggregator.add_excuse(insight)
-        elif isinstance(insight, PromiseResponse):
-            aggregator.add_promise(insight)
-        elif isinstance(insight, CommitmentIdentified):
-            aggregator.add_commitment(insight)
-        elif isinstance(insight, MemorableQuoteDetected):
-            aggregator.add_quote(insight)
-        elif isinstance(insight, PatternAlert):
-            aggregator.add_pattern(insight)
-        else:
-            logger.warning(f"Unknown insight type: {type(insight)}")
-
-    # Setup background analysis hook
-    async def on_user_speech(text: str):
-        if not text:
-            return
-        logger.info(f"Background analysis running on: {text}")
-        insights = await run_background_analysis(
-            user_text=text,
-            user_context=user_context,
-            promise_already_detected=userdata.held_promise
-        )
-        for insight in insights:
-            _feed_aggregator(call_aggregator, insight)
-            # Update shared userdata
-            if hasattr(insight, 'sentiment'):
-                userdata.sentiments.append(insight.sentiment)
-            if hasattr(insight, 'excuse_text'):
-                userdata.excuses_detected.append(insight.excuse_text)
-            if hasattr(insight, 'kept'):
-                userdata.held_promise = insight.kept
-            if hasattr(insight, 'action'):
-                 userdata.tomorrow_commitment = insight.action
-
-    # Listen to room transcriptions for background analysis
-    @ctx.room.on("transcription_received")
-    def on_transcription(transcriptions: list[rtc.Transcription], participant: rtc.Participant, room: rtc.Room):
-        for trans in transcriptions:
-            if trans.is_final:
-                asyncio.create_task(on_user_speech(trans.text))
-
     # Create the multi-agent session with components
     session = AgentSession(
         stt=stt,
@@ -215,27 +142,28 @@ async def handle_session(ctx: JobContext, participant: rtc.RemoteParticipant):
         agent=initial_agent,
     )
 
-    logger.info("Multi-agent session started successfully")
-
-    # Note: Session lifecycle is managed by LiveKit framework
-    # Session will automatically handle cleanup and end-of-session processing
-    # To handle session end, use the on_session_end callback in @server.rtc_session() decorator
+    logger.info("Voice session started successfully")
 
 
 def _parse_participant_metadata(participant: rtc.RemoteParticipant) -> dict:
     """Parse participant metadata to extract user info."""
-    import json
-
     metadata = {}
     if participant.metadata:
         try:
             metadata = json.loads(participant.metadata)
         except json.JSONDecodeError:
-            logger.warning(f"Could not parse participant metadata: {participant.metadata}")
+            logger.warning(
+                f"Could not parse participant metadata: {participant.metadata}"
+            )
     return metadata
 
 
-async def _init_persona(user_id, user_context, call_memory, yesterday_promise_kept):
+async def _init_persona(
+    user_id: str,
+    user_context: dict,
+    call_memory: dict,
+    yesterday_promise_kept: Optional[bool],
+) -> Optional[PersonaController]:
     """Initialize PersonaController if available."""
     if not PERSONA_AVAILABLE or not PersonaController or not trust_score_service:
         return None
@@ -248,8 +176,13 @@ async def _init_persona(user_id, user_context, call_memory, yesterday_promise_ke
 
 
 async def _build_prompt(
-    user_id, user_context, call_type, mood, call_memory, excuse_data, persona_controller
-):
+    user_id: str,
+    user_context: dict,
+    call_type,
+    call_memory: dict,
+    excuse_data: Optional[dict],
+    persona_controller: Optional[PersonaController],
+) -> str:
     """Build personalized system prompt using v4."""
     # Fetch FutureSelf object for v4
     future_self_obj = None
@@ -258,8 +191,8 @@ async def _build_prompt(
             future_self_obj = await get_future_self(user_id)
         except Exception as e:
             logger.warning(f"Could not fetch FutureSelf object: {e}")
-    
-    return await build_system_prompt_v4(
+
+    return await build_prompt(
         user_id=user_id,
         user_context=user_context,
         call_type=call_type,
@@ -275,31 +208,6 @@ def _get_speed_for_mood(mood) -> float:
     if hasattr(mood, "speed_ratio"):
         return mood.speed_ratio
     return 1.0
-
-
-def _feed_aggregator(aggregator: CallSummaryAggregator, insight):
-    """Feed an insight to the aggregator."""
-    from agents.events import (
-        SentimentAnalysis,
-        ExcuseDetected,
-        PromiseResponse,
-        CommitmentIdentified,
-        MemorableQuoteDetected,
-        PatternAlert,
-    )
-
-    if isinstance(insight, SentimentAnalysis):
-        aggregator.add_sentiment(insight)
-    elif isinstance(insight, ExcuseDetected):
-        aggregator.add_excuse(insight)
-    elif isinstance(insight, PromiseResponse):
-        aggregator.add_promise(insight)
-    elif isinstance(insight, CommitmentIdentified):
-        aggregator.add_commitment(insight)
-    elif isinstance(insight, MemorableQuoteDetected):
-        aggregator.add_quote(insight)
-    elif isinstance(insight, PatternAlert):
-        aggregator.add_pattern(insight)
 
 
 __all__ = ["handle_session"]

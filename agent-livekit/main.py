@@ -121,9 +121,6 @@ if __name__ == "__main__":
     validate_environment()
 
     logger.info("Starting Future Self Agent (LiveKit)...")
-    logger.info(
-        "Agents: FutureYou (speaking) + Excuse, Sentiment, Commitment, Promise, Quote (background)"
-    )
 
     cli.run_app(
         WorkerOptions(
