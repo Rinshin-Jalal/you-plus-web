@@ -17,8 +17,6 @@ from livekit.agents import Agent
 from livekit.agents.llm import ChatContext, ChatMessage
 
 from core.models import FutureYouSessionData
-from conversation.call_types import CallType
-from conversation.personality import PersonalityState
 
 DEFAULT_TEMPERATURE = 0.7
 BACKEND_URL = os.getenv("BACKEND_URL", "https://youplus-backend.workers.dev")
@@ -34,9 +32,6 @@ class FutureYouNode(Agent):
         system_prompt: str,
         user_id: str = "unknown",
         user_context: Optional[dict] = None,
-        call_type: Optional[CallType] = None,
-        personality: Optional[PersonalityState] = None,
-        call_memory: Optional[dict] = None,
         temperature: float = DEFAULT_TEMPERATURE,
         max_output_tokens: int = 150,
     ):
@@ -45,9 +40,6 @@ class FutureYouNode(Agent):
         self.temperature = temperature
         self.user_id = user_id
         self.user_context = user_context or {}
-        self.call_type = call_type
-        self.personality = personality
-        self.call_memory = call_memory or {}
         self.max_output_tokens = max_output_tokens
 
         # Conversation history (OpenAI format)
@@ -74,66 +66,9 @@ class FutureYouNode(Agent):
         ):
             self.user_id = self.session.userdata.user_id
 
-        # System prompt already has: mood, call_type, persona, day number, yesterday's outcome, etc.
-        # Let the LLM generate opening naturally based on conversation objectives in system prompt
-        # No scripted opening - the system prompt should guide natural conversation start
-
     def _log_init_info(self) -> None:
         """Log initialization info."""
         logger.info(f"FutureYouNode initialized for user: {self.user_id}")
-        if self.call_type:
-            logger.info(f"Call type: {self.call_type.name}")
-        if self.personality:
-            logger.info(
-                f"Personality: {self.personality.emotional_weather} ({self.personality.relationship_phase})"
-            )
-
-    async def on_user_turn_completed(
-        self, turn_ctx: ChatContext, new_message: ChatMessage
-    ) -> None:
-        """Called after a user message."""
-        text = new_message.text_content
-        if not text:
-            return
-
-        self.total_turns += 1
-        logger.info(f'Turn {self.total_turns}: "{text}"')
-
-        # Let the LLM respond naturally based on the conversation objectives in the system prompt
-        # No scripted responses - the prompt handles what should happen next
-
-    async def report_call_result(self):
-        """Report call result to backend."""
-        if self.user_id == "unknown":
-            return
-
-        try:
-            async with aiohttp.ClientSession() as session:
-                payload = {
-                    "user_id": self.user_id,
-                    "kept_promise": self.kept_promise,
-                    "call_type": "accountability_checkin",
-                }
-                if self.tomorrow_commitment:
-                    payload["tomorrow_commitment"] = self.tomorrow_commitment
-
-                async with session.post(
-                    f"{BACKEND_URL}/api/calls/report",
-                    json=payload,
-                    timeout=aiohttp.ClientTimeout(total=10),
-                ) as resp:
-                    if resp.status == 200:
-                        logger.info(f"Call result reported for {self.user_id}")
-        except Exception as e:
-            logger.error(f"Error reporting call result: {e}")
-
-    def get_updated_call_memory(self) -> dict:
-        """Return updated call_memory with quotes."""
-        updated = dict(self.call_memory)
-        updated["memorable_quotes"] = (
-            updated.get("memorable_quotes", []) + self._quotes_this_call
-        )[-20:]
-        return updated
 
     def get_call_duration_seconds(self) -> int:
         """Get call duration in seconds."""

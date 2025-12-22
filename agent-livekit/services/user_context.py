@@ -58,17 +58,26 @@ async def fetch_user_context(user_id: str) -> dict:
     """Fetch user's COMPLETE context from Supabase - future_self, pillars, status, AND history."""
 
     if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
-        print("⚠️ Supabase not configured, using default context")
-        return _default_user_context()
+        print(f"❌ CRITICAL: Supabase not configured! Cannot fetch real data for user: {user_id}")
+        raise Exception(f"Supabase not configured - cannot fetch user context for {user_id}")
 
     try:
-        return await with_retry(
+        result = await with_retry(
             lambda: _fetch_user_context_impl(user_id),
             f"fetch_user_context({user_id})",
         )
+        
+        # Validate we got actual data, not empty defaults
+        if not result or (not result.get("future_self") and not result.get("pillars") and not result.get("users")):
+            print(f"❌ CRITICAL: Database returned empty/insufficient data for user: {user_id}")
+            # Raise exception so caller knows database fetch failed
+            raise Exception(f"Database returned empty context for user {user_id} - user may not exist or data is missing")
+        
+        return result
     except Exception as e:
-        print(f"❌ Failed to fetch user context after retries: {e}")
-        return _default_user_context()
+        print(f"❌ CRITICAL: Failed to fetch user context from database after retries for {user_id}: {e}")
+        # Re-raise so caller knows database fetch failed - NEVER return demo/default data
+        raise
 
 
 def _default_user_context() -> dict:
@@ -83,181 +92,64 @@ def _default_user_context() -> dict:
 
 
 async def _fetch_user_context_impl(user_id: str) -> dict:
-    """Internal implementation of fetch_user_context."""
-    timeout = aiohttp.ClientTimeout(total=10)
-    async with aiohttp.ClientSession(timeout=timeout) as session:
-        headers = {
-            "apikey": SUPABASE_SERVICE_KEY,
-            "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
-        }
-
-        # Fetch users table for name and call_time
-        async with session.get(
-            f"{SUPABASE_URL}/rest/v1/users",
-            params={"id": f"eq.{user_id}", "select": "id,name,timezone,call_time"},
-            headers=headers,
-        ) as resp:
-            users_data = await resp.json()
-            users = users_data[0] if users_data else {}
-
-        # Fetch future_self (replaces identity table)
-        async with session.get(
-            f"{SUPABASE_URL}/rest/v1/future_self",
-            params={"user_id": f"eq.{user_id}", "select": "*"},
-            headers=headers,
-        ) as resp:
-            future_self_data = await resp.json()
-            future_self = future_self_data[0] if future_self_data else {}
-
-        # Fetch future_self_pillars
-        async with session.get(
-            f"{SUPABASE_URL}/rest/v1/future_self_pillars",
-            params={"user_id": f"eq.{user_id}", "select": "*"},
-            headers=headers,
-        ) as resp:
-            pillars_data = await resp.json()
-            pillars = pillars_data if isinstance(pillars_data, list) else []
-
-        # Fetch status (streak, total calls)
-        async with session.get(
-            f"{SUPABASE_URL}/rest/v1/status",
-            params={"user_id": f"eq.{user_id}", "select": "*"},
-            headers=headers,
-        ) as resp:
-            status_data = await resp.json()
-            status = status_data[0] if status_data else {}
-
-        # Fetch recent call analytics (last 14 days) for pattern recognition
-        async with session.get(
-            f"{SUPABASE_URL}/rest/v1/call_analytics",
-            params={
-                "user_id": f"eq.{user_id}",
-                "select": "promise_kept,tomorrow_commitment,created_at,call_type",
-                "order": "created_at.desc",
-                "limit": "14",
-            },
-            headers=headers,
-        ) as resp:
-            call_history = await resp.json() if resp.status == 200 else []
-
-        print(
-            f"📊 Loaded context for {user_id}: future_self={bool(future_self)}, pillars={len(pillars)}, streak={status.get('current_streak_days', 0)}, history={len(call_history)} calls"
-        )
-
-        return {
-            "future_self": future_self,
-            "pillars": pillars,
-            "status": status,
-            "call_history": call_history if isinstance(call_history, list) else [],
-            "users": users,
-        }
-
-
-async def fetch_call_memory(user_id: str) -> dict:
-    """Fetch user's call memory from Supabase."""
-
-    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
-        print("⚠️ Supabase not configured, using default call memory")
-        return _default_call_memory()
-
-    try:
-        return await with_retry(
-            lambda: _fetch_call_memory_impl(user_id),
-            f"fetch_call_memory({user_id})",
-        )
-    except Exception as e:
-        print(f"❌ Failed to fetch call memory after retries: {e}")
-        return _default_call_memory()
-
-
-async def _fetch_call_memory_impl(user_id: str) -> dict:
-    """Internal implementation of fetch_call_memory."""
-    timeout = aiohttp.ClientTimeout(total=10)
-    async with aiohttp.ClientSession(timeout=timeout) as session:
-        headers = {
-            "apikey": SUPABASE_SERVICE_KEY,
-            "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
-        }
-
-        async with session.get(
-            f"{SUPABASE_URL}/rest/v1/call_memory",
-            params={"user_id": f"eq.{user_id}", "select": "*"},
-            headers=headers,
-        ) as resp:
-            if resp.status == 200:
-                data = await resp.json()
-                if data:
-                    print(f"📝 Loaded call memory for {user_id}")
-                    return data[0]
-
-            # No memory exists, return default
-            print(f"📝 No call memory found for {user_id}, using defaults")
-            return _default_call_memory()
-
-
-async def upsert_call_memory(user_id: str, call_memory: dict) -> bool:
-    """Update or insert call memory for a user."""
-
-    if not SUPABASE_URL or not SUPABASE_SERVICE_KEY:
-        print("⚠️ Supabase not configured, cannot save call memory")
-        return False
-
-    try:
-        return await with_retry(
-            lambda: _upsert_call_memory_impl(user_id, call_memory),
-            f"upsert_call_memory({user_id})",
-        )
-    except Exception as e:
-        print(f"❌ Failed to save call memory after retries: {e}")
-        return False
-
-
-async def _upsert_call_memory_impl(user_id: str, call_memory: dict) -> bool:
-    """Internal implementation of upsert_call_memory."""
+    """Internal implementation of fetch_user_context using Supabase function."""
     timeout = aiohttp.ClientTimeout(total=10)
     async with aiohttp.ClientSession(timeout=timeout) as session:
         headers = {
             "apikey": SUPABASE_SERVICE_KEY,
             "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
             "Content-Type": "application/json",
-            "Prefer": "resolution=merge-duplicates",
         }
 
-        payload = {
-            "user_id": user_id,
-            **call_memory,
-        }
-
+        # Call the Supabase function to get all context in one request
         async with session.post(
-            f"{SUPABASE_URL}/rest/v1/call_memory",
-            json=payload,
+            f"{SUPABASE_URL}/rest/v1/rpc/get_user_context_for_call",
+            json={"p_user_id": user_id},
             headers=headers,
         ) as resp:
-            if resp.status in (200, 201):
-                print(f"💾 Saved call memory for {user_id}")
-                return True
+            if resp.status != 200:
+                error_text = await resp.text()
+                raise Exception(f"Supabase function call failed: {resp.status} - {error_text}")
+            
+            result = await resp.json()
+            
+            # Supabase RPC functions return the result directly (not wrapped in array for jsonb)
+            # Handle both cases: direct dict or wrapped in array
+            if isinstance(result, list):
+                # If wrapped in array, take first element
+                context = result[0] if result else {}
+            elif isinstance(result, dict):
+                # Direct JSONB object
+                context = result
             else:
-                print(f"⚠️ Failed to save call memory: {resp.status}")
-                return False
+                # Unexpected format, return default
+                print(f"⚠️ Unexpected result format from get_user_context: {type(result)}")
+                return _default_user_context()
+            
+            # Ensure all expected keys exist with proper defaults
+            future_self = context.get("future_self") or {}
+            pillars = context.get("pillars") or []
+            status = context.get("status") or {}
+            call_history = context.get("call_history") or []
+            users = context.get("users") or {}
+            
+            # Ensure pillars and call_history are lists
+            if not isinstance(pillars, list):
+                pillars = []
+            if not isinstance(call_history, list):
+                call_history = []
+            
+            print(
+                f"📊 Loaded context for {user_id}: future_self={bool(future_self)}, pillars={len(pillars)}, streak={status.get('current_streak_days', 0)}, history={len(call_history)} calls"
+            )
 
-
-def _default_call_memory() -> dict:
-    """Return default call memory structure."""
-    return {
-        "memorable_quotes": [],
-        "emotional_peaks": [],
-        "open_loops": [],
-        "last_call_type": None,
-        "call_type_history": [],
-        "narrative_arc": "early_struggle",
-        "last_mood": None,
-        "current_persona": "mentor",
-        "severity_level": 1,
-        "last_commitment": None,
-        "last_commitment_time": None,
-        "last_commitment_specific": False,
-    }
-
+            return {
+                "future_self": future_self,
+                "pillars": pillars,
+                "status": status,
+                "call_history": call_history,
+                "users": users,
+            }
 
 def get_yesterday_promise_status(call_history: list) -> Optional[bool]:
     """Determine if they kept their promise yesterday from call history."""

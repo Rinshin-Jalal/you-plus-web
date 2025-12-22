@@ -249,44 +249,6 @@ export interface Status {
 }
 
 /**
- * Call Memory Table
- */
-export interface CallMemory {
-  id: string;
-  user_id: string;
-  created_at: string;
-  updated_at: string;
-
-  memorable_quotes: Array<{
-    quote: string;
-    context: string;
-    date: string;
-  }>;
-  emotional_peaks: Array<{
-    moment: string;
-    emotion: string;
-    date: string;
-  }>;
-  open_loops: Array<{
-    topic: string;
-    mentioned_at: string;
-    resolved: boolean;
-  }>;
-
-  last_call_type: string;
-  call_type_history: string[];
-  narrative_arc: string;
-  last_mood: string;
-
-  current_persona: string;
-  severity_level: number;
-
-  last_commitment?: string;
-  last_commitment_time?: string;
-  last_commitment_specific: boolean;
-}
-
-/**
  * Call Analytics Table
  */
 export interface CallAnalytics {
@@ -413,7 +375,6 @@ export interface UserProgression {
 export interface DashboardData {
   user: User | null;
   status: Status | null;
-  callMemory: CallMemory | null;
   recentCalls: CallAnalytics[];
   subscription: Subscription | null;
   stats: DashboardStats;

@@ -116,28 +116,7 @@ const handleCallCompleted: EventHandler<EventByType<'call.completed'>> = async (
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // 3. Update call memory with latest commitment
-  // ─────────────────────────────────────────────────────────────────────────
-  if (event.summary.tomorrowCommitment) {
-    const { error: memoryError } = await supabase.from('call_memory').upsert(
-      {
-        user_id: event.userId,
-        last_call_type: event.summary.callType,
-        last_mood: event.summary.mood,
-        last_commitment: event.summary.tomorrowCommitment,
-        last_commitment_time: event.summary.commitmentTime,
-        last_commitment_specific: event.summary.commitmentIsSpecific,
-      },
-      { onConflict: 'user_id' }
-    );
-
-    if (memoryError) {
-      console.error('[Core] Failed to update call memory:', memoryError);
-    }
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // 4. Emit secondary events based on call outcome
+  // 3. Emit secondary events based on call outcome
   // ─────────────────────────────────────────────────────────────────────────
 
   // Promise kept/broken events

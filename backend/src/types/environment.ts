@@ -128,7 +128,7 @@ export const EnvCategories = {
   ai: {
     BEDROCK_API_KEY: "AWS Bedrock API key for embeddings and AI processing (OpenAI-compatible)",
     BEDROCK_REGION: "AWS Bedrock region (e.g., us-west-2)",
-    CARTESIA_API_KEY: "Cartesia API key for STT (Ink) and TTS (Sonic-3)",
+    CARTESIA_API_KEY: "Cartesia API key for STT (Ink) and TTS (sonic-3-latest-latest)",
     CARTESIA_AGENT_ID: "Deployed Cartesia Line agent ID for outbound calls",
     GEMINI_API_KEY: "Gemini API key for returning user personalization (optional)",
   },

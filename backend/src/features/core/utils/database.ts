@@ -105,25 +105,6 @@ export interface Status {
   calls_paused_until?: string | null;
 }
 
-export interface CallMemory {
-  id: string;
-  user_id: string;
-  created_at: string;
-  updated_at: string;
-  memorable_quotes: Array<{ quote: string; context: string; date: string }>;
-  emotional_peaks: Array<{ moment: string; emotion: string; date: string }>;
-  open_loops: Array<{ topic: string; mentioned_at: string; resolved: boolean }>;
-  last_call_type: string;
-  call_type_history: string[];
-  narrative_arc: string;
-  last_mood: string;
-  current_persona: string;
-  severity_level: number;
-  last_commitment?: string;
-  last_commitment_time?: string;
-  last_commitment_specific: boolean;
-}
-
 export interface CallAnalytics {
   id: string;
   user_id: string;
@@ -204,8 +185,6 @@ export interface UserContext {
   futureSelf: FutureSelf | null;
   pillars: FutureSelfPillar[];
   status: Status | null;
-  callMemory: CallMemory | null;
-  recentCallAnalytics: CallAnalytics[];
   stats: {
     totalCalls: number;
     currentStreak: number;
@@ -245,11 +224,6 @@ export interface Database {
         Row: Status;
         Insert: Omit<Status, "id" | "created_at" | "updated_at">;
         Update: Partial<Omit<Status, "id" | "created_at">>;
-      };
-      call_memory: {
-        Row: CallMemory;
-        Insert: Omit<CallMemory, "id" | "created_at" | "updated_at">;
-        Update: Partial<Omit<CallMemory, "id" | "created_at">>;
       };
       call_analytics: {
         Row: CallAnalytics;
@@ -460,58 +434,6 @@ export async function updateUserStreak(
 }
 
 // ============================================================================
-// CALL MEMORY QUERIES
-// ============================================================================
-
-export async function getCallMemory(
-  env: Env,
-  userId: string
-): Promise<CallMemory | null> {
-  const supabase = createSupabaseClient(env);
-
-  const { data, error } = await supabase
-    .from("call_memory")
-    .select("*")
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (error && error.code !== "PGRST116") {
-    throw new Error(`Failed to fetch call memory: ${error.message}`);
-  }
-  return data;
-}
-
-export async function updateCallMemory(
-  env: Env,
-  userId: string,
-  updates: Partial<Omit<CallMemory, "id" | "user_id" | "created_at" | "updated_at">>
-): Promise<void> {
-  const supabase = createSupabaseClient(env);
-
-  const { error } = await supabase
-    .from("call_memory")
-    .update(updates)
-    .eq("user_id", userId);
-
-  if (error) throw new Error(`Failed to update call memory: ${error.message}`);
-}
-
-export async function upsertCallMemory(
-  env: Env,
-  userId: string,
-  data: Partial<Omit<CallMemory, "id" | "created_at" | "updated_at">>
-): Promise<void> {
-  const supabase = createSupabaseClient(env);
-
-  const { error } = await supabase
-    .from("call_memory")
-    .upsert(
-      { user_id: userId, ...data },
-      { onConflict: "user_id" }
-    );
-
-  if (error) throw new Error(`Failed to upsert call memory: ${error.message}`);
-}
 
 // ============================================================================
 // CALL ANALYTICS QUERIES
@@ -704,14 +626,11 @@ export async function getUserContext(
       { data: futureSelf, error: futureSelfError },
       { data: pillars, error: pillarsError },
       { data: status, error: statusError },
-      { data: callMemory, error: callMemoryError },
-      { data: recentCalls, error: recentCallsError },
     ] = await Promise.all([
       supabase.from("users").select("*").eq("id", userId).maybeSingle(),
       supabase.from("future_self").select("*").eq("user_id", userId).maybeSingle(),
       supabase.from("future_self_pillars").select("*").eq("user_id", userId),
       supabase.from("status").select("*").eq("user_id", userId).maybeSingle(),
-      supabase.from("call_memory").select("*").eq("user_id", userId).maybeSingle(),
       supabase
         .from("call_analytics")
         .select("*")
@@ -734,9 +653,6 @@ export async function getUserContext(
     if (statusError && statusError.code !== "PGRST116") {
       console.warn("getUserContext: status fetch issue:", statusError.message);
     }
-    if (callMemoryError && callMemoryError.code !== "PGRST116") {
-      console.warn("getUserContext: call_memory fetch issue:", callMemoryError.message);
-    }
 
     const currentStreak = status?.current_streak_days ?? 0;
     const longestStreak = status?.longest_streak_days ?? 0;
@@ -754,9 +670,7 @@ export async function getUserContext(
       user: user as User,
       futureSelf: futureSelf ?? null,
       pillars: pillars || [],
-      status: status ?? null,
-      callMemory: callMemory ?? null,
-      recentCallAnalytics: recentCalls || [],
+      status: status ?? null,   
       stats: {
         totalCalls,
         currentStreak,
@@ -791,8 +705,6 @@ function buildFallbackUserContext(userId: string): UserContext {
     futureSelf: null,
     pillars: [],
     status: null,
-    callMemory: null,
-    recentCallAnalytics: [],
     stats: {
       totalCalls: 0,
       currentStreak: 0,

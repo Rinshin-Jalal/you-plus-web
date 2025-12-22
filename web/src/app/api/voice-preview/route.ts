@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model_id: 'sonic-2',
+        model_id: 'sonic-3-latest-latest',
         transcript: text,
         voice: {
           mode: 'id',

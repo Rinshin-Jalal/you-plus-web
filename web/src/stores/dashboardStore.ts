@@ -109,7 +109,6 @@ export const useDashboardStore = create<DashboardState>()(
             data: {
               user: dashboardData.user,
               status: dashboardData.status,
-              callMemory: dashboardData.callMemory,
               recentCalls: dashboardData.recentCalls,
               subscription: dashboardData.subscription,
               stats,

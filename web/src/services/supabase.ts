@@ -8,7 +8,6 @@ import type { Session, User as SupabaseUser, SupabaseClient } from '@supabase/su
 import type {
   User,
   Status,
-  CallMemory,
   CallAnalytics,
   Subscription,
   DashboardStats,
@@ -219,15 +218,7 @@ export const db = {
     return { data, error }
   },
 
-  async getCallMemory(userId: string): Promise<{ data: CallMemory | null; error: Error | null }> {
-    const client = getClient()
-    const { data, error } = await client
-      .from('call_memory')
-      .select('*')
-      .eq('user_id', userId)
-      .single()
-    return { data, error }
-  },
+
 
   async getRecentCallAnalytics(userId: string, days: number = 7): Promise<{ data: CallAnalytics[] | null; error: Error | null }> {
     const client = getClient()
@@ -258,7 +249,6 @@ export const db = {
   async getDashboardData(userId: string): Promise<{
     user: User | null;
     status: Status | null;
-    callMemory: CallMemory | null;
     recentCalls: CallAnalytics[];
     subscription: Subscription | null;
   }> {
@@ -269,18 +259,12 @@ export const db = {
     const [
       userResult,
       statusResult,
-      callMemoryResult,
       recentCallsResult,
       subscriptionResult,
     ] = await Promise.all([
       client.from('users').select('*').eq('id', userId).single(),
       client.from('status').select('*').eq('user_id', userId).single(),
-      client.from('call_memory').select('*').eq('user_id', userId).single(),
-      client.from('call_analytics')
-        .select('*')
-        .eq('user_id', userId)
-        .gte('created_at', cutoffDate.toISOString())
-        .order('created_at', { ascending: false }),
+      client.from('call_analytics').select('*').eq('user_id', userId).gte('created_at', cutoffDate.toISOString()).order('created_at', { ascending: false }),
       client.from('subscriptions')
         .select('*')
         .eq('user_id', userId)
@@ -292,7 +276,6 @@ export const db = {
     return {
       user: userResult.data as User | null,
       status: statusResult.data as Status | null,
-      callMemory: callMemoryResult.data as CallMemory | null,
       recentCalls: (recentCallsResult.data as CallAnalytics[]) || [],
       subscription: subscriptionResult.data as Subscription | null,
     }
@@ -418,7 +401,6 @@ export const db = {
   async getDashboardDataWithPillars(userId: string): Promise<{
     user: User | null;
     status: Status | null;
-    callMemory: CallMemory | null;
     recentCalls: CallAnalytics[];
     subscription: Subscription | null;
     futureSelf: FutureSelf | null;
@@ -433,7 +415,6 @@ export const db = {
     const [
       userResult,
       statusResult,
-      callMemoryResult,
       recentCallsResult,
       subscriptionResult,
       futureSelfResult,
@@ -443,7 +424,6 @@ export const db = {
     ] = await Promise.all([
       client.from('users').select('*').eq('id', userId).single(),
       client.from('status').select('*').eq('user_id', userId).single(),
-      client.from('call_memory').select('*').eq('user_id', userId).single(),
       client.from('call_analytics')
         .select('*')
         .eq('user_id', userId)
@@ -474,7 +454,6 @@ export const db = {
     return {
       user: userResult.data as User | null,
       status: statusResult.data as Status | null,
-      callMemory: callMemoryResult.data as CallMemory | null,
       recentCalls: (recentCallsResult.data as CallAnalytics[]) || [],
       subscription: subscriptionResult.data as Subscription | null,
       futureSelf: futureSelfResult.data as FutureSelf | null,

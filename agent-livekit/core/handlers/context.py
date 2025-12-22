@@ -1,6 +1,6 @@
 """
-Context Handler
-===============
+Context Handler - Simplified
+==========================
 
 Fetches user context, call memory, and other data needed for a session.
 """
@@ -11,11 +11,124 @@ from loguru import logger
 
 from services.user_context import (
     fetch_user_context,
-    fetch_call_memory,
     get_yesterday_promise_status,
 )
-from conversation.call_types import select_call_type
-from conversation.personality import calculate_personality_state, PersonalityState
+
+
+def _get_demo_user_context() -> dict:
+    """Return fake demo data for testing purposes. Matches real database schema."""
+    return {
+        "future_self": {
+            "id": "demo-future-self-id",
+            "user_id": "identity-demo",
+            "core_identity": "I am becoming a disciplined builder who ships products and moves my body daily",
+            "primary_pillar": "career",
+            "the_why": "To build something meaningful and be healthy enough to enjoy it",
+            "dark_future": "Still talking about building, still overweight, still making excuses",
+            "quit_pattern": "Week 2 when novelty wears off",
+            "favorite_excuse": "Too tired",
+            "who_disappointed": ["myself", "my future self"],
+            "fears": ["being seen as a fraud", "dying early"],
+            "future_self_intro_url": None,
+            "why_recording_url": None,
+            "pledge_recording_url": None,
+            "cartesia_voice_id": "demo-voice-id",
+            "overall_trust_score": 75,
+            "supermemory_container_id": None,
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-15T00:00:00Z",
+        },
+        "pillars": [
+            {
+                "id": "demo-pillar-1",
+                "user_id": "identity-demo",
+                "future_self_id": "demo-future-self-id",
+                "pillar": "career",
+                "current_state": "Talking about building, not actually building",
+                "future_state": "Shipping products regularly, building real value",
+                "identity_statement": "I am a builder",
+                "non_negotiable": "I ship code or build something every single day",
+                "trust_score": 70,
+                "priority": 100,
+                "last_checked_at": "2024-01-15T09:00:00Z",
+                "consecutive_kept": 3,
+                "consecutive_broken": 0,
+                "total_kept": 15,
+                "total_checked": 20,
+                "status": "active",
+                "created_at": "2024-01-01T00:00:00Z",
+                "updated_at": "2024-01-15T00:00:00Z",
+            },
+            {
+                "id": "demo-pillar-2",
+                "user_id": "identity-demo",
+                "future_self_id": "demo-future-self-id",
+                "pillar": "health",
+                "current_state": "Overweight, tired, avoiding mirrors",
+                "future_state": "150lbs, energetic, proud of my body",
+                "identity_statement": "I am an athlete",
+                "non_negotiable": "I move my body every single day",
+                "trust_score": 65,
+                "priority": 80,
+                "last_checked_at": "2024-01-14T09:00:00Z",
+                "consecutive_kept": 2,
+                "consecutive_broken": 0,
+                "total_kept": 12,
+                "total_checked": 18,
+                "status": "active",
+                "created_at": "2024-01-01T00:00:00Z",
+                "updated_at": "2024-01-14T00:00:00Z",
+            },
+            {
+                "id": "demo-pillar-3",
+                "user_id": "identity-demo",
+                "future_self_id": "demo-future-self-id",
+                "pillar": "relationships",
+                "current_state": "Isolated, not prioritizing connections",
+                "future_state": "Nurturing meaningful relationships with family and friends",
+                "identity_statement": "I am a connector",
+                "non_negotiable": "I reach out to someone important every single day",
+                "trust_score": 60,
+                "priority": 60,
+                "last_checked_at": "2024-01-13T09:00:00Z",
+                "consecutive_kept": 1,
+                "consecutive_broken": 0,
+                "total_kept": 8,
+                "total_checked": 15,
+                "status": "active",
+                "created_at": "2024-01-01T00:00:00Z",
+                "updated_at": "2024-01-13T00:00:00Z",
+            },
+        ],
+        "status": {
+            "user_id": "identity-demo",
+            "current_streak_days": 7,
+            "longest_streak_days": 12,
+            "total_calls_completed": 25,
+            "trust_score": 85,
+            "last_call_date": "2024-01-15",
+        },
+        "call_history": [
+            {
+                "promise_kept": True,
+                "tomorrow_commitment": "Complete the project proposal and submit it",
+                "created_at": "2024-01-15T09:00:00Z",
+                "call_type": "daily_checkin",
+            },
+            {
+                "promise_kept": True,
+                "tomorrow_commitment": "Go for a 30-minute run in the morning",
+                "created_at": "2024-01-14T09:00:00Z",
+                "call_type": "daily_checkin",
+            },
+        ],
+        "users": {
+            "id": "identity-demo",
+            "name": "Demo User",
+            "timezone": "America/New_York",
+            "call_time": "09:00:00",
+        },
+    }
 
 
 async def fetch_session_context(user_id: str) -> Optional[dict]:
@@ -26,170 +139,89 @@ async def fetch_session_context(user_id: str) -> Optional[dict]:
         user_id: The user's ID
 
     Returns:
-        Dict with user_context, call_memory, call_type, mood, etc.
-        None if user should be rejected.
+        Dict with user context, call memory, and other session data
     """
-    # Fetch user's context from database
-    user_context = await fetch_user_context(user_id)
-    future_self = user_context.get("future_self", {})
-    status = user_context.get("status", {})
+    try:
+        logger.info(f"🔍 Fetching session context for user: {user_id}")
 
-    # Handle demo/test users (e.g., from LiveKit Playground)
-    if not future_self or not future_self.get("user_id"):
-        # Check if this is a demo/test user
-        if (
-            user_id.startswith("identity-")
-            or user_id.startswith("test-")
-            or user_id == "demo"
-        ):
-            logger.info(f"🧪 Creating demo context for test user: {user_id}")
-            return _create_demo_context(user_id)
+        # ONLY use demo data for explicit test users (identity-* prefix)
+        # ALL real users MUST fetch from database
+        if user_id.startswith("identity-"):
+            logger.warning(f"🧪 TEST MODE: Using demo data for test user: {user_id}")
+            user_context = _get_demo_user_context()
+        else:
+            # REAL USER: Fetch from database - NEVER use demo data
+            logger.info(f"📊 REAL USER: Fetching from database for user: {user_id}")
+            user_context = await fetch_user_context(user_id)
+            
+            # Validate we got real data
+            if not user_context:
+                logger.error(f"❌ No user context returned from database for user: {user_id}")
+                return None
+            
+            # Check if we got empty/default data (database fetch failed silently)
+            future_self = user_context.get("future_self") or {}
+            pillars = user_context.get("pillars") or []
+            users = user_context.get("users") or {}
+            
+            # If all data is empty, database fetch likely failed
+            if not future_self and not pillars and not users:
+                logger.error(f"❌ Database returned empty context for user: {user_id} - this is likely a database error")
+                return None
+            
+            logger.info(f"✅ Successfully loaded real user data: future_self={bool(future_self)}, pillars={len(pillars)}, user={bool(users)}")
 
-        # Real user not found - reject
-        logger.warning(f"User {user_id} not found in future_self table")
+        # Determine yesterday's promise status
+        call_history = user_context.get("call_history", [])
+        yesterday_promise_kept = get_yesterday_promise_status(call_history)
+
+        # Simple call type selection
+        call_type = "daily_checkin"
+        logger.info(f"📞 Using call type: {call_type}")
+
+        return {
+            "user_context": user_context,
+            "call_type": call_type,
+            "yesterday_promise_kept": yesterday_promise_kept,
+        }
+
+    except Exception as e:
+        logger.error(f"❌ Error fetching session context for user {user_id}: {e}", exc_info=True)
         return None
 
-    # Reject if subscription expired
-    subscription_status = status.get("subscription_status")
-    if subscription_status == "expired":
-        logger.warning(f"User {user_id} subscription expired")
-        return None
 
-    # Reject if user paused calls
-    if status.get("calls_paused"):
-        logger.warning(f"User {user_id} has paused calls")
-        return None
-
-    # Fetch call memory
-    call_memory = await fetch_call_memory(user_id)
-
-    # Determine yesterday's promise status
-    call_history = user_context.get("call_history", [])
-    yesterday_promise_kept = get_yesterday_promise_status(call_history)
-
-    # Select call type
-    current_streak = status.get("current_streak_days", 0)
-    call_type = select_call_type(
-        user_context=user_context,
-        call_memory=call_memory,
-        current_streak=current_streak,
-    )
-    logger.info(f"📞 Selected call type: {call_type.name} ({call_type.energy})")
-
-    # Calculate personality state (V5)
-    recent_promises = []  # TODO: Extract from call_history if needed
-    personality = calculate_personality_state(
-        user_context=user_context,
-        call_memory=call_memory,
-        kept_promise_yesterday=yesterday_promise_kept,
-        recent_promises=recent_promises,
-    )
-    logger.info(
-        f"🎭 Personality: {personality.emotional_weather} ({personality.relationship_phase})"
-    )
-    logger.info(
-        f"   Frustration: {personality.frustration:.1f} | Respect: {personality.respect:.1f} | Intimacy: {personality.intimacy:.1f}"
-    )
-
-    return {
-        "user_context": user_context,
-        "call_memory": call_memory,
-        "excuse_data": {},  # Removed excuse patterns system
-        "call_type": call_type,
-        "personality": personality,  # V5: personality instead of mood
-        "yesterday_promise_kept": yesterday_promise_kept,
-    }
-
-
-def _create_demo_context(user_id: str) -> dict:
+async def fetch_session_context_simple(user_id: str) -> Optional[dict]:
     """
-    Create mock context for demo/test users from LiveKit Playground.
-
-    Args:
-        user_id: The test user's ID (e.g., identity-KlCq)
-
-    Returns:
-        Dict with mock user_context, call_memory, call_type, personality, etc.
+    Very simple context fetch for basic operation.
     """
-    from conversation.call_types import CALL_TYPES
+    try:
+        # ONLY use demo data for explicit test users (identity-* prefix)
+        # ALL real users MUST fetch from database
+        if user_id.startswith("identity-"):
+            logger.warning(f"🧪 TEST MODE: Using demo data for test user: {user_id}")
+            user_context = _get_demo_user_context()
+        else:
+            # REAL USER: Fetch from database - NEVER use demo data
+            logger.info(f"📊 REAL USER: Fetching from database for user: {user_id}")
+            user_context = await fetch_user_context(user_id)
+            
+            if not user_context:
+                logger.error(f"❌ No user context returned from database for user: {user_id}")
+                return None
+            
+            # Validate we got real data
+            future_self = user_context.get("future_self") or {}
+            pillars = user_context.get("pillars") or []
+            users = user_context.get("users") or {}
+            
+            if not future_self and not pillars and not users:
+                logger.error(f"❌ Database returned empty context for user: {user_id} - this is likely a database error")
+                return None
 
-    logger.info(f"📋 Creating demo context for test user: {user_id}")
-    logger.info(f"🎯 Demo context will include 2 sample pillars: health, career")
+        return {
+            "user_context": user_context,
+        }
 
-    # Create basic demo context
-    demo_user_context = {
-        "future_self": {
-            "user_id": user_id,
-            "name": "Demo User",
-            "cartesia_voice_id": None,  # Will use default voice
-            "overall_trust_score": 50,
-            "quit_pattern": "",
-            "core_identity": "Building a future version of myself",
-            "primary_pillar": "health",
-            "the_why": "To prove to myself I can do hard things and become who I say I'll be",
-        },
-        "pillars": [
-            {
-                "id": "demo-pillar-health",
-                "pillar": "health",
-                "user_id": user_id,
-                "current_state": "Inconsistent with exercise, tired often",
-                "future_state": "Energetic, strong, consistent with movement",
-                "identity_statement": "I am someone who moves their body daily",
-                "non_negotiable": "I move my body every single day",
-                "trust_score": 50,
-                "priority": 80,
-                "last_checked_at": None,
-                "consecutive_kept": 0,
-                "consecutive_broken": 0,
-                "total_kept": 0,
-                "total_checked": 0,
-                "status": "active",
-            },
-            {
-                "id": "demo-pillar-career",
-                "pillar": "career",
-                "user_id": user_id,
-                "current_state": "Procrastinating on important work",
-                "future_state": "Shipping consistently, making progress daily",
-                "identity_statement": "I am a builder who ships",
-                "non_negotiable": "I do at least 2 hours of focused deep work daily",
-                "trust_score": 45,
-                "priority": 90,
-                "last_checked_at": None,
-                "consecutive_kept": 0,
-                "consecutive_broken": 0,
-                "total_kept": 0,
-                "total_checked": 0,
-                "status": "active",
-            },
-        ],
-        "status": {
-            "subscription_status": "active",
-            "current_streak_days": 0,
-            "calls_paused": False,
-        },
-        "call_history": [],
-    }
-
-    demo_call_memory = {}
-
-    # Calculate demo personality
-    demo_personality = calculate_personality_state(
-        user_context=demo_user_context,
-        call_memory=demo_call_memory,
-        kept_promise_yesterday=None,
-        recent_promises=[],
-    )
-
-    return {
-        "user_context": demo_user_context,
-        "call_memory": demo_call_memory,
-        "excuse_data": {},  # Removed excuse patterns system
-        "call_type": CALL_TYPES["audit"],
-        "personality": demo_personality,  # V5: personality instead of mood
-        "yesterday_promise_kept": None,
-    }
-
-
-__all__ = ["fetch_session_context"]
+    except Exception as e:
+        logger.error(f"❌ Error fetching simple context for user {user_id}: {e}", exc_info=True)
+        return None

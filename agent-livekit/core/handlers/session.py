@@ -20,7 +20,6 @@ from core.agent import FutureYouNode
 from core.models import FutureYouSessionData
 from core.handlers.context import fetch_session_context
 from core.config import build_prompt
-from services.future_self_service import get_future_self
 
 # Default voice (fallback if user has no clone)
 DEFAULT_VOICE_ID = "a0e99841-438c-4a64-b679-ae501e7d6091"
@@ -53,20 +52,12 @@ async def handle_session(ctx: JobContext, participant: rtc.RemoteParticipant) ->
         return
 
     user_context = session_context["user_context"]
-    call_memory = session_context["call_memory"]
-    excuse_data = session_context["excuse_data"]
-    call_type = session_context["call_type"]
-    personality = session_context["personality"]  # V5: personality instead of mood
     yesterday_promise_kept = session_context["yesterday_promise_kept"]
-
-    logger.info(f"📞 Call type: {call_type.name} | 🎭 Personality: {personality.emotional_weather} ({personality.relationship_phase})")
 
     # Build system prompt (V5)
     system_prompt = await _build_prompt(
         user_id=user_id,
         user_context=user_context,
-        call_type=call_type,
-        call_memory=call_memory,
         yesterday_promise_kept=yesterday_promise_kept,
     )
 
@@ -99,9 +90,6 @@ async def handle_session(ctx: JobContext, participant: rtc.RemoteParticipant) ->
         system_prompt=system_prompt,
         user_id=user_id,
         user_context=user_context,
-        call_type=call_type,
-        personality=personality,  # V5: personality instead of mood
-        call_memory=call_memory,
     )
 
     # Create the multi-agent session with components
@@ -140,8 +128,6 @@ def _parse_participant_metadata(participant: rtc.RemoteParticipant) -> dict:
 async def _build_prompt(
     user_id: str,
     user_context: dict,
-    call_type,
-    call_memory: dict,
     yesterday_promise_kept: Optional[bool],
 ) -> str:
     """Build personalized system prompt using V5 behavioral engine."""
@@ -151,11 +137,8 @@ async def _build_prompt(
     return await build_prompt(
         user_id=user_id,
         user_context=user_context,
-        call_type=call_type,
-        call_memory=call_memory,
         future_self=future_self_obj,
         kept_promise_yesterday=yesterday_promise_kept,
-        recent_promises=[],  # TODO: Extract from call_history if needed
     )
 
 
