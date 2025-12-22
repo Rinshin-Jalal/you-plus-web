@@ -21,6 +21,7 @@ This module is the entry point for the LiveKit agent.
 
 import os
 import sys
+import asyncio
 from pathlib import Path
 
 # Add agent directory to path for imports

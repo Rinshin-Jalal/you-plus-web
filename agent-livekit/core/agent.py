@@ -7,8 +7,7 @@ The prompt describes what should happen and when, LLM handles the rest.
 """
 
 import os
-import re
-from typing import Optional, Callable, Any
+from typing import Optional
 from datetime import datetime
 
 import aiohttp
@@ -18,19 +17,8 @@ from livekit.agents import Agent
 from livekit.agents.llm import ChatContext, ChatMessage
 
 from core.models import FutureYouSessionData
-# removed background agent imports
 from conversation.call_types import CallType
-from conversation.mood import Mood
-
-# Persona system integration
-try:
-    from conversation.persona import PersonaController, Persona
-    PERSONA_AVAILABLE = True
-except ImportError:
-    PersonaController = None
-    Persona = None
-    PERSONA_AVAILABLE = False
-    logger.warning("Persona system not available")
+from conversation.personality import PersonalityState
 
 DEFAULT_TEMPERATURE = 0.7
 BACKEND_URL = os.getenv("BACKEND_URL", "https://youplus-backend.workers.dev")
@@ -47,9 +35,8 @@ class FutureYouNode(Agent):
         user_id: str = "unknown",
         user_context: Optional[dict] = None,
         call_type: Optional[CallType] = None,
-        mood: Optional[Mood] = None,
+        personality: Optional[PersonalityState] = None,
         call_memory: Optional[dict] = None,
-        # Removed persona_controller - AI adapts from context
         temperature: float = DEFAULT_TEMPERATURE,
         max_output_tokens: int = 150,
     ):
@@ -59,10 +46,9 @@ class FutureYouNode(Agent):
         self.user_id = user_id
         self.user_context = user_context or {}
         self.call_type = call_type
-        self.mood = mood
+        self.personality = personality
         self.call_memory = call_memory or {}
         self.max_output_tokens = max_output_tokens
-        # Persona system removed
 
         # Conversation history (OpenAI format)
         self.messages: list[dict] = [{"role": "system", "content": system_prompt}]
@@ -83,25 +69,28 @@ class FutureYouNode(Agent):
         """Called when agent becomes active - LLM generates opening based on system prompt context."""
         logger.info(f"FutureYouNode entered - natural flow mode")
 
-        if hasattr(self.session, 'userdata') and isinstance(self.session.userdata, FutureYouSessionData):
+        if hasattr(self.session, "userdata") and isinstance(
+            self.session.userdata, FutureYouSessionData
+        ):
             self.user_id = self.session.userdata.user_id
 
         # System prompt already has: mood, call_type, persona, day number, yesterday's outcome, etc.
-        # Just tell the LLM to generate the opening - it knows what to do!
-        await self.session.generate_reply(
-            instructions="Generate your opening line (1-2 sentences max). Then wait for their response."
-        )
+        # Let the LLM generate opening naturally based on conversation objectives in system prompt
+        # No scripted opening - the system prompt should guide natural conversation start
 
     def _log_init_info(self) -> None:
         """Log initialization info."""
         logger.info(f"FutureYouNode initialized for user: {self.user_id}")
         if self.call_type:
             logger.info(f"Call type: {self.call_type.name}")
-        if self.mood:
-            logger.info(f"Mood: {self.mood.name}")
-        # Persona system removed - AI adapts tone from context
+        if self.personality:
+            logger.info(
+                f"Personality: {self.personality.emotional_weather} ({self.personality.relationship_phase})"
+            )
 
-    async def on_user_turn_completed(self, turn_ctx: ChatContext, new_message: ChatMessage) -> None:
+    async def on_user_turn_completed(
+        self, turn_ctx: ChatContext, new_message: ChatMessage
+    ) -> None:
         """Called after a user message."""
         text = new_message.text_content
         if not text:
@@ -110,22 +99,8 @@ class FutureYouNode(Agent):
         self.total_turns += 1
         logger.info(f'Turn {self.total_turns}: "{text}"')
 
-        # Simple pattern-based promise detection (fallback)
-        self._detect_promise_response(text)
-
-    def _detect_promise_response(self, message: str) -> None:
-        """Detect YES/NO for promise tracking."""
-        lower = message.lower().strip()
-
-        yes_patterns = [r"\byes\b", r"\byeah\b", r"\byep\b", r"\byup\b", r"\bdid it\b", r"\bi did\b", r"\bcompleted\b"]
-        no_patterns = [r"\bno\b", r"\bnope\b", r"\bdidn\'?t\b", r"\bnah\b", r"\bnot yet\b", r"\bcouldn\'?t\b"]
-
-        if any(re.search(pattern, lower) for pattern in yes_patterns):
-            self.kept_promise = True
-            logger.info("✅ Promise KEPT detected")
-        elif any(re.search(pattern, lower) for pattern in no_patterns):
-            self.kept_promise = False
-            logger.info("❌ Promise BROKEN detected")
+        # Let the LLM respond naturally based on the conversation objectives in the system prompt
+        # No scripted responses - the prompt handles what should happen next
 
     async def report_call_result(self):
         """Report call result to backend."""

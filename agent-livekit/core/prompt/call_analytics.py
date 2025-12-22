@@ -58,7 +58,7 @@ async def save_call_analytics(
             payload = {
                 "user_id": call_summary.user_id,
                 "call_type": call_summary.call_type,
-                "mood": call_summary.mood,
+                "mood": getattr(call_summary, "emotional_weather", getattr(call_summary, "mood", "unknown")),  # V5: use emotional_weather if available
                 "call_duration_seconds": call_summary.call_duration_seconds,
                 "call_quality_score": call_summary.call_quality_score,
                 "promise_kept": call_summary.promise_kept,

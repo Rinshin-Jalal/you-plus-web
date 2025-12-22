@@ -440,7 +440,7 @@ def build_pillars_prompt_context(pillars: List[PillarState]) -> str:
 
         if p.consecutive_broken > 0:
             lines.append(f"⚠️ Broken streak: {p.consecutive_broken} days")
-        elif p.consecutive_kept > 0:
+        if p.consecutive_kept > 0:
             lines.append(f"✅ Kept streak: {p.consecutive_kept} days")
 
         lines.append("")

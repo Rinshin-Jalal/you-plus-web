@@ -56,19 +56,18 @@ async def handle_session(ctx: JobContext, participant: rtc.RemoteParticipant) ->
     call_memory = session_context["call_memory"]
     excuse_data = session_context["excuse_data"]
     call_type = session_context["call_type"]
-    mood = session_context["mood"]
+    personality = session_context["personality"]  # V5: personality instead of mood
     yesterday_promise_kept = session_context["yesterday_promise_kept"]
 
-    logger.info(f"📞 Call type: {call_type.name} | 🎭 Mood: {mood.name}")
+    logger.info(f"📞 Call type: {call_type.name} | 🎭 Personality: {personality.emotional_weather} ({personality.relationship_phase})")
 
-    # Build system prompt
+    # Build system prompt (V5)
     system_prompt = await _build_prompt(
         user_id=user_id,
         user_context=user_context,
         call_type=call_type,
         call_memory=call_memory,
-        excuse_data=excuse_data,
-        mood=mood,
+        yesterday_promise_kept=yesterday_promise_kept,
     )
 
     # Initialize shared session data
@@ -92,7 +91,7 @@ async def handle_session(ctx: JobContext, participant: rtc.RemoteParticipant) ->
     tts = cartesia.TTS(
         voice=voice_id,
         model="sonic-3",  # Use sonic-3 for speed/emotion support
-        speed=_get_speed_for_mood(mood),
+        speed=_get_speed_for_personality(personality),
     )
 
     # Create the initial agent station
@@ -101,7 +100,7 @@ async def handle_session(ctx: JobContext, participant: rtc.RemoteParticipant) ->
         user_id=user_id,
         user_context=user_context,
         call_type=call_type,
-        mood=mood,
+        personality=personality,  # V5: personality instead of mood
         call_memory=call_memory,
     )
 
@@ -143,11 +142,10 @@ async def _build_prompt(
     user_context: dict,
     call_type,
     call_memory: dict,
-    excuse_data: Optional[dict],
-    mood,
+    yesterday_promise_kept: Optional[bool],
 ) -> str:
-    """Build personalized system prompt using v4."""
-    # Fetch FutureSelf object for v4
+    """Build personalized system prompt using V5 behavioral engine."""
+    # Fetch FutureSelf object for V5
     future_self_obj = await get_future_self(user_id)
 
     return await build_prompt(
@@ -155,16 +153,36 @@ async def _build_prompt(
         user_context=user_context,
         call_type=call_type,
         call_memory=call_memory,
-        excuse_data=excuse_data,
         future_self=future_self_obj,
-        mood=mood,
+        kept_promise_yesterday=yesterday_promise_kept,
+        recent_promises=[],  # TODO: Extract from call_history if needed
     )
 
 
-def _get_speed_for_mood(mood) -> float:
-    """Get TTS speed based on mood."""
-    if hasattr(mood, "speed_ratio"):
-        return mood.speed_ratio
+def _get_speed_for_personality(personality) -> float:
+    """
+    Get TTS speed based on personality emotional state.
+
+    V5: Varies speed based on emotional weather and urgency.
+    - High urgency/frustration = faster (1.1-1.2x)
+    - Reflective/vulnerable = slower (0.9-0.95x)
+    - Default = normal (1.0x)
+    """
+    weather = personality.emotional_weather
+    urgency = personality.urgency
+
+    # Fast weathers
+    if weather in ["fed_up", "intense", "testing"]:
+        return 1.15
+
+    # Slow weathers
+    if weather in ["reflective", "vulnerable", "disappointed"]:
+        return 0.92
+
+    # Urgency modifier
+    if urgency > 7:
+        return 1.1
+
     return 1.0
 
 

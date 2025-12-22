@@ -28,7 +28,7 @@ async def handle_session_end(
     user_context: dict,
     call_memory: dict,
     call_type,
-    mood,
+    personality,  # V5: personality instead of mood
     current_streak: int,
     agent: FutureYouNode,
     aggregator: CallSummaryAggregator,
@@ -55,7 +55,7 @@ async def handle_session_end(
     # Update call memory
     updated_memory = agent.get_updated_call_memory()
     updated_memory["last_call_type"] = call_type.name
-    updated_memory["last_mood"] = mood.name
+    updated_memory["last_mood"] = personality.emotional_weather  # V5: store emotional_weather instead of mood
 
     if agent.tomorrow_commitment:
         updated_memory["last_commitment"] = agent.tomorrow_commitment
@@ -77,7 +77,8 @@ async def handle_session_end(
     if agent.kept_promise is False:
         severity = updated_memory.get("severity_level", 1)
         updated_memory["severity_level"] = min(severity + 1, 5)
-    elif agent.kept_promise is True:
+    
+    if agent.kept_promise is True:
         severity = updated_memory.get("severity_level", 1)
         updated_memory["severity_level"] = max(severity - 1, 1)
 

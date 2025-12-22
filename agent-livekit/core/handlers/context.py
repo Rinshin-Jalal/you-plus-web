@@ -14,9 +14,8 @@ from services.user_context import (
     fetch_call_memory,
     get_yesterday_promise_status,
 )
-# Excuse patterns removed - not needed anymore
 from conversation.call_types import select_call_type
-from conversation.mood import select_mood
+from conversation.personality import calculate_personality_state, PersonalityState
 
 
 async def fetch_session_context(user_id: str) -> Optional[dict]:
@@ -38,7 +37,11 @@ async def fetch_session_context(user_id: str) -> Optional[dict]:
     # Handle demo/test users (e.g., from LiveKit Playground)
     if not future_self or not future_self.get("user_id"):
         # Check if this is a demo/test user
-        if user_id.startswith("identity-") or user_id.startswith("test-") or user_id == "demo":
+        if (
+            user_id.startswith("identity-")
+            or user_id.startswith("test-")
+            or user_id == "demo"
+        ):
             logger.info(f"🧪 Creating demo context for test user: {user_id}")
             return _create_demo_context(user_id)
 
@@ -73,21 +76,27 @@ async def fetch_session_context(user_id: str) -> Optional[dict]:
     )
     logger.info(f"📞 Selected call type: {call_type.name} ({call_type.energy})")
 
-    # Select mood
-    mood = select_mood(
+    # Calculate personality state (V5)
+    recent_promises = []  # TODO: Extract from call_history if needed
+    personality = calculate_personality_state(
         user_context=user_context,
         call_memory=call_memory,
-        call_type=call_type.name,
         kept_promise_yesterday=yesterday_promise_kept,
+        recent_promises=recent_promises,
     )
-    logger.info(f"🎭 Selected mood: {mood.name}")
+    logger.info(
+        f"🎭 Personality: {personality.emotional_weather} ({personality.relationship_phase})"
+    )
+    logger.info(
+        f"   Frustration: {personality.frustration:.1f} | Respect: {personality.respect:.1f} | Intimacy: {personality.intimacy:.1f}"
+    )
 
     return {
         "user_context": user_context,
         "call_memory": call_memory,
         "excuse_data": {},  # Removed excuse patterns system
         "call_type": call_type,
-        "mood": mood,
+        "personality": personality,  # V5: personality instead of mood
         "yesterday_promise_kept": yesterday_promise_kept,
     }
 
@@ -100,31 +109,85 @@ def _create_demo_context(user_id: str) -> dict:
         user_id: The test user's ID (e.g., identity-KlCq)
 
     Returns:
-        Dict with mock user_context, call_memory, call_type, mood, etc.
+        Dict with mock user_context, call_memory, call_type, personality, etc.
     """
     from conversation.call_types import CALL_TYPES
-    from conversation.mood import MOODS
 
     logger.info(f"📋 Creating demo context for test user: {user_id}")
+    logger.info(f"🎯 Demo context will include 2 sample pillars: health, career")
+
+    # Create basic demo context
+    demo_user_context = {
+        "future_self": {
+            "user_id": user_id,
+            "name": "Demo User",
+            "cartesia_voice_id": None,  # Will use default voice
+            "overall_trust_score": 50,
+            "quit_pattern": "",
+            "core_identity": "Building a future version of myself",
+            "primary_pillar": "health",
+            "the_why": "To prove to myself I can do hard things and become who I say I'll be",
+        },
+        "pillars": [
+            {
+                "id": "demo-pillar-health",
+                "pillar": "health",
+                "user_id": user_id,
+                "current_state": "Inconsistent with exercise, tired often",
+                "future_state": "Energetic, strong, consistent with movement",
+                "identity_statement": "I am someone who moves their body daily",
+                "non_negotiable": "I move my body every single day",
+                "trust_score": 50,
+                "priority": 80,
+                "last_checked_at": None,
+                "consecutive_kept": 0,
+                "consecutive_broken": 0,
+                "total_kept": 0,
+                "total_checked": 0,
+                "status": "active",
+            },
+            {
+                "id": "demo-pillar-career",
+                "pillar": "career",
+                "user_id": user_id,
+                "current_state": "Procrastinating on important work",
+                "future_state": "Shipping consistently, making progress daily",
+                "identity_statement": "I am a builder who ships",
+                "non_negotiable": "I do at least 2 hours of focused deep work daily",
+                "trust_score": 45,
+                "priority": 90,
+                "last_checked_at": None,
+                "consecutive_kept": 0,
+                "consecutive_broken": 0,
+                "total_kept": 0,
+                "total_checked": 0,
+                "status": "active",
+            },
+        ],
+        "status": {
+            "subscription_status": "active",
+            "current_streak_days": 0,
+            "calls_paused": False,
+        },
+        "call_history": [],
+    }
+
+    demo_call_memory = {}
+
+    # Calculate demo personality
+    demo_personality = calculate_personality_state(
+        user_context=demo_user_context,
+        call_memory=demo_call_memory,
+        kept_promise_yesterday=None,
+        recent_promises=[],
+    )
 
     return {
-        "user_context": {
-            "future_self": {
-                "user_id": user_id,
-                "name": "Demo User",
-                "cartesia_voice_id": None,  # Will use default voice
-            },
-            "status": {
-                "subscription_status": "active",
-                "current_streak_days": 0,
-                "calls_paused": False,
-            },
-            "call_history": [],
-        },
-        "call_memory": {},
+        "user_context": demo_user_context,
+        "call_memory": demo_call_memory,
         "excuse_data": {},  # Removed excuse patterns system
         "call_type": CALL_TYPES["audit"],
-        "mood": MOODS["warm_direct"],
+        "personality": demo_personality,  # V5: personality instead of mood
         "yesterday_promise_kept": None,
     }
 

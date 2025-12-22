@@ -39,7 +39,7 @@ class SupermemoryService:
     async def get_user_profile(self, user_id: str) -> Optional[UserProfile]:
         if not self.enabled: return None
         try:
-            response = await self.client.profile.get(container_tag=user_id)
+            response = await self.client.profile(container_tag=user_id)
             static_facts = response.profile.static if response.profile else []
             dynamic_facts = response.profile.dynamic if response.profile else []
             return UserProfile(static=static_facts or [], dynamic=dynamic_facts or [])
@@ -54,7 +54,7 @@ class SupermemoryService:
         except Exception as e:
             print(f"Supermemory add error: {e}")
             return None
-    async def add_call_transcript(self, user_id: str, call_number: int, streak_day: int, call_type: str, mood: str, transcript: List[Dict[str, str]], outcomes: Dict[str, Any]) -> bool:
+    async def add_call_transcript(self, user_id: str, call_number: int, streak_day: int, call_type: str, emotional_weather: str, transcript: List[Dict[str, str]], outcomes: Dict[str, Any]) -> bool:
         transcript_text = "\n".join([f"{msg.get('role')}: {msg.get('content', '')}" for msg in transcript])
         content = f"CALL #{call_number}\n{transcript_text}"
         memory_id = await self.add_memory(container_tag=user_id, content=content, metadata={"type": "call_transcript"})
