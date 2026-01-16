@@ -25,6 +25,14 @@ from core.config import build_prompt
 DEFAULT_VOICE_ID = "a0e99841-438c-4a64-b679-ae501e7d6091"
 
 
+def _get_speed_for_personality(personality) -> float:
+    """
+    Simplified TTS speed since personality was removed in refactor.
+    Just return normal speed.
+    """
+    return 0.9
+
+
 async def handle_session(ctx: JobContext, participant: rtc.RemoteParticipant) -> None:
     """
     Handle a voice session with a participant.
@@ -67,7 +75,7 @@ async def handle_session(ctx: JobContext, participant: rtc.RemoteParticipant) ->
     # Initialize components
     vad = ctx.proc.userdata.get("vad") or silero.VAD.load()
     stt = cartesia.STT(model="ink-whisper", language="en")
-    
+
     # Use official LiveKit AWS Bedrock plugin
     bedrock_model = os.getenv("BEDROCK_MODEL", "qwen.qwen3-next-80b-a3b")
     bedrock_region = os.getenv("BEDROCK_REGION", "us-west-2")
@@ -82,7 +90,7 @@ async def handle_session(ctx: JobContext, participant: rtc.RemoteParticipant) ->
     tts = cartesia.TTS(
         voice=voice_id,
         model="sonic-3",  # Use sonic-3 for speed/emotion support
-        speed=_get_speed_for_personality(personality),
+        speed=0.9,
     )
 
     # Create the initial agent station
@@ -130,43 +138,12 @@ async def _build_prompt(
     user_context: dict,
     yesterday_promise_kept: Optional[bool],
 ) -> str:
-    """Build personalized system prompt using V5 behavioral engine."""
-    # Fetch FutureSelf object for V5
-    future_self_obj = await get_future_self(user_id)
-
+    """Build personalized system prompt."""
     return await build_prompt(
         user_id=user_id,
         user_context=user_context,
-        future_self=future_self_obj,
         kept_promise_yesterday=yesterday_promise_kept,
     )
-
-
-def _get_speed_for_personality(personality) -> float:
-    """
-    Get TTS speed based on personality emotional state.
-
-    V5: Varies speed based on emotional weather and urgency.
-    - High urgency/frustration = faster (1.1-1.2x)
-    - Reflective/vulnerable = slower (0.9-0.95x)
-    - Default = normal (1.0x)
-    """
-    weather = personality.emotional_weather
-    urgency = personality.urgency
-
-    # Fast weathers
-    if weather in ["fed_up", "intense", "testing"]:
-        return 1.15
-
-    # Slow weathers
-    if weather in ["reflective", "vulnerable", "disappointed"]:
-        return 0.92
-
-    # Urgency modifier
-    if urgency > 7:
-        return 1.1
-
-    return 1.0
 
 
 __all__ = ["handle_session"]

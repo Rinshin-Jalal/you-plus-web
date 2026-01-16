@@ -18,12 +18,13 @@ export interface CallSummaryPayload {
   tomorrowCommitment: string | null;
   commitmentTime: string | null;
   commitmentIsSpecific: boolean;
-  sentimentTrajectory: string[];
+  sentimentTrajectory: number[];
   excusesDetected: string[];
   quotesCaptured: string[];
   callType: string;
   mood: string;
   callQualityScore: number;
+  totalCallsCompleted?: number;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

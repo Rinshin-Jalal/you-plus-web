@@ -164,7 +164,7 @@ class OnboardingViewModel: ObservableObject {
     }
     
     private func completeOnboarding() {
-        print("Onboarding Complete: \(answers)")
+//        print("Onboarding Complete: \(answers)")
         didCompleteOnboarding = true
     }
     

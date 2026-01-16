@@ -3,6 +3,32 @@ main = "src/index.ts"
 compatibility_date = "2024-09-23"
 compatibility_flags = ["nodejs_compat"]
 
+# Cloudflare Queues configuration
+[[queues.producers]]
+binding = "CALL_ANALYTICS_QUEUE"
+queue = "youplus-call-analytics"
+
+[[queues.producers]]
+binding = "GAMIFICATION_QUEUE"
+queue = "youplus-gamification"
+
+[[queues.producers]]
+binding = "NIGHTLY_MAINTENANCE_QUEUE"
+queue = "youplus-nightly-maintenance"
+
+[[queues.consumers]]
+queue = "youplus-call-analytics"
+service = "you-plus-consequence-engine"
+
+[[queues.consumers]]
+queue = "youplus-gamification"
+service = "you-plus-consequence-engine"
+
+[[queues.consumers]]
+queue = "youplus-nightly-maintenance"
+service = "you-plus-consequence-engine"
+script = "you-plus-consequence-engine"
+
 [env.production]
 name = "you-plus-consequence-engine-prod"
 

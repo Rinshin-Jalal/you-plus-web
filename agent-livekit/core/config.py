@@ -68,7 +68,6 @@ def _format_user_context(user_context: dict, kept_promise_yesterday: Optional[bo
 async def build_prompt(
     user_id: str,
     user_context: dict,
-    future_self: Optional[Any] = None,
     kept_promise_yesterday: Optional[bool] = None,
     **kwargs,  # Accept extra params but ignore them
 ) -> str:

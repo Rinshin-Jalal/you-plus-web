@@ -16,6 +16,7 @@ import { z } from 'zod';
 import type { Env } from '@/index';
 import { eventBus } from '@/events';
 import { zodJson } from '@/middleware/zod';
+import type { CallSummaryPayload } from '@/events/types';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // VALIDATION SCHEMAS
@@ -32,9 +33,10 @@ const CallCompletedSchema = z.object({
   sentiment_trajectory: z.array(z.string()).default([]),
   excuses_detected: z.array(z.string()).default([]),
   quotes_captured: z.array(z.string()).default([]),
-  call_type: z.string().default('audit'),
-  mood: z.string().default('warm_direct'),
+  call_type: z.string().default("audit"),
+  mood: z.string().default("warm_direct"),
   call_quality_score: z.number().min(0).max(1).default(0.5),
+  total_calls_completed: z.number().min(0).optional(),
 });
 
 const CallStartedSchema = z.object({
@@ -76,24 +78,30 @@ callWebhook.post('/completed', zodJson(CallCompletedSchema, { errorMessage: "Inv
     );
 
     // Emit the call.completed event
+    const summary = {
+      callDurationSeconds: data.call_duration_seconds,
+      promiseKept: data.promise_kept,
+      tomorrowCommitment: data.tomorrow_commitment,
+      commitmentTime: data.commitment_time,
+      commitmentIsSpecific: data.commitment_is_specific,
+      sentimentTrajectory: (data.sentiment_trajectory || []).map(Number),
+      excusesDetected: data.excuses_detected,
+      quotesCaptured: data.quotes_captured,
+      callType: data.call_type,
+      mood: data.mood,
+      callQualityScore: data.call_quality_score,
+    } as const;
+
+    if (data.total_calls_completed !== undefined) {
+      Object.assign(summary, { totalCallsCompleted: data.total_calls_completed });
+    }
+
     await eventBus.emit(
       {
-        type: 'call.completed',
+        type: "call.completed",
         userId: data.user_id,
         callId: data.call_id,
-        summary: {
-          callDurationSeconds: data.call_duration_seconds,
-          promiseKept: data.promise_kept,
-          tomorrowCommitment: data.tomorrow_commitment,
-          commitmentTime: data.commitment_time,
-          commitmentIsSpecific: data.commitment_is_specific,
-          sentimentTrajectory: data.sentiment_trajectory,
-          excusesDetected: data.excuses_detected,
-          quotesCaptured: data.quotes_captured,
-          callType: data.call_type,
-          mood: data.mood,
-          callQualityScore: data.call_quality_score,
-        },
+        summary,
       },
       c.env
     );
